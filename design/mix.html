@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sallio · pastel stickers</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #e9e7e2; padding: 28px 16px 48px; font-family: Nunito, sans-serif; }
+  h1 { font: 700 22px Fredoka, sans-serif; text-align: center; color: #241c3d; }
+  .sub { text-align: center; color: #6b6480; margin: 4px 0 26px; }
+  .row { display: flex; gap: 26px; justify-content: center; flex-wrap: wrap; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .lbl { font: 600 16px Fredoka, sans-serif; color: #241c3d; }
+
+  .phone { width: 330px; height: 700px; border-radius: 42px; border: 8px solid #111; overflow: hidden; }
+  .s { height: 100%; display: flex; flex-direction: column;
+       --bg: #f7f3ff; --card: #fff; --edge: #e6ddfa; --ink: #241c3d; --soft: #7a7092; --accent: #7b5cff; --accentEdge: #5a3ee0; --line: #f0eafc;
+       background: var(--bg); color: var(--ink); }
+  .s.dark { --bg: #151126; --card: #211b38; --edge: #0b0817; --ink: #f3efff; --soft: #a59cc4; --accent: #9b84ff; --accentEdge: #6a52e0; --line: #2c2548; }
+  .st { display: flex; justify-content: space-between; font: 700 12px system-ui; padding: 12px 22px 0; }
+  .b { flex: 1; overflow: hidden; padding: 14px 16px 0; }
+  .f { font-family: Fredoka, sans-serif; }
+
+  .hi { display: flex; align-items: center; justify-content: space-between; }
+  .hi h2 { font: 600 26px Fredoka, sans-serif; }
+  .hi p { font-weight: 700; color: var(--soft); font-size: 13px; }
+  .av { width: 44px; height: 44px; border-radius: 15px; background: #ffd66b; border: 2px solid #e0a92c; box-shadow: 0 3px 0 #e0a92c; display: grid; place-items: center; font: 600 18px Fredoka; color: #6b4500; }
+  .rf { width: 44px; height: 44px; border-radius: 15px; background: var(--card); border: 2px solid var(--edge); box-shadow: 0 3px 0 var(--edge); display: grid; place-items: center; font-size: 20px; color: var(--soft); margin-right: 8px; }
+
+  .card { background: var(--card); border: 2px solid var(--edge); box-shadow: 0 4px 0 var(--edge); border-radius: 22px; }
+  .hero { margin-top: 14px; padding: 16px 18px; border-radius: 26px; color: #fff; position: relative; overflow: hidden; }
+  .hero .tag { display: inline-flex; gap: 6px; align-items: center; background: rgba(255,255,255,.28); border-radius: 99px; padding: 4px 11px; font-weight: 800; font-size: 12px; }
+  .hero .room { font: 700 58px/1 Fredoka, sans-serif; margin: 10px 0 2px; }
+  .hero .what { font-weight: 800; font-size: 16px; }
+  .hero .when { font-weight: 700; opacity: .9; font-size: 13px; }
+  .hero .ghost { position: absolute; right: -10px; bottom: -22px; font-size: 118px; opacity: .2; }
+  .then { margin-top: 12px; padding: 10px 12px; display: flex; gap: 12px; align-items: center; }
+  .tile { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; font-size: 21px; flex: none; }
+  .then b { font: 600 16px Fredoka; }
+  .then span { display: block; color: var(--soft); font-weight: 700; font-size: 12px; }
+
+  h3 { font: 600 17px Fredoka, sans-serif; margin: 16px 2px 8px; display: flex; justify-content: space-between; align-items: baseline; }
+  h3 a { font: 800 13px Nunito; color: var(--accent); text-decoration: none; }
+  .alert { background: #ffe5e1; border: 2px solid #ffc2b8; box-shadow: 0 4px 0 #ffc2b8; color: #b3261e; border-radius: 18px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; font-weight: 800; font-size: 14px; }
+  .dark .alert { background: #3a1f2a; border-color: #0b0817; box-shadow: 0 4px 0 #0b0817; color: #ffb3a8; }
+
+  .list { padding: 2px 14px; }
+  .list > div { display: flex; gap: 12px; align-items: center; padding: 10px 0; }
+  .list > div + div { border-top: 2px dashed var(--line); }
+  .box { width: 26px; height: 26px; border-radius: 9px; border: 2.5px solid #cfc3f5; flex: none; }
+  .dark .box { border-color: #4a3f75; }
+  .box.on { background: var(--accent); border-color: var(--accentEdge); box-shadow: 0 2px 0 var(--accentEdge); color: #fff; display: grid; place-items: center; font-size: 15px; }
+  .chip { font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 8px; }
+  .list p { font-weight: 700; font-size: 14px; }
+
+  .tiles { display: flex; gap: 10px; }
+  .gt { flex: 1; padding: 10px 6px 9px; text-align: center; }
+  .gt .n { font: 700 24px Fredoka; }
+  .gt .n small { font-size: 12px; color: var(--soft); }
+  .gt .s2 { font-weight: 800; font-size: 11px; color: var(--soft); }
+
+  .nav { display: flex; justify-content: space-around; padding: 10px 6px 16px; background: var(--card); border-top: 2px solid var(--edge); color: var(--soft); font-weight: 800; font-size: 11px; }
+  .nav div { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .nav i { font-size: 22px; padding: 3px 14px; border: 2px solid transparent; border-radius: 13px; }
+  .nav .on { color: var(--ink); }
+  .nav .on i { background: #ece6ff; border-color: #d3c6ff; color: var(--accentEdge); box-shadow: 0 2px 0 #d3c6ff; }
+  .dark .nav .on i { background: #2e2556; border-color: #0b0817; box-shadow: 0 2px 0 #0b0817; color: #c7b8ff; }
+
+  .days { display: flex; gap: 8px; margin-top: 14px; }
+  .day { width: 50px; padding: 8px 0 7px; text-align: center; }
+  .day small { display: block; font-weight: 800; font-size: 11px; color: var(--soft); }
+  .day b { font: 700 20px Fredoka; }
+  .day.on { background: var(--accent); border-color: var(--accentEdge); box-shadow: 0 4px 0 var(--accentEdge); color: #fff; }
+  .day.on small { color: #fff; opacity: .85; }
+  .day .pt { width: 6px; height: 6px; border-radius: 3px; background: #ff6b5b; margin: 3px auto 0; }
+  .lesson { display: flex; gap: 12px; align-items: center; padding: 11px 12px; margin-top: 10px; }
+  .lesson .t { width: 44px; font: 600 15px Fredoka; }
+  .lesson .t small { display: block; font: 700 11px Nunito; color: var(--soft); }
+  .lesson .r { font: 700 21px Fredoka; }
+  .lesson .w { font-weight: 700; font-size: 12px; color: var(--soft); }
+  .lesson.now { background: #fff1ee; border-color: #ffc2b8; box-shadow: 0 4px 0 #ffc2b8; }
+
+  .avg { margin-top: 14px; padding: 16px 18px; background: #7b5cff; border-color: #5a3ee0; box-shadow: 0 5px 0 #5a3ee0; color: #fff; }
+  .avg small { font-weight: 800; font-size: 12px; opacity: .85; }
+  .avg .big { font: 700 52px/1.05 Fredoka; }
+  .avg .big span { font-size: 18px; opacity: .8; }
+  .seg { display: flex; margin-top: 14px; padding: 4px; border-radius: 16px; background: #ece6ff; }
+  .seg div { flex: 1; text-align: center; padding: 8px 0; font-weight: 800; font-size: 13px; color: var(--soft); border-radius: 12px; }
+  .seg .on { background: #fff; color: var(--ink); border: 2px solid var(--edge); box-shadow: 0 2px 0 var(--edge); }
+  .gr { display: flex; gap: 12px; align-items: center; padding: 10px 0; }
+  .gr + .gr { border-top: 2px dashed var(--line); }
+  .gr .meta { flex: 1; }
+  .gr .meta b { font: 600 15px Fredoka; }
+  .gr .meta span { display: block; font-weight: 700; font-size: 12px; color: var(--soft); }
+  .note { font: 700 18px Fredoka; padding: 4px 10px; border-radius: 12px; background: #dff6e8; color: #1c7a43; border: 2px solid #b6e7c9; box-shadow: 0 2px 0 #b6e7c9; }
+  .note small { font-size: 11px; opacity: .7; }
+  .gr .meta .new { display: inline; font-weight: 900; font-size: 10px; color: #fff; background: #ff6b5b; border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+</style>
+</head>
+<body>
+<h1>Sallio · « Pastel stickers »</h1>
+<p class="sub">La douceur et les couleurs de A, les contours et le relief de C.</p>
+<div class="row">
+
+  <!-- Accueil -->
+  <div class="col"><div class="lbl">Accueil</div><div class="phone"><div class="s">
+    <div class="st"><span>10:02</span><span>5G ▮▮▮</span></div>
+    <div class="b">
+      <div class="hi"><div><h2>Salut Oscar 👋</h2><p>Lundi 12 oct. · à jour à l'instant</p></div><div style="display:flex"><div class="rf"><i class="ti ti-refresh"></i></div><div class="av">O</div></div></div>
+      <div class="card hero" style="background:#ff7a6b;border-color:#e0574a;box-shadow:0 5px 0 #e0574a">
+        <span class="tag"><i class="ti ti-clock"></i> Dans 3 min · 10h05</span>
+        <div class="room">B204</div>
+        <div class="what">Mathématiques · M. Gallet</div>
+        <div class="when">10h05 – 11h00</div>
+        <i class="ti ti-math-function ghost"></i>
+      </div>
+      <div class="card then"><div class="tile" style="background:#dff1ff;color:#1a7fc1"><i class="ti ti-flask"></i></div><div><b>Ensuite · C102</b><span>11h05 · Physique-chimie</span></div></div>
+      <h3>À savoir</h3>
+      <div class="alert"><i class="ti ti-user-off"></i> Anglais 14h : prof absent</div>
+      <h3>Pour demain <a href="#">Tout voir</a></h3>
+      <div class="card list">
+        <div><span class="box"></span><p style="flex:1">Exercices 7 à 10 p. 84</p><span class="chip" style="background:#ffe5e1;color:#c2402f">Maths</span></div>
+        <div><span class="box on"><i class="ti ti-check"></i></span><p style="flex:1;opacity:.45;text-decoration:line-through">Feuille chap. 2</p><span class="chip" style="background:#dff1ff;color:#1a7fc1">Physique</span></div>
+      </div>
+    </div>
+    <div class="nav"><div class="on"><i class="ti ti-home"></i>Accueil</div><div><i class="ti ti-calendar"></i>Cours</div><div><i class="ti ti-checklist"></i>Devoirs</div><div><i class="ti ti-star"></i>Notes</div></div>
+  </div></div></div>
+
+  <!-- Cours -->
+  <div class="col"><div class="lbl">Cours</div><div class="phone"><div class="s">
+    <div class="st"><span>10:02</span><span>5G ▮▮▮</span></div>
+    <div class="b">
+      <div class="hi"><div><h2>Cours</h2><p>2 semaines · à jour à l'instant</p></div><div class="av">O</div></div>
+      <div class="days">
+        <div class="card day on"><small>LUN</small><b>12</b></div>
+        <div class="card day"><small>MAR</small><b>13</b></div>
+        <div class="card day"><small>MER</small><b>14</b><div class="pt"></div></div>
+        <div class="card day"><small>JEU</small><b>15</b></div>
+        <div class="card day"><small>VEN</small><b>16</b></div>
+      </div>
+      <h3>Aujourd'hui</h3>
+      <div class="card lesson" style="opacity:.5"><div class="t">8h00<small>9h55</small></div><div class="tile" style="background:#ffeedd;color:#e07b17"><i class="ti ti-run"></i></div><div><div class="r">Gymnase</div><div class="w">EPS · Le Pechoure A.</div></div></div>
+      <div class="card lesson now"><div class="t">10h05<small>11h00</small></div><div class="tile" style="background:#ffe5e1;color:#c2402f"><i class="ti ti-math-function"></i></div><div><div class="r">B204</div><div class="w">Mathématiques · Gallet B.</div></div></div>
+      <div class="card lesson"><div class="t">11h05<small>12h00</small></div><div class="tile" style="background:#dff1ff;color:#1a7fc1"><i class="ti ti-flask"></i></div><div><div class="r">C102</div><div class="w">Physique-chimie · Lagardère M.</div></div></div>
+      <div class="card lesson"><div class="t">14h00<small>15h55</small></div><div class="tile" style="background:#ffe6f2;color:#c23b7d"><i class="ti ti-language"></i></div><div style="flex:1"><div class="r" style="text-decoration:line-through;opacity:.6">D105</div><div class="w">Anglais · Gautier C.</div></div><span class="chip" style="background:#ffe5e1;color:#b3261e">Prof absent</span></div>
+    </div>
+    <div class="nav"><div><i class="ti ti-home"></i>Accueil</div><div class="on"><i class="ti ti-calendar"></i>Cours</div><div><i class="ti ti-checklist"></i>Devoirs</div><div><i class="ti ti-star"></i>Notes</div></div>
+  </div></div></div>
+
+  <!-- Devoirs -->
+  <div class="col"><div class="lbl">Devoirs</div><div class="phone"><div class="s">
+    <div class="st"><span>10:02</span><span>5G ▮▮▮</span></div>
+    <div class="b">
+      <div class="hi"><div><h2>Devoirs</h2><p>4 à faire · 1 fait</p></div><div class="av">O</div></div>
+      <h3>Pour demain</h3>
+      <div class="card list">
+        <div><span class="box"></span><div style="flex:1"><span class="chip" style="background:#ffe5e1;color:#c2402f">Maths</span><p style="margin-top:4px">Exercices 7 à 10 p. 84</p></div></div>
+        <div><span class="box on"><i class="ti ti-check"></i></span><div style="flex:1;opacity:.45"><span class="chip" style="background:#dff1ff;color:#1a7fc1">Physique</span><p style="margin-top:4px;text-decoration:line-through">Feuille d'exercices chap. 2</p></div></div>
+      </div>
+      <h3>Pour mardi 13</h3>
+      <div class="card list">
+        <div><span class="box"></span><div style="flex:1"><span class="chip" style="background:#fff0d6;color:#a8640a">Allemand</span><p style="margin-top:4px">Apprendre le vocabulaire p. 50</p></div></div>
+        <div><span class="box"></span><div style="flex:1"><span class="chip" style="background:#fff0d6;color:#a8640a">Allemand</span><p style="margin-top:4px">Faire ex. 1-2-3 p. 48</p></div><i class="ti ti-paperclip" style="color:var(--soft)"></i></div>
+        <div><span class="box"></span><div style="flex:1"><span class="chip" style="background:#e6f8ef;color:#1c7a43">NSI</span><p style="margin-top:4px">Finir le TP Python</p></div></div>
+      </div>
+    </div>
+    <div class="nav"><div><i class="ti ti-home"></i>Accueil</div><div><i class="ti ti-calendar"></i>Cours</div><div class="on"><i class="ti ti-checklist"></i>Devoirs</div><div><i class="ti ti-star"></i>Notes</div></div>
+  </div></div></div>
+
+  <!-- Notes -->
+  <div class="col"><div class="lbl">Notes</div><div class="phone"><div class="s">
+    <div class="st"><span>10:02</span><span>5G ▮▮▮</span></div>
+    <div class="b">
+      <div class="hi"><div><h2>Notes</h2><p>Trimestre 1</p></div><div class="av">O</div></div>
+      <div class="card avg"><small>MOYENNE GÉNÉRALE</small><div class="big">15,4<span> /20</span></div><small>Classe : 13,2</small></div>
+      <div class="seg"><div class="on">Dernières notes</div><div>Par matière</div></div>
+      <div class="card list" style="margin-top:12px">
+        <div class="gr"><div class="tile" style="background:#e6f8ef;color:#1c7a43"><i class="ti ti-code"></i></div><div class="meta"><b>NSI<span class="new">NOUVEAU</span></b><span>9 oct. · classe 12,4 · coef 2</span></div><div class="note">16,5<small>/20</small></div></div>
+        <div class="gr"><div class="tile" style="background:#efe9ff;color:#6a4cdc"><i class="ti ti-book"></i></div><div class="meta"><b>Français</b><span>9 oct. · classe 13,9</span></div><div class="note">14,5<small>/20</small></div></div>
+        <div class="gr"><div class="tile" style="background:#ffe5e1;color:#c2402f"><i class="ti ti-math-function"></i></div><div class="meta"><b>Mathématiques</b><span>25 sept. · classe 10,5</span></div><div class="note" style="background:#f3f0fa;color:var(--ink);border-color:var(--edge);box-shadow:0 2px 0 var(--edge)">9<small>/20</small></div></div>
+      </div>
+    </div>
+    <div class="nav"><div><i class="ti ti-home"></i>Accueil</div><div><i class="ti ti-calendar"></i>Cours</div><div><i class="ti ti-checklist"></i>Devoirs</div><div class="on"><i class="ti ti-star"></i>Notes</div></div>
+  </div></div></div>
+
+  <!-- Accueil sombre -->
+  <div class="col"><div class="lbl">Accueil · mode sombre</div><div class="phone"><div class="s dark">
+    <div class="st"><span>10:02</span><span>5G ▮▮▮</span></div>
+    <div class="b">
+      <div class="hi"><div><h2>Salut Oscar 👋</h2><p>Lundi 12 oct. · à jour à l'instant</p></div><div style="display:flex"><div class="rf"><i class="ti ti-refresh"></i></div><div class="av">O</div></div></div>
+      <div class="card hero" style="background:#ff7a6b;border-color:#0b0817;box-shadow:0 5px 0 #0b0817">
+        <span class="tag"><i class="ti ti-clock"></i> Dans 3 min · 10h05</span>
+        <div class="room">B204</div>
+        <div class="what">Mathématiques · M. Gallet</div>
+        <div class="when">10h05 – 11h00</div>
+        <i class="ti ti-math-function ghost"></i>
+      </div>
+      <div class="card then"><div class="tile" style="background:#173a52;color:#7fcbff"><i class="ti ti-flask"></i></div><div><b>Ensuite · C102</b><span>11h05 · Physique-chimie</span></div></div>
+      <h3>À savoir</h3>
+      <div class="alert"><i class="ti ti-user-off"></i> Anglais 14h : prof absent</div>
+      <h3>Dernières notes <a href="#">Tout voir</a></h3>
+      <div class="tiles">
+        <div class="card gt"><div class="n">16,5<small>/20</small></div><div class="s2">NSI</div></div>
+        <div class="card gt"><div class="n">14,5<small>/20</small></div><div class="s2">Français</div></div>
+        <div class="card gt"><div class="n">10<small>/10</small></div><div class="s2">Chinois</div></div>
+      </div>
+    </div>
+    <div class="nav"><div class="on"><i class="ti ti-home"></i>Accueil</div><div><i class="ti ti-calendar"></i>Cours</div><div><i class="ti ti-checklist"></i>Devoirs</div><div><i class="ti ti-star"></i>Notes</div></div>
+  </div></div></div>
+
+</div>
+</body>
+</html>

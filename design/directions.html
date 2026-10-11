@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sallio · directions</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&family=Outfit:wght@400;500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+  :root { --page: #e9e7e2; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--page); font-family: system-ui, sans-serif; padding: 32px 16px 48px; color: #222; }
+  h1 { font: 700 22px/1.3 Outfit, sans-serif; text-align: center; margin-bottom: 6px; }
+  .sub { text-align: center; color: #666; margin-bottom: 28px; font-size: 15px; }
+  .row { display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .label { font: 700 18px Outfit, sans-serif; }
+  .label small { display: block; font: 400 14px system-ui; color: #666; text-align: center; margin-top: 2px; }
+  .phone { width: 340px; height: 720px; border-radius: 44px; overflow: hidden; position: relative; border: 8px solid #111; }
+  .screen { height: 100%; overflow: hidden; display: flex; flex-direction: column; }
+  .body { flex: 1; overflow: hidden; padding: 18px 18px 0; }
+  .nav { display: flex; justify-content: space-around; padding: 10px 6px 18px; }
+  .nav div { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; }
+  .nav i { font-size: 22px; }
+  .status { display:flex; justify-content: space-between; font: 600 12px system-ui; padding: 12px 22px 0; }
+
+  /* ---------- A. Pastel ---------- */
+  .a { background: #f6f2ff; font-family: Nunito, sans-serif; color: #241c3d; }
+  .a .hi { display:flex; align-items:center; justify-content: space-between; }
+  .a .hi h2 { font-weight: 900; font-size: 26px; }
+  .a .hi p { font-weight: 600; color: #7a7092; font-size: 13px; }
+  .a .av { width: 42px; height: 42px; border-radius: 50%; background: #ffd66b; display:grid; place-items:center; font-weight:900; color:#5c3b00; }
+  .a .hero { margin-top: 16px; background: #ff7a6b; color: #fff; border-radius: 28px; padding: 18px 20px; position: relative; overflow: hidden; }
+  .a .hero .tag { display:inline-flex; align-items:center; gap:6px; background: rgba(255,255,255,.25); border-radius: 99px; padding: 4px 10px; font-weight:800; font-size:12px; }
+  .a .hero .room { font-weight: 900; font-size: 56px; line-height: 1; margin: 10px 0 4px; }
+  .a .hero .what { font-weight: 800; font-size: 16px; }
+  .a .hero .when { font-weight: 600; opacity: .9; font-size: 13px; }
+  .a .hero .big { position:absolute; right:-14px; bottom:-18px; font-size: 120px; opacity:.18; }
+  .a .next { margin-top: 10px; background:#fff; border-radius: 20px; padding: 12px 14px; display:flex; align-items:center; gap:12px; }
+  .a .dot { width: 38px; height: 38px; border-radius: 12px; display:grid; place-items:center; font-size: 20px; }
+  .a .next b { font-weight: 900; }
+  .a .next span { color:#7a7092; font-size: 13px; font-weight: 600; }
+  .a h3 { font-weight: 900; font-size: 17px; margin: 18px 2px 8px; display:flex; justify-content: space-between; }
+  .a h3 a { color: #7b5cff; font-size: 13px; text-decoration: none; }
+  .a .alert { background: #ffe9e6; color: #b3261e; border-radius: 18px; padding: 10px 14px; font-weight: 800; font-size: 14px; display:flex; gap:10px; align-items:center; }
+  .a .hw { background:#fff; border-radius: 20px; padding: 6px 14px; }
+  .a .hw div { display:flex; gap:12px; align-items:center; padding: 9px 0; }
+  .a .hw div + div { border-top: 1.5px dashed #eee6ff; }
+  .a .chk { width: 24px; height: 24px; border-radius: 8px; border: 2.5px solid #cfc3f5; flex: none; }
+  .a .chk.on { background:#7b5cff; border-color:#7b5cff; color:#fff; display:grid; place-items:center; font-size:15px; }
+  .a .hw p { font-weight: 700; font-size: 14px; }
+  .a .hw small { color:#7a7092; font-weight:700; font-size: 12px; }
+  .a .grades { display:flex; gap: 10px; }
+  .a .g { flex:1; background:#fff; border-radius: 20px; padding: 12px; text-align:center; }
+  .a .g .n { font-weight: 900; font-size: 24px; }
+  .a .g .s { font-size: 11px; font-weight: 800; color:#7a7092; }
+  .a .nav { background:#fff; border-radius: 26px 26px 0 0; color:#a59cc0; font-weight:800; }
+  .a .nav .on { color:#7b5cff; }
+  .a .nav .on i { background:#ece6ff; border-radius: 12px; padding: 3px 14px; }
+
+  /* ---------- B. Nuit ---------- */
+  .b { background: #0c0d18; font-family: Outfit, sans-serif; color: #eef0ff; }
+  .b .status { color: #fff; }
+  .b .hi h2 { font-weight: 700; font-size: 26px; }
+  .b .hi p { color: #8d90b3; font-size: 13px; }
+  .b .hi { display:flex; align-items:center; justify-content: space-between; }
+  .b .av { width: 42px; height: 42px; border-radius: 14px; background: linear-gradient(135deg,#7c5cff,#2fc6ff); display:grid; place-items:center; font-weight:700; }
+  .b .hero { margin-top: 16px; border-radius: 26px; padding: 20px; background: linear-gradient(140deg,#6d4dff 0%,#3b7bff 55%,#22c9e8 100%); box-shadow: 0 16px 40px -12px rgba(80,90,255,.6); }
+  .b .hero .tag { font-size: 12px; font-weight: 600; letter-spacing: .08em; opacity: .85; }
+  .b .hero .room { font-weight: 800; font-size: 60px; line-height: 1; margin: 8px 0 6px; }
+  .b .hero .what { font-weight: 600; font-size: 16px; }
+  .b .hero .when { opacity: .8; font-size: 13px; }
+  .b .hero .bar { margin-top: 14px; height: 6px; border-radius: 9px; background: rgba(255,255,255,.25); }
+  .b .hero .bar i { display:block; height:100%; width: 70%; border-radius: 9px; background:#fff; }
+  .b .hero .left { font-size: 12px; margin-top: 6px; opacity: .85; }
+  .b h3 { font-weight: 600; font-size: 13px; letter-spacing: .1em; color:#8d90b3; margin: 20px 2px 8px; }
+  .b .glass { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); border-radius: 20px; padding: 6px 14px; }
+  .b .glass > div { display:flex; gap:12px; align-items:center; padding: 10px 0; }
+  .b .glass > div + div { border-top: 1px solid rgba(255,255,255,.07); }
+  .b .ic { width: 34px; height: 34px; border-radius: 11px; display:grid; place-items:center; font-size: 18px; }
+  .b .glass p { font-weight: 500; font-size: 14px; }
+  .b .glass small { color:#8d90b3; font-size: 12px; }
+  .b .pill { margin-left:auto; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 8px; background: rgba(255,92,120,.18); color:#ff8fa3; }
+  .b .gr { margin-left:auto; font-weight: 700; font-size: 18px; }
+  .b .gr small { font-size: 11px; color:#8d90b3; }
+  .b .nav { background: rgba(255,255,255,.04); color:#6c6f93; }
+  .b .nav .on { color:#fff; }
+  .b .nav .on i { color: #8fb0ff; }
+
+  /* ---------- C. Stickers ---------- */
+  .c { background: #fffaf0; font-family: Fredoka, sans-serif; color: #2b2b2b; }
+  .c .hi h2 { font-weight: 700; font-size: 27px; }
+  .c .hi p { color: #8a8170; font-size: 13px; }
+  .c .hi { display:flex; align-items:center; justify-content: space-between; }
+  .c .av { width: 44px; height: 44px; border-radius: 14px; background:#58cc02; border: 2.5px solid #2b2b2b; box-shadow: 0 3px 0 #2b2b2b; display:grid; place-items:center; font-weight:700; color:#fff; font-size: 18px; }
+  .c .card { border: 2.5px solid #2b2b2b; border-radius: 22px; box-shadow: 0 5px 0 #2b2b2b; }
+  .c .hero { margin-top: 16px; background: #ffd23f; padding: 16px 18px; }
+  .c .hero .tag { display:inline-block; background:#2b2b2b; color:#ffd23f; border-radius: 10px; padding: 3px 10px; font-weight:600; font-size: 12px; }
+  .c .hero .room { font-weight: 700; font-size: 58px; line-height: 1; margin: 8px 0 2px; }
+  .c .hero .what { font-weight: 600; font-size: 17px; }
+  .c .hero .when { font-size: 13px; color:#5a4a00; }
+  .c .warn { margin-top: 14px; background: #ff6b6b; color: #fff; padding: 10px 14px; font-weight: 600; display:flex; gap: 10px; align-items:center; font-size: 15px; }
+  .c h3 { font-weight: 700; font-size: 18px; margin: 16px 2px 8px; }
+  .c .list { background:#fff; padding: 4px 14px; }
+  .c .list div { display:flex; gap: 12px; align-items:center; padding: 9px 0; font-size: 15px; font-weight: 500; }
+  .c .list div + div { border-top: 2px solid #f0eadb; }
+  .c .box { width: 26px; height: 26px; border-radius: 9px; border: 2.5px solid #2b2b2b; flex:none; }
+  .c .box.on { background:#58cc02; color:#fff; display:grid; place-items:center; }
+  .c .tagsub { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px; margin-left:auto; border: 2px solid #2b2b2b; }
+  .c .grades { display:flex; gap: 10px; }
+  .c .g { flex:1; padding: 10px; text-align:center; background:#fff; }
+  .c .g .n { font-weight: 700; font-size: 26px; }
+  .c .g .s { font-size: 12px; color:#8a8170; font-weight: 500; }
+  .c .nav { border-top: 2.5px solid #2b2b2b; background:#fff; color:#9a917f; font-weight: 600; }
+  .c .nav .on { color: #2b2b2b; }
+  .c .nav .on i { background:#ffd23f; border: 2px solid #2b2b2b; border-radius: 12px; padding: 2px 12px; }
+</style>
+</head>
+<body>
+<h1>Sallio · trois directions pour l'accueil</h1>
+<p class="sub">Même contenu, trois ambiances. Données d'exemple.</p>
+<div class="row">
+
+  <div class="col">
+    <div class="label">A · Pastel<small>doux, coloré, chaque matière a sa couleur</small></div>
+    <div class="phone"><div class="screen a">
+      <div class="status"><span>10:02</span><span>5G ▮▮▮</span></div>
+      <div class="body">
+        <div class="hi"><div><h2>Salut Oscar 👋</h2><p>Lundi 12 octobre · à jour à l'instant</p></div><div class="av">O</div></div>
+        <div class="hero">
+          <span class="tag"><i class="ti ti-clock"></i> Dans 3 min · 10h05</span>
+          <div class="room">B204</div>
+          <div class="what">Mathématiques · M. Gallet</div>
+          <div class="when">10h05 – 11h00</div>
+          <i class="ti ti-math-function big"></i>
+        </div>
+        <div class="next"><div class="dot" style="background:#dff3ff;color:#1a7fc1"><i class="ti ti-flask"></i></div><div><b>Ensuite · C102</b><br><span>11h05 · Physique-chimie</span></div></div>
+        <h3>À savoir</h3>
+        <div class="alert"><i class="ti ti-user-off"></i> Anglais 14h · prof absent, tu finis à 13h</div>
+        <h3>Pour demain <a href="#">Tout voir</a></h3>
+        <div class="hw">
+          <div><span class="chk"></span><div><small style="color:#e1574a">● Maths</small><p>Exercices 7 à 10 p. 84</p></div></div>
+          <div><span class="chk on"><i class="ti ti-check"></i></span><div><small style="color:#1a7fc1">● Physique</small><p style="text-decoration:line-through;opacity:.5">Feuille chap. 2</p></div></div>
+        </div>
+      </div>
+      <div class="nav"><div class="on"><i class="ti ti-home"></i>Accueil</div><div><i class="ti ti-calendar"></i>Cours</div><div><i class="ti ti-checklist"></i>Devoirs</div><div><i class="ti ti-star"></i>Notes</div></div>
+    </div></div>
+  </div>
+
+  <div class="col">
+    <div class="label">B · Nuit<small>sombre, dégradés, style appli de musique</small></div>
+    <div class="phone"><div class="screen b">
+      <div class="status"><span>10:02</span><span>5G ▮▮▮</span></div>
+      <div class="body">
+        <div class="hi"><div><h2>Salut Oscar</h2><p>Lundi 12 octobre · à jour à l'instant</p></div><div class="av">O</div></div>
+        <div class="hero">
+          <div class="tag">DANS 3 MIN · 10H05</div>
+          <div class="room">B204</div>
+          <div class="what">Mathématiques · M. Gallet</div>
+          <div class="when">10h05 – 11h00</div>
+          <div class="bar"><i></i></div>
+          <div class="left">Récré : encore 3 min</div>
+        </div>
+        <h3>À SAVOIR</h3>
+        <div class="glass">
+          <div><div class="ic" style="background:rgba(255,92,120,.16);color:#ff8fa3"><i class="ti ti-user-off"></i></div><div><p>Anglais · 14h</p><small>D105</small></div><span class="pill">Prof absent</span></div>
+        </div>
+        <h3>DERNIÈRES NOTES</h3>
+        <div class="glass">
+          <div><div class="ic" style="background:rgba(124,92,255,.2);color:#b6a4ff"><i class="ti ti-math-function"></i></div><div><p>Mathématiques</p><small>classe 12,4</small></div><span class="gr">16,5<small>/20</small></span></div>
+          <div><div class="ic" style="background:rgba(47,198,255,.18);color:#7fdcff"><i class="ti ti-book"></i></div><div><p>Français</p><small>classe 13,9</small></div><span class="gr">14,5<small>/20</small></span></div>
+        </div>
+      </div>
+      <div class="nav"><div class="on"><i class="ti ti-home"></i>Accueil</div><div><i class="ti ti-calendar"></i>Cours</div><div><i class="ti ti-checklist"></i>Devoirs</div><div><i class="ti ti-star"></i>Notes</div></div>
+    </div></div>
+  </div>
+
+  <div class="col">
+    <div class="label">C · Stickers<small>contours épais, couleurs vives, style Duolingo</small></div>
+    <div class="phone"><div class="screen c">
+      <div class="status"><span>10:02</span><span>5G ▮▮▮</span></div>
+      <div class="body">
+        <div class="hi"><div><h2>Salut Oscar !</h2><p>Lundi 12 octobre · à jour à l'instant</p></div><div class="av">O</div></div>
+        <div class="card hero">
+          <span class="tag">Dans 3 min · 10h05</span>
+          <div class="room">B204</div>
+          <div class="what">Mathématiques · M. Gallet</div>
+          <div class="when">jusqu'à 11h00 · ensuite C102</div>
+        </div>
+        <div class="card warn"><i class="ti ti-user-off"></i> Anglais 14h : prof absent</div>
+        <h3>Pour demain</h3>
+        <div class="card list">
+          <div><span class="box"></span>Exercices 7 à 10 p. 84<span class="tagsub" style="background:#ffd9d2">Maths</span></div>
+          <div><span class="box on"><i class="ti ti-check"></i></span><span style="opacity:.5">Feuille chap. 2</span><span class="tagsub" style="background:#d6efff">Physique</span></div>
+        </div>
+        <h3>Dernières notes</h3>
+        <div class="grades">
+          <div class="card g"><div class="n">16,5</div><div class="s">Maths</div></div>
+          <div class="card g"><div class="n">14,5</div><div class="s">Français</div></div>
+          <div class="card g"><div class="n">10/10</div><div class="s">Chinois</div></div>
+        </div>
+      </div>
+      <div class="nav"><div class="on"><i class="ti ti-home"></i>Accueil</div><div><i class="ti ti-calendar"></i>Cours</div><div><i class="ti ti-checklist"></i>Devoirs</div><div><i class="ti ti-star"></i>Notes</div></div>
+    </div></div>
+  </div>
+
+</div>
+</body>
+</html>

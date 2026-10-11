@@ -137,7 +137,7 @@ class MainActivity : Activity() {
         )
 
         val column = UI.column(this)
-        val content = UI.column(this).apply { setPadding(dp(18), topInset + dp(8), dp(18), dp(28)) }
+        val content = UI.column(this).apply { setPadding(dp(16), topInset + dp(8), dp(16), dp(28)) }
         content.addView(header(s), UI.matchWidth())
         update?.let { content.addView(updateCard(it), UI.matchWidth().apply { topMargin = dp(14) }) }
         if (s.status.needsLogin) content.addView(reconnectCard(s), UI.matchWidth().apply { topMargin = dp(14) })
@@ -160,6 +160,8 @@ class MainActivity : Activity() {
         column.addView(sv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         column.addView(bottomNav(s), UI.matchWidth())
         root.addView(column, FrameLayout.LayoutParams(-1, -1))
+        // Opaque strip under the status bar, so scrolled content never runs beneath the clock.
+        root.addView(View(this).apply { setBackgroundColor(getColor(R.color.bg)) }, FrameLayout.LayoutParams(-1, topInset))
         sv.post { sv.scrollTo(0, keepScroll) }
     }
 
@@ -179,39 +181,39 @@ class MainActivity : Activity() {
     // ---- Shell -------------------------------------------------------------------
 
     private fun header(s: Snapshot): View {
-        val row = UI.row(this).apply { setPadding(dp(4), dp(12), 0, 0) }
+        val row = UI.row(this).apply { setPadding(dp(2), dp(10), 0, dp(2)) }
         val col = UI.column(this)
         val first = firstName(s.account.studentName)
-        col.addView(UI.oneLine(UI.text(this, if (first.isNotEmpty()) "Salut $first" else "Salut", 28f, weight = UI.BOLD)))
         val today = s.now.toLocalDate()
-        val date = "${Agenda.dayName(today)} ${today.dayOfMonth} ${today.month.getDisplayName(TextStyle.FULL, Locale.FRANCE)}"
+        val (title, subtitle) = when (tab) {
+            Tab.HOME -> (if (first.isNotEmpty()) "Salut $first 👋" else "Salut 👋") to
+                "${Agenda.dayName(today)} ${today.dayOfMonth} ${today.month.getDisplayName(TextStyle.SHORT, Locale.FRANCE)}"
+            Tab.TIMETABLE -> "Cours" to "2 semaines"
+            Tab.HOMEWORK -> "Devoirs" to tabs.homeworkSummary(s)
+            Tab.GRADES -> "Notes" to (s.report?.periodName ?: "")
+        }
+        col.addView(UI.oneLine(UI.title(this, title, 27f)))
         val (status, color) = when {
-            syncing -> "Mise à jour…" to R.color.text2
-            s.status.needsLogin -> "Connexion à refaire" to R.color.alert
+            syncing -> "mise à jour…" to R.color.text2
+            s.status.needsLogin -> "connexion à refaire" to R.color.alert
             s.status.error != null -> "⚠ ${s.status.error}" to R.color.warn
             else -> "à jour ${Agenda.ago(s.status.lastSuccess, s.now)}" to R.color.text2
         }
-        col.addView(UI.oneLine(UI.text(this, "$date · $status", 14f, color)))
+        col.addView(UI.oneLine(UI.text(this, listOf(subtitle, status).filter { it.isNotEmpty() }.joinToString(" · "), 13f, color)).apply { setPadding(0, dp(4), 0, 0) })
         row.addView(col, UI.weight())
-        if (syncing) {
-            row.addView(ProgressBar(this), LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(8) })
-        } else {
-            row.addView(UI.roundIcon(this, R.drawable.ic_refresh) { refresh(manual = true) })
-        }
+        val refresh: View = if (syncing) ProgressBar(this).apply { layoutParams = FrameLayout.LayoutParams(dp(22), dp(22)) }
+        else UI.icon(this, R.drawable.ic_refresh, R.color.text2, 22)
+        row.addView(UI.squareButton(this, R.color.surface, R.color.edge, refresh) { refresh(manual = true) })
         row.addView(UI.hgap(this, 8))
-        val avatar = UI.text(this, first.take(1).uppercase().ifEmpty { "?" }, 17f, R.color.on_accent_container, UI.BOLD).apply {
-            gravity = Gravity.CENTER
-            background = UI.pressable(context, getColor(R.color.accent_container), 22)
-            setOnClickListener { settingsSheet(s) }
-        }
-        row.addView(avatar, LinearLayout.LayoutParams(dp(44), dp(44)))
+        val letter = UI.title(this, first.take(1).uppercase().ifEmpty { "?" }, 19f, R.color.on_sun)
+        row.addView(UI.squareButton(this, R.color.sun, R.color.sun_edge, letter) { settingsSheet(s) })
         return row
     }
 
     private fun bottomNav(s: Snapshot): View {
         val nav = UI.row(this).apply {
-            setBackgroundColor(getColor(R.color.surface))
-            setPadding(dp(6), dp(10), dp(6), dp(10) + bottomInset)
+            background = topBordered(getColor(R.color.surface), getColor(R.color.edge), dp(2))
+            setPadding(dp(6), dp(10), dp(6), dp(12) + bottomInset)
         }
         for (t in Tab.values()) {
             val selected = t == tab
@@ -220,17 +222,16 @@ class MainActivity : Activity() {
                 setOnClickListener { openTab(t) }
             }
             val pill = FrameLayout(this).apply {
-                if (selected) background = UI.rounded(getColor(R.color.accent_container), dp(16).toFloat())
+                if (selected) background = UI.sticker(context, getColor(R.color.accent_container), getColor(R.color.accent_container_edge), 13, 2)
             }
-            pill.addView(UI.icon(this, t.icon, if (selected) R.color.on_accent_container else R.color.text2, 22).apply {
-                layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER)
+            pill.addView(UI.icon(this, t.icon, if (selected) R.color.on_accent_container else R.color.text3, 22).apply {
+                layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER).apply { bottomMargin = if (selected) dp(2) else 0 }
             })
-            val showDot = t == Tab.GRADES && s.unseenGrades.isNotEmpty() && !selected
-            if (showDot) pill.addView(View(this).apply {
-                background = UI.rounded(getColor(R.color.alert), dp(4).toFloat())
-            }, FrameLayout.LayoutParams(dp(8), dp(8), Gravity.TOP or Gravity.END).apply { topMargin = dp(4); marginEnd = dp(14) })
-            item.addView(pill, LinearLayout.LayoutParams(dp(60), dp(32)))
-            item.addView(UI.text(this, t.label, 12f, if (selected) R.color.text else R.color.text2, if (selected) UI.MEDIUM else null).apply {
+            if (t == Tab.GRADES && s.unseenGrades.isNotEmpty() && !selected) pill.addView(View(this).apply {
+                background = UI.rounded(0xFFFF6B5B.toInt(), dp(5).toFloat())
+            }, FrameLayout.LayoutParams(dp(10), dp(10), Gravity.TOP or Gravity.END).apply { topMargin = dp(2); marginEnd = dp(12) })
+            item.addView(pill, LinearLayout.LayoutParams(dp(58), dp(34)))
+            item.addView(UI.text(this, t.label, 12f, if (selected) R.color.text else R.color.text3, 800).apply {
                 setPadding(0, dp(4), 0, 0)
                 gravity = Gravity.CENTER
             }, UI.matchWidth())
@@ -239,10 +240,14 @@ class MainActivity : Activity() {
         return nav
     }
 
+    /** Surface with a single top border, for the tab bar. */
+    private fun topBordered(fill: Int, line: Int, width: Int): android.graphics.drawable.Drawable =
+        android.graphics.drawable.LayerDrawable(arrayOf(ColorDrawable(line), ColorDrawable(fill))).apply { setLayerInset(1, 0, width, 0, 0) }
+
     private fun reconnectCard(s: Snapshot): View {
-        val card = UI.card(this, R.color.alert_bg)
-        card.addView(UI.text(this, "Ta connexion Pronote a expiré", 16f, R.color.alert, UI.MEDIUM))
-        card.addView(UI.text(this, "Tes infos restent affichées, mais elles ne se mettent plus à jour.", 14f, R.color.text2).apply { setPadding(0, dp(4), 0, dp(12)) })
+        val card = UI.card(this, R.color.alert_bg, R.color.alert_edge)
+        card.addView(UI.title(this, "Ta connexion Pronote a expiré", 18f, R.color.alert))
+        card.addView(UI.text(this, "Tes infos restent affichées, mais elles ne se mettent plus à jour.", 14f, R.color.text2).apply { setPadding(0, dp(6), 0, dp(12)) })
         card.addView(UI.button(this, "Me reconnecter") {
             startActivity(
                 Intent(this, LoginActivity::class.java)
@@ -257,33 +262,34 @@ class MainActivity : Activity() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         val sheet = UI.column(this).apply {
-            background = UI.rounded(getColor(R.color.bg), dp(28).toFloat())
-            setPadding(dp(20), dp(12), dp(20), dp(20))
+            background = UI.rounded(getColor(R.color.bg), dp(30).toFloat())
+            setPadding(dp(18), dp(12), dp(18), dp(18) + bottomInset)
         }
-        sheet.addView(View(this).apply { background = UI.rounded(getColor(R.color.text3), dp(2).toFloat()) },
-            LinearLayout.LayoutParams(dp(36), dp(4)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(16) })
+        sheet.addView(View(this).apply { background = UI.rounded(getColor(R.color.text3), dp(3).toFloat()) },
+            LinearLayout.LayoutParams(dp(40), dp(5)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(16) })
 
         val who = UI.row(this)
-        who.addView(UI.text(this, firstName(s.account.studentName).take(1).uppercase(), 20f, R.color.on_accent_container, UI.BOLD).apply {
-            gravity = Gravity.CENTER
-            background = UI.rounded(getColor(R.color.accent_container), dp(26).toFloat())
-        }, LinearLayout.LayoutParams(dp(52), dp(52)))
+        val first = firstName(s.account.studentName)
+        who.addView(UI.squareButton(this, R.color.sun, R.color.sun_edge, UI.title(this, first.take(1).uppercase().ifEmpty { "?" }, 22f, R.color.on_sun)) {}.apply {
+            layoutParams = LinearLayout.LayoutParams(dp(56), dp(59))
+            isClickable = false
+        })
         who.addView(UI.hgap(this, 14))
         val info = UI.column(this)
-        info.addView(UI.text(this, prettyStudent(s.account.studentName), 18f, weight = UI.BOLD))
-        info.addView(UI.text(this, listOfNotNull(s.account.className, Schools.prettySchool(s.account.schoolName).ifEmpty { null }).joinToString(" · "), 13f, R.color.text2))
+        info.addView(UI.title(this, prettyStudent(s.account.studentName), 20f))
+        info.addView(UI.text(this, listOfNotNull(s.account.className, Schools.prettySchool(s.account.schoolName).ifEmpty { null }).joinToString(" · "), 13f, R.color.text2).apply { setPadding(0, dp(4), 0, 0) })
         who.addView(info, UI.weight())
         sheet.addView(who, UI.matchWidth())
         sheet.addView(UI.gap(this, 16))
 
-        val list = UI.card(this, padding = 4)
-        fun item(icon: Int, label: String, color: Int = R.color.text, action: () -> Unit) {
+        val list = UI.card(this, padding = 6)
+        fun item(icon: Int, label: String, danger: Boolean = false, action: () -> Unit) {
+            if (list.childCount > 0) list.addView(UI.divider(this).apply { (layoutParams as LinearLayout.LayoutParams).apply { marginStart = dp(12); marginEnd = dp(12) } })
             list.addView(UI.row(this).apply {
-                background = UI.pressable(context, getColor(R.color.surface), 18)
-                setPadding(dp(14), dp(14), dp(14), dp(14))
-                addView(UI.icon(context, icon, if (color == R.color.text) R.color.text2 else color, 22))
+                setPadding(dp(12), dp(13), dp(12), dp(13))
+                addView(UI.icon(context, icon, if (danger) R.color.alert else R.color.accent, 22))
                 addView(UI.hgap(context, 14))
-                addView(UI.text(context, label, 15f, color), UI.weight())
+                addView(UI.text(context, label, 15f, if (danger) R.color.alert else R.color.text, 800), UI.weight())
                 setOnClickListener { dialog.dismiss(); action() }
             }, UI.matchWidth())
         }
@@ -298,7 +304,7 @@ class MainActivity : Activity() {
             }
         }
         item(R.drawable.ic_shield, "Tes données") { privacyDialog() }
-        item(R.drawable.ic_logout, "Se déconnecter et tout effacer", R.color.alert) { confirmLogout() }
+        item(R.drawable.ic_logout, "Se déconnecter et tout effacer", danger = true) { confirmLogout() }
         sheet.addView(list, UI.matchWidth())
 
         sheet.addView(UI.text(this, "Sallio ${BuildConfig.VERSION_NAME} · code source sur GitHub", 12f, R.color.text3).apply {
@@ -312,7 +318,6 @@ class MainActivity : Activity() {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             setGravity(Gravity.BOTTOM)
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            attributes = attributes.apply { y = dp(8) }
         }
         dialog.show()
     }
@@ -328,40 +333,36 @@ class MainActivity : Activity() {
     // ---- Setup -------------------------------------------------------------------
 
     private fun renderSetup() {
-        val content = UI.column(this).apply { setPadding(dp(22), topInset + dp(36), dp(22), bottomInset + dp(28)) }
+        val content = UI.column(this).apply { setPadding(dp(22), topInset + dp(32), dp(22), bottomInset + dp(28)) }
 
-        val badge = FrameLayout(this).apply { background = UI.rounded(getColor(R.color.accent), dp(30).toFloat()) }
+        val badge = FrameLayout(this).apply {
+            background = UI.sticker(context, getColor(R.color.accent), getColor(R.color.accent_edge), 28, 5)
+            setPadding(0, 0, 0, dp(5))
+        }
         badge.addView(android.widget.ImageView(this).apply { setImageResource(R.drawable.ic_launcher_fg) }, FrameLayout.LayoutParams(-1, -1))
-        content.addView(badge, LinearLayout.LayoutParams(dp(84), dp(84)))
+        content.addView(badge, LinearLayout.LayoutParams(dp(88), dp(93)))
         content.addView(UI.gap(this, 20))
-        content.addView(UI.text(this, "Sallio", 40f, weight = UI.BOLD))
+        content.addView(UI.title(this, "Sallio", 44f))
         content.addView(UI.text(this, "Ta salle, tes profs absents, tes devoirs et tes notes. Même quand Pronote rame.", 18f, R.color.text2).apply {
-            setPadding(0, dp(6), 0, 0)
+            setPadding(0, dp(8), 0, 0)
             setLineSpacing(0f, 1.1f)
         })
-        content.addView(UI.gap(this, 28))
+        content.addView(UI.gap(this, 26))
 
-        val card = UI.card(this, padding = 20)
-        card.addView(UI.text(this, "Trouve ton lycée", 18f, weight = UI.BOLD))
+        val card = UI.card(this, padding = 18)
+        card.addView(UI.title(this, "Trouve ton lycée", 20f))
         card.addView(UI.gap(this, 14))
-        card.addView(UI.row(this).apply {
-            gravity = Gravity.CENTER
-            background = UI.pressable(context, getColor(R.color.accent), 16)
-            setPadding(dp(18), dp(15), dp(18), dp(15))
-            addView(UI.icon(context, R.drawable.ic_place, R.color.on_accent, 20))
-            addView(UI.hgap(context, 8))
-            addView(UI.text(context, "Autour de moi", 15f, R.color.on_accent, UI.MEDIUM))
-            setOnClickListener { findNearby() }
-        }, UI.matchWidth())
+        card.addView(UI.button(this, "Autour de moi", R.drawable.ic_place) { findNearby() }, UI.matchWidth())
         card.addView(UI.text(this, "ou tape son nom après une recherche, son code (ex. 0782924E) ou l'adresse de son Pronote :", 13f, R.color.text2).apply { setPadding(0, dp(16), 0, dp(8)) })
         val field = EditText(this).apply {
             hint = "Nom, code ou adresse"
             setSingleLine()
             inputType = InputType.TYPE_TEXT_VARIATION_URI or InputType.TYPE_CLASS_TEXT
             imeOptions = EditorInfo.IME_ACTION_GO
-            background = UI.rounded(getColor(R.color.surface2), dp(14).toFloat())
+            background = UI.rounded(getColor(R.color.surface2), dp(14).toFloat(), dp(2), getColor(R.color.edge))
             setPadding(dp(16), dp(14), dp(16), dp(14))
             textSize = 15f
+            typeface = UI.body(context, 700)
             setTextColor(getColor(R.color.text))
             setHintTextColor(getColor(R.color.text3))
         }
@@ -384,10 +385,14 @@ class MainActivity : Activity() {
             R.drawable.ic_open to "Tu te connectes sur la vraie page de ton ENT : l'app ne voit jamais ton mot de passe.",
         )) {
             content.addView(UI.row(this).apply {
-                gravity = Gravity.TOP
-                setPadding(dp(4), dp(8), dp(4), dp(8))
-                addView(UI.icon(context, icon, R.color.accent, 20))
-                addView(UI.hgap(context, 14))
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(2), dp(7), dp(2), dp(7))
+                val tile = FrameLayout(context).apply {
+                    background = UI.rounded(getColor(R.color.accent_container), dp(12).toFloat())
+                    addView(UI.icon(context, icon, R.color.on_accent_container, 20).apply { layoutParams = FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER) })
+                }
+                addView(tile, LinearLayout.LayoutParams(dp(38), dp(38)))
+                addView(UI.hgap(context, 12))
                 addView(UI.text(context, line, 14f, R.color.text2), UI.weight())
             }, UI.matchWidth())
         }
@@ -513,16 +518,16 @@ class MainActivity : Activity() {
     private fun showResults(schools: List<Schools.Nearby>) {
         val list = results ?: return
         list.removeAllViews()
-        list.addView(UI.gap(this, 14))
-        for (school in schools.take(15)) {
+        list.addView(UI.gap(this, 10))
+        schools.take(15).forEachIndexed { i, school ->
+            if (i > 0) list.addView(UI.divider(this))
             list.addView(UI.row(this).apply {
-                background = UI.pressable(context, getColor(R.color.surface), 14)
-                setPadding(dp(4), dp(11), dp(4), dp(11))
-                addView(UI.icon(context, R.drawable.ic_place, R.color.text3, 18))
+                setPadding(dp(2), dp(11), dp(2), dp(11))
+                addView(UI.icon(context, R.drawable.ic_school, R.color.accent, 20))
                 addView(UI.hgap(context, 12))
                 val col = UI.column(context)
-                col.addView(UI.oneLine(UI.text(context, school.name, 15f)))
-                col.addView(UI.text(context, "${school.postalCode} · ${"%.1f".format(school.distanceKm)} km", 12f, R.color.text3))
+                col.addView(UI.oneLine(UI.text(context, Schools.prettySchool(school.name), 15f, weight = 800)))
+                col.addView(UI.text(context, "${school.postalCode} · ${"%.1f".format(school.distanceKm)} km", 12f, R.color.text2))
                 addView(col, UI.weight())
                 setOnClickListener { checkSchool(school.url, school.name) }
             }, UI.matchWidth())
@@ -540,16 +545,20 @@ class MainActivity : Activity() {
     // ---- Updates -----------------------------------------------------------------
 
     private fun updateCard(u: Updater.Update): View {
-        val card = UI.card(this, R.color.accent_container)
-        card.addView(UI.text(this, "Nouvelle version ${u.versionName}", 17f, R.color.on_accent_container, UI.BOLD))
+        val card = UI.card(this, R.color.accent_container, R.color.accent_container_edge)
+        card.addView(UI.row(this).apply {
+            addView(UI.icon(context, R.drawable.ic_sparkles, R.color.on_accent_container, 22))
+            addView(UI.hgap(context, 8))
+            addView(UI.title(context, "Nouvelle version ${u.versionName}", 18f, R.color.on_accent_container))
+        })
         if (u.notes.isNotEmpty()) card.addView(UI.text(this, u.notes.take(600), 14f, R.color.on_accent_container).apply {
             alpha = 0.85f
             setPadding(0, dp(6), 0, 0)
         })
         card.addView(UI.gap(this, 12))
         val status = updateStatus
-        if (status != null) card.addView(UI.text(this, status, 14f, R.color.on_accent_container))
-        else card.addView(UI.button(this, "Mettre à jour (${u.size / 1024} Ko)") { startUpdate(u) }, UI.matchWidth())
+        if (status != null) card.addView(UI.text(this, status, 14f, R.color.on_accent_container, 800))
+        else card.addView(UI.button(this, "Mettre à jour") { startUpdate(u) }, UI.matchWidth())
         return card
     }
 
@@ -631,7 +640,7 @@ class MainActivity : Activity() {
         val box = UI.row(this).apply {
             setPadding(dp(24), dp(20), dp(24), dp(20))
             addView(ProgressBar(context), LinearLayout.LayoutParams(dp(32), dp(32)))
-            addView(UI.text(context, text, 15f).apply { setPadding(dp(16), 0, 0, 0) })
+            addView(UI.text(context, text, 15f, weight = 800).apply { setPadding(dp(16), 0, 0, 0) })
         }
         loading = AlertDialog.Builder(this).setView(box).setCancelable(false).show()
     }

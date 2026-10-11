@@ -1,16 +1,17 @@
 package fr.sallio.app
 
+import android.graphics.Color
 import android.graphics.Paint
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
-import android.widget.TextView
 import fr.sallio.pronote.Grade
 import fr.sallio.pronote.Homework
 import fr.sallio.pronote.Lesson
 import fr.sallio.pronote.Report
+import fr.sallio.pronote.SubjectAverage
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -28,129 +29,166 @@ class Snapshot(
     val now: LocalDateTime,
 )
 
-/** Builds the content of each tab. Stateless apart from what [MainActivity] keeps. */
+/** Builds the content of each tab, in the "pastel stickers" style. */
 class Tabs(private val activity: MainActivity, private val repo: Repo) {
 
     private val ctx = activity
     private val fr = Locale.FRANCE
+    private fun color(res: Int) = ctx.getColor(res)
 
     // ---- Accueil -----------------------------------------------------------------
 
     fun home(s: Snapshot): View {
         val root = UI.column(ctx)
         val view = Agenda.view(s.lessons, s.now)
-
-        root.addView(hero(view.focus, view.then, s), UI.matchWidth())
-
-        // What changed: absent teachers, canceled lessons, room changes, today and tomorrow.
         val today = s.now.toLocalDate()
+
+        root.addView(hero(view.focus, s), UI.matchWidth())
+        view.then?.let { root.addView(thenCard(it), UI.matchWidth().apply { topMargin = ctx.dp(12) }) }
+
+        // What changed today and tomorrow: absent teachers, canceled lessons, room changes.
         val alerts = s.lessons.filter {
             it.end > s.now && it.start.toLocalDate() <= today.plusDays(1) && Agenda.alert(it) != null && it !== view.focus
         }
         if (alerts.isNotEmpty()) {
-            root.addView(UI.title(ctx, "À SAVOIR"))
-            val card = UI.card(ctx, padding = 6)
+            root.addView(UI.section(ctx, "À savoir"))
             alerts.forEachIndexed { i, lesson ->
-                if (i > 0) card.addView(divider())
-                card.addView(alertRow(lesson, s.now), UI.matchWidth())
+                root.addView(alertBanner(lesson, today), UI.matchWidth().apply { if (i > 0) topMargin = ctx.dp(8) })
             }
-            root.addView(card, UI.matchWidth())
         }
 
-        // Homework for the next school day.
         val nextDay = s.lessons.map { it.start.toLocalDate() }.filter { it > today }.minOrNull() ?: today.plusDays(1)
         val due = s.homework.filter { it.due == nextDay }
-        root.addView(sectionWithLink("À FAIRE POUR ${Agenda.dayTitle(nextDay, today).uppercase(fr)}", "Tout voir") { activity.openTab(MainActivity.Tab.HOMEWORK) })
+        root.addView(sectionWithLink("Pour ${dayLabel(nextDay, today)}", "Tout voir") { activity.openTab(MainActivity.Tab.HOMEWORK) })
         if (due.isEmpty()) {
-            root.addView(emptyCard("Rien à rendre. Profites-en."), UI.matchWidth())
+            root.addView(emptyCard(R.drawable.ic_sparkles, "Rien à rendre. Profites-en !"), UI.matchWidth())
         } else {
-            val card = UI.card(ctx, padding = 6)
+            val card = UI.card(ctx, padding = 14)
             due.take(4).forEachIndexed { i, h ->
-                if (i > 0) card.addView(divider())
+                if (i > 0) card.addView(UI.divider(ctx))
                 card.addView(homeworkRow(h, compact = true), UI.matchWidth())
             }
-            if (due.size > 4) card.addView(UI.text(ctx, "+ ${due.size - 4} autres", 13f, R.color.text3).apply { setPadding(dp(14), dp(4), 0, dp(10)) })
+            if (due.size > 4) card.addView(UI.text(ctx, "+ ${due.size - 4} autres", 13f, R.color.text2).apply { setPadding(0, dp(8), 0, 0) })
             root.addView(card, UI.matchWidth())
         }
 
-        // Latest grades.
         val grades = s.report?.grades.orEmpty().take(3)
         if (grades.isNotEmpty()) {
-            root.addView(sectionWithLink("DERNIÈRES NOTES", "Tout voir") { activity.openTab(MainActivity.Tab.GRADES) })
-            val card = UI.card(ctx, padding = 6)
+            root.addView(sectionWithLink("Dernières notes", "Tout voir") { activity.openTab(MainActivity.Tab.GRADES) })
+            val tiles = UI.row(ctx).apply { gravity = Gravity.TOP }
             grades.forEachIndexed { i, g ->
-                if (i > 0) card.addView(divider())
-                card.addView(gradeRow(g, g.id in s.unseenGrades), UI.matchWidth())
+                tiles.addView(gradeTile(g, g.id in s.unseenGrades), UI.weight().apply { if (i > 0) marginStart = ctx.dp(10) })
             }
-            root.addView(card, UI.matchWidth())
+            root.addView(tiles, UI.matchWidth())
         }
 
         root.addView(footer(s))
         return root
     }
 
-    private fun hero(focus: Lesson?, then: Lesson?, s: Snapshot): View {
-        val card = UI.card(ctx, R.color.accent, padding = 22)
+    /** "demain", "mardi 13 oct." */
+    private fun dayLabel(date: LocalDate, today: LocalDate) =
+        Agenda.dayTitle(date, today).replaceFirstChar { it.lowercase(fr) }
+
+    private fun hero(focus: Lesson?, s: Snapshot): View {
         if (focus == null) {
-            card.addView(UI.text(ctx, "AUCUN COURS À VENIR", 12f, R.color.on_accent, UI.MEDIUM).apply { letterSpacing = 0.08f; alpha = 0.8f })
-            card.addView(UI.gap(ctx, 6))
-            card.addView(UI.text(ctx, if (s.status.lastSuccess == 0L) "Chargement…" else "Repos", 40f, R.color.on_accent, UI.BOLD))
-            card.addView(UI.text(ctx, if (s.status.lastSuccess == 0L) "Ton emploi du temps arrive." else "Rien dans les deux prochaines semaines.", 15f, R.color.on_accent).apply { alpha = 0.85f })
+            val card = UI.card(ctx, R.color.accent, R.color.accent_edge, padding = 20)
+            card.addView(UI.title(ctx, if (s.status.lastSuccess == 0L) "Chargement…" else "Pas de cours", 34f, R.color.on_accent))
+            card.addView(UI.text(ctx, if (s.status.lastSuccess == 0L) "Ton emploi du temps arrive." else "Rien dans les deux prochaines semaines. Profite !", 15f, R.color.on_accent).apply { setPadding(0, dp(6), 0, 0) })
             return card
         }
-        card.addView(UI.text(ctx, Agenda.when_(focus, s.now).uppercase(fr), 12f, R.color.on_accent, UI.MEDIUM).apply { letterSpacing = 0.08f; alpha = 0.85f })
-        // No room (sport, outing): the subject takes the big line instead of a lonely dash.
+        val style = Subjects.style(focus.subject)
+        val frame = FrameLayout(ctx).apply {
+            background = UI.sticker(ctx, Subjects.solid(style.family), Subjects.edge(ctx, style.family), 26, 5)
+            clipToOutline = true
+        }
+        // Big subject icon in the corner, like a watermark.
+        frame.addView(UI.icon(ctx, style.icon, 0x40FFFFFF, 118, tintIsColor = true).apply {
+            layoutParams = FrameLayout.LayoutParams(dp(118), dp(118), Gravity.BOTTOM or Gravity.END).apply { rightMargin = dp(4); bottomMargin = dp(10) }
+        })
+        val col = UI.column(ctx).apply { setPadding(dp(18), dp(16), dp(18), dp(16 + 5)) }
+        val tag = UI.row(ctx).apply {
+            background = UI.rounded(0x47FFFFFF, dp(99).toFloat())
+            setPadding(dp(10), dp(4), dp(12), dp(5))
+            addView(UI.icon(ctx, R.drawable.ic_clock, Color.WHITE, 14, tintIsColor = true))
+            addView(UI.hgap(ctx, 5))
+            addView(UI.text(ctx, Agenda.when_(focus, s.now), 12f, R.color.on_accent, 800).apply { setTextColor(Color.WHITE) })
+        }
+        col.addView(tag, UI.wrap())
         val hasRoom = focus.rooms.isNotEmpty()
-        val big = if (hasRoom) Agenda.room(focus) else Agenda.pretty(focus.subject)
-        val room = UI.oneLine(UI.text(ctx, big, if (hasRoom) 54f else 34f, R.color.on_accent, UI.BOLD)).apply { includeFontPadding = false; setPadding(0, dp(6), 0, dp(4)) }
-        if (focus.canceled) room.paintFlags = room.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
-        card.addView(room)
+        val big = UI.oneLine(UI.title(ctx, if (hasRoom) Agenda.room(focus) else Agenda.pretty(focus.subject), if (hasRoom) 56f else 34f)).apply {
+            setPadding(0, dp(10), 0, dp(4))
+            setTextColor(Color.WHITE)
+        }
+        if (focus.canceled) big.paintFlags = big.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+        col.addView(big)
         val teacher = focus.teachers.firstOrNull()?.let { Agenda.prettyName(it) }
-        val subtitle = if (hasRoom) listOfNotNull(Agenda.pretty(focus.subject), teacher).joinToString(" · ") else teacher ?: ""
-        if (subtitle.isNotEmpty()) card.addView(UI.oneLine(UI.text(ctx, subtitle, 16f, R.color.on_accent, UI.MEDIUM)))
-        card.addView(UI.text(ctx, "${Agenda.time(focus.start)} – ${Agenda.time(focus.end)}", 14f, R.color.on_accent).apply { alpha = 0.8f })
+        val subtitle = if (hasRoom) listOfNotNull(Agenda.pretty(focus.subject), teacher).joinToString(" · ") else teacher.orEmpty()
+        if (subtitle.isNotEmpty()) col.addView(UI.oneLine(UI.text(ctx, subtitle, 16f, weight = 800)).apply { setTextColor(Color.WHITE) })
+        col.addView(UI.text(ctx, "${Agenda.time(focus.start)} – ${Agenda.time(focus.end)}", 13f).apply { setTextColor(Color.WHITE); alpha = 0.9f })
         Agenda.alert(focus)?.let {
-            card.addView(UI.gap(ctx, 10))
-            card.addView(UI.pill(ctx, it, focus.canceled, onDark = true), UI.wrap())
+            col.addView(UI.gap(ctx, 10))
+            col.addView(UI.chip(ctx, it, Color.WHITE, if (focus.canceled) 0xFFB3261E.toInt() else 0xFF9A5B00.toInt(), 13f), UI.wrap())
         }
-        then?.let { next ->
-            val strip = UI.row(ctx).apply {
-                background = UI.rounded(0x26FFFFFF, dp(14).toFloat())
-                setPadding(dp(12), dp(10), dp(12), dp(10))
-            }
-            strip.addView(UI.text(ctx, "Ensuite", 13f, R.color.on_accent).apply { alpha = 0.75f })
-            strip.addView(UI.hgap(ctx, 10))
-            val alert = Agenda.alert(next)?.let { " · $it" } ?: ""
-            strip.addView(UI.oneLine(UI.text(ctx, "${Agenda.time(next.start)}  ${Agenda.room(next)}  ${Agenda.pretty(next.subject)}$alert", 14f, R.color.on_accent, UI.MEDIUM)), UI.weight())
-            card.addView(UI.gap(ctx, 14))
-            card.addView(strip, UI.matchWidth())
+        frame.addView(col, FrameLayout.LayoutParams(-1, -2))
+        return frame
+    }
+
+    private fun thenCard(next: Lesson): View {
+        val card = UI.row(ctx).apply {
+            background = UI.sticker(ctx, color(R.color.surface), color(R.color.edge))
+            UI.stickerPadding(this, 12, 10)
         }
+        card.addView(UI.subjectTile(ctx, next.subject))
+        card.addView(UI.hgap(ctx, 12))
+        val col = UI.column(ctx)
+        col.addView(UI.oneLine(UI.title(ctx, "Ensuite · ${Agenda.room(next)}", 17f)))
+        col.addView(UI.oneLine(UI.text(ctx, "${Agenda.time(next.start)} · ${Agenda.pretty(next.subject)}", 13f, R.color.text2)).apply { setPadding(0, dp(3), 0, 0) })
+        card.addView(col, UI.weight())
+        Agenda.alert(next)?.let { card.addView(UI.alertChip(ctx, it, next.canceled)) }
         return card
     }
 
-    private fun alertRow(lesson: Lesson, now: LocalDateTime): View {
-        val row = UI.row(ctx).apply { setPadding(dp(12), dp(12), dp(12), dp(12)) }
-        row.addView(UI.icon(ctx, R.drawable.ic_warning, if (lesson.canceled) R.color.alert else R.color.warn, 20))
-        row.addView(UI.hgap(ctx, 12))
-        val col = UI.column(ctx)
-        col.addView(UI.oneLine(UI.text(ctx, Agenda.pretty(lesson.subject), 15f, weight = UI.MEDIUM)))
-        val day = Agenda.dayTitle(lesson.start.toLocalDate(), now.toLocalDate())
-        col.addView(UI.text(ctx, "$day ${Agenda.time(lesson.start)} · ${Agenda.room(lesson)}", 13f, R.color.text2))
-        row.addView(col, UI.weight())
-        row.addView(UI.pill(ctx, Agenda.alert(lesson)!!, lesson.canceled))
+    private fun alertBanner(lesson: Lesson, today: LocalDate): View {
+        val severe = lesson.canceled
+        val row = UI.row(ctx).apply {
+            background = UI.sticker(ctx, color(if (severe) R.color.alert_bg else R.color.warn_bg), color(if (severe) R.color.alert_edge else R.color.warn_edge), 18)
+            UI.stickerPadding(this, 12, 10)
+        }
+        row.addView(UI.icon(ctx, if (lesson.teacherAbsent) R.drawable.ic_absent else R.drawable.ic_warning, if (severe) R.color.alert else R.color.warn, 20))
+        row.addView(UI.hgap(ctx, 10))
+        val day = Agenda.dayTitle(lesson.start.toLocalDate(), today).let { if (it == "Aujourd'hui") "" else "${it.lowercase(fr)} " }
+        val text = "${Agenda.pretty(lesson.subject)} ${day}${Agenda.time(lesson.start)} : ${Agenda.alert(lesson)!!.replaceFirstChar { it.lowercase(fr) }}"
+        row.addView(UI.text(ctx, text, 14f, if (severe) R.color.alert else R.color.warn, 800), UI.weight())
         return row
     }
 
+    private fun gradeTile(g: Grade, isNew: Boolean): View {
+        val tile = UI.column(ctx).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            background = UI.sticker(ctx, color(R.color.surface), color(R.color.edge), 20, 4, pressable = true)
+            UI.stickerPadding(this, 6, 10)
+            setOnClickListener { activity.openTab(MainActivity.Tab.GRADES) }
+        }
+        val value = UI.row(ctx).apply { gravity = Gravity.BOTTOM }
+        value.addView(UI.title(ctx, g.value.replace('.', ','), 24f))
+        if (g.points != null && g.outOf != null) value.addView(UI.text(ctx, "/${UI.number(g.outOf)}", 12f, R.color.text2).apply { setPadding(0, 0, 0, dp(1)) })
+        tile.addView(value, UI.wrap())
+        tile.addView(UI.oneLine(UI.text(ctx, Agenda.pretty(g.subject), 11f, R.color.text2, 800)).apply { gravity = Gravity.CENTER; setPadding(dp(2), dp(2), dp(2), 0) }, UI.matchWidth())
+        if (isNew) tile.addView(UI.chip(ctx, "NOUVEAU", 0xFFFF6B5B.toInt(), Color.WHITE, 9f), UI.wrap().apply { topMargin = ctx.dp(5) })
+        return tile
+    }
+
     private fun footer(s: Snapshot): View {
-        val col = UI.column(ctx).apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, dp(26), 0, dp(8)) }
-        col.addView(UI.text(ctx, "Enregistré sur ton téléphone · mis à jour ${Agenda.ago(s.status.lastSuccess, s.now)}", 12f, R.color.text3).apply { gravity = Gravity.CENTER })
-        col.addView(UI.gap(ctx, 10))
+        val col = UI.column(ctx).apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, dp(28), 0, dp(8)) }
+        col.addView(UI.text(ctx, "Enregistré sur ton téléphone · mis à jour ${Agenda.ago(s.status.lastSuccess, s.now)}", 12f, R.color.text3).apply { gravity = Gravity.CENTER }, UI.matchWidth())
+        col.addView(UI.gap(ctx, 12))
         col.addView(UI.row(ctx).apply {
-            background = UI.pressable(ctx, ctx.getColor(R.color.surface), 18)
-            setPadding(dp(16), dp(10), dp(16), dp(10))
+            background = UI.sticker(ctx, color(R.color.surface), color(R.color.edge), 16, 3, pressable = true)
+            setPadding(dp(16), dp(10), dp(16), dp(13))
             addView(UI.icon(ctx, R.drawable.ic_open, R.color.accent, 18))
             addView(UI.hgap(ctx, 8))
-            addView(UI.text(ctx, "Ouvrir Pronote", 14f, R.color.accent, UI.MEDIUM))
+            addView(UI.title(ctx, "Ouvrir Pronote", 15f, R.color.accent))
             setOnClickListener { activity.openPronote() }
         }, UI.wrap())
         return col
@@ -167,36 +205,34 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val focusDay = Agenda.view(s.lessons, s.now).dayDate
         val day = selected?.takeIf { it in days } ?: focusDay?.takeIf { it in days } ?: today
 
-        val strip = UI.row(ctx).apply { setPadding(0, 0, 0, dp(4)) }
+        val strip = UI.row(ctx).apply { setPadding(0, dp(2), dp(8), dp(2)) }
         for (d in days) strip.addView(dayChip(d, d == day, s, onSelect))
         val scroller = HorizontalScrollView(ctx).apply {
             isHorizontalScrollBarEnabled = false
-            clipToPadding = false
             addView(strip)
         }
         root.addView(scroller, UI.matchWidth())
-        // Keep the selected day in view.
         scroller.post {
-            val index = days.indexOf(day)
-            strip.getChildAt(index)?.let { scroller.smoothScrollTo((it.left - ctx.dp(24)).coerceAtLeast(0), 0) }
+            strip.getChildAt(days.indexOf(day))?.let { scroller.smoothScrollTo((it.left - ctx.dp(24)).coerceAtLeast(0), 0) }
         }
 
-        root.addView(UI.title(ctx, Agenda.dayTitle(day, today).uppercase(fr) + if (day.isAfter(today.plusDays(1))) "" else " · ${day.dayOfMonth} ${day.month.getDisplayName(TextStyle.FULL, fr)}".uppercase(fr)))
+        val title = Agenda.dayTitle(day, today).let { if (day <= today.plusDays(1)) "$it · ${day.dayOfMonth} ${day.month.getDisplayName(TextStyle.FULL, fr)}" else it }
+        root.addView(UI.section(ctx, title))
         val lessons = s.lessons.filter { it.start.toLocalDate() == day }
         if (lessons.isEmpty()) {
-            root.addView(emptyCard(if (day.dayOfWeek == DayOfWeek.SATURDAY || day.dayOfWeek == DayOfWeek.SUNDAY) "Week-end." else "Pas cours ce jour-là."), UI.matchWidth())
+            root.addView(emptyCard(R.drawable.ic_sparkles, "Pas cours ce jour-là."), UI.matchWidth())
         } else {
             val focus = Agenda.view(s.lessons, s.now).focus
-            for (lesson in lessons) {
-                root.addView(lessonCard(lesson, lesson === focus, s.now), UI.matchWidth().apply { bottomMargin = ctx.dp(8) })
+            lessons.forEachIndexed { i, lesson ->
+                root.addView(lessonCard(lesson, lesson === focus, s.now), UI.matchWidth().apply { if (i > 0) topMargin = ctx.dp(10) })
             }
         }
         val dayHomework = s.homework.filter { it.due == day }
         if (dayHomework.isNotEmpty()) {
-            root.addView(UI.title(ctx, "À RENDRE CE JOUR-LÀ"))
-            val card = UI.card(ctx, padding = 6)
+            root.addView(UI.section(ctx, "À rendre ce jour-là"))
+            val card = UI.card(ctx, padding = 14)
             dayHomework.forEachIndexed { i, h ->
-                if (i > 0) card.addView(divider())
+                if (i > 0) card.addView(UI.divider(ctx))
                 card.addView(homeworkRow(h, compact = true), UI.matchWidth())
             }
             root.addView(card, UI.matchWidth())
@@ -206,51 +242,47 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
 
     private fun dayChip(d: LocalDate, selected: Boolean, s: Snapshot, onSelect: (LocalDate) -> Unit): View {
         val chip = UI.column(ctx).apply {
-            gravity = Gravity.CENTER
-            background = UI.pressable(ctx, ctx.getColor(if (selected) R.color.accent else R.color.surface), 18)
-            setPadding(0, dp(10), 0, dp(10))
+            gravity = Gravity.CENTER_HORIZONTAL
+            background = if (selected) UI.sticker(ctx, color(R.color.accent), color(R.color.accent_edge), 16, 4, true)
+            else UI.sticker(ctx, color(R.color.surface), color(R.color.edge), 16, 4, true)
+            setPadding(0, dp(8), 0, dp(7 + 4))
             setOnClickListener { onSelect(d) }
         }
-        val fg = if (selected) R.color.on_accent else R.color.text
-        // Vertical LinearLayout children default to full width: centre the text itself.
-        chip.addView(UI.text(ctx, d.dayOfWeek.getDisplayName(TextStyle.SHORT, fr).trimEnd('.').uppercase(fr), 11f, if (selected) R.color.on_accent else R.color.text3, UI.MEDIUM).apply { gravity = Gravity.CENTER })
-        chip.addView(UI.text(ctx, d.dayOfMonth.toString(), 20f, fg, UI.BOLD).apply { gravity = Gravity.CENTER })
+        chip.addView(UI.text(ctx, d.dayOfWeek.getDisplayName(TextStyle.SHORT, fr).trimEnd('.').uppercase(fr), 11f, if (selected) R.color.on_accent else R.color.text2, 800).apply { gravity = Gravity.CENTER }, UI.matchWidth())
+        chip.addView(UI.title(ctx, d.dayOfMonth.toString(), 21f, if (selected) R.color.on_accent else R.color.text).apply { gravity = Gravity.CENTER; setPadding(0, dp(2), 0, 0) }, UI.matchWidth())
         val hasAlert = s.lessons.any { it.start.toLocalDate() == d && Agenda.alert(it) != null }
         chip.addView(View(ctx).apply {
-            background = UI.rounded(ctx.getColor(if (selected) R.color.on_accent else R.color.alert), dp(3).toFloat())
+            background = UI.rounded(if (selected) Color.WHITE else 0xFFFF6B5B.toInt(), dp(3).toFloat())
             visibility = if (hasAlert) View.VISIBLE else View.INVISIBLE
         }, LinearLayout.LayoutParams(ctx.dp(6), ctx.dp(6)).apply { topMargin = ctx.dp(4) })
-        chip.layoutParams = LinearLayout.LayoutParams(ctx.dp(54), LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = ctx.dp(8) }
+        chip.layoutParams = LinearLayout.LayoutParams(ctx.dp(52), LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = ctx.dp(8) }
         return chip
     }
 
     private fun lessonCard(lesson: Lesson, isFocus: Boolean, now: LocalDateTime): View {
+        val style = Subjects.style(lesson.subject)
         val card = UI.row(ctx).apply {
-            background = UI.rounded(ctx.getColor(if (isFocus) R.color.accent_container else R.color.surface), dp(20).toFloat())
-            setPadding(dp(14), dp(14), dp(16), dp(14))
-            gravity = Gravity.TOP
+            background = if (isFocus) UI.sticker(ctx, Subjects.tint(ctx, style.family), Subjects.edge(ctx, style.family))
+            else UI.sticker(ctx, color(R.color.surface), color(R.color.edge))
+            UI.stickerPadding(this, 12, 11)
             if (lesson.end <= now) alpha = 0.5f
         }
         val times = UI.column(ctx)
-        times.addView(UI.text(ctx, Agenda.time(lesson.start), 15f, if (isFocus) R.color.on_accent_container else R.color.text, UI.MEDIUM))
-        times.addView(UI.text(ctx, Agenda.time(lesson.end), 12f, R.color.text3))
-        card.addView(times, LinearLayout.LayoutParams(ctx.dp(54), LinearLayout.LayoutParams.WRAP_CONTENT))
-        card.addView(View(ctx).apply {
-            background = UI.rounded(UI.parseColor(lesson.color, ctx.getColor(R.color.accent)), dp(2).toFloat())
-        }, LinearLayout.LayoutParams(ctx.dp(4), ctx.dp(52)).apply { marginEnd = ctx.dp(14) })
+        times.addView(UI.title(ctx, Agenda.time(lesson.start), 16f))
+        times.addView(UI.text(ctx, Agenda.time(lesson.end), 11f, R.color.text2).apply { setPadding(0, dp(2), 0, 0) })
+        card.addView(times, LinearLayout.LayoutParams(ctx.dp(50), LinearLayout.LayoutParams.WRAP_CONTENT))
+        card.addView(UI.subjectTile(ctx, lesson.subject))
+        card.addView(UI.hgap(ctx, 12))
         val col = UI.column(ctx)
         val hasRoom = lesson.rooms.isNotEmpty()
-        val room = UI.oneLine(UI.text(ctx, if (hasRoom) Agenda.room(lesson) else Agenda.pretty(lesson.subject), if (hasRoom) 22f else 19f, if (isFocus) R.color.on_accent_container else R.color.text, UI.BOLD))
+        val room = UI.oneLine(UI.title(ctx, if (hasRoom) Agenda.room(lesson) else Agenda.pretty(lesson.subject), if (hasRoom) 21f else 18f))
         if (lesson.canceled) room.paintFlags = room.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
         col.addView(room)
         val teacher = lesson.teachers.firstOrNull()?.let { Agenda.prettyName(it) }
         val subtitle = if (hasRoom) listOfNotNull(Agenda.pretty(lesson.subject), teacher).joinToString(" · ") else teacher ?: "Pas de salle indiquée"
-        col.addView(UI.oneLine(UI.text(ctx, subtitle, 14f, R.color.text2)))
-        Agenda.alert(lesson)?.let {
-            col.addView(UI.gap(ctx, 8))
-            col.addView(UI.pill(ctx, it, lesson.canceled), UI.wrap())
-        }
+        col.addView(UI.oneLine(UI.text(ctx, subtitle, 12f, R.color.text2)).apply { setPadding(0, dp(3), 0, 0) })
         card.addView(col, UI.weight())
+        Agenda.alert(lesson)?.let { card.addView(UI.alertChip(ctx, it, lesson.canceled), UI.wrap().apply { marginStart = ctx.dp(6) }) }
         return card
     }
 
@@ -261,68 +293,77 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val today = s.now.toLocalDate()
         val upcoming = s.homework.filter { it.due >= today }
         if (upcoming.isEmpty()) {
-            root.addView(UI.gap(ctx, 8))
-            root.addView(emptyCard(if (s.status.lastSuccess == 0L) "Les devoirs arrivent à la prochaine mise à jour." else "Aucun devoir pour les deux prochaines semaines."), UI.matchWidth())
+            root.addView(emptyCard(R.drawable.ic_sparkles, if (s.status.lastSuccess == 0L) "Les devoirs arrivent à la prochaine mise à jour." else "Aucun devoir pour les deux prochaines semaines !"), UI.matchWidth())
             return root
         }
-        val left = upcoming.count { !repo.isDone(it) }
-        root.addView(UI.text(ctx, if (left == 0) "Tout est fait. Bravo." else "$left devoir${if (left > 1) "s" else ""} à faire", 15f, R.color.text2).apply { setPadding(dp(4), dp(4), 0, 0) })
         for ((date, items) in upcoming.groupBy { it.due }.toSortedMap()) {
-            root.addView(UI.title(ctx, "POUR ${Agenda.dayTitle(date, today).uppercase(fr)}"))
-            val card = UI.card(ctx, padding = 6)
+            root.addView(UI.section(ctx, "Pour ${dayLabel(date, today)}"))
+            val card = UI.card(ctx, padding = 14)
             items.forEachIndexed { i, h ->
-                if (i > 0) card.addView(divider())
+                if (i > 0) card.addView(UI.divider(ctx))
                 card.addView(homeworkRow(h, compact = false), UI.matchWidth())
             }
             root.addView(card, UI.matchWidth())
         }
         root.addView(UI.text(ctx, "Cocher un devoir ici ne change rien sur Pronote.", 12f, R.color.text3).apply {
             gravity = Gravity.CENTER
-            setPadding(0, dp(20), 0, 0)
+            setPadding(0, dp(22), 0, 0)
         }, UI.matchWidth())
         return root
+    }
+
+    /** "4 à faire · 1 fait", for the page header. */
+    fun homeworkSummary(s: Snapshot): String {
+        val upcoming = s.homework.filter { it.due >= s.now.toLocalDate() }
+        val done = upcoming.count { repo.isDone(it) }
+        val left = upcoming.size - done
+        return when {
+            upcoming.isEmpty() -> "Rien à faire"
+            left == 0 -> "Tout est fait, bravo !"
+            done == 0 -> "$left à faire"
+            else -> "$left à faire · $done fait${if (done > 1) "s" else ""}"
+        }
     }
 
     private fun homeworkRow(h: Homework, compact: Boolean): View {
         val done = repo.isDone(h)
         val row = UI.row(ctx).apply {
             gravity = Gravity.TOP
-            setPadding(dp(12), dp(12), dp(14), dp(12))
+            setPadding(0, dp(10), 0, dp(10))
         }
         val box = FrameLayout(ctx).apply {
-            background = if (done) UI.rounded(ctx.getColor(R.color.accent), dp(14).toFloat())
-            else UI.rounded(0, dp(14).toFloat(), dp(2), ctx.getColor(R.color.text3))
-            if (done) addView(UI.icon(ctx, R.drawable.ic_check, R.color.on_accent, 18).apply {
-                layoutParams = FrameLayout.LayoutParams(dp(18), dp(18), Gravity.CENTER)
+            background = if (done) UI.sticker(ctx, color(R.color.accent), color(R.color.accent_edge), 9, 2)
+            else UI.rounded(0, dp(9).toFloat(), dp(3), color(R.color.box_edge))
+            if (done) addView(UI.icon(ctx, R.drawable.ic_check, R.color.on_accent, 16).apply {
+                layoutParams = FrameLayout.LayoutParams(dp(16), dp(16), Gravity.CENTER).apply { bottomMargin = dp(2) }
             })
             setOnClickListener {
                 repo.setDone(h, !done)
                 activity.render()
             }
         }
-        row.addView(box, LinearLayout.LayoutParams(ctx.dp(28), ctx.dp(28)))
+        row.addView(box, LinearLayout.LayoutParams(ctx.dp(28), ctx.dp(28)).apply { topMargin = ctx.dp(2) })
         row.addView(UI.hgap(ctx, 12))
-        val col = UI.column(ctx).apply { if (done) alpha = 0.5f }
-        val subject = UI.row(ctx)
-        subject.addView(View(ctx).apply { background = UI.rounded(UI.parseColor(h.color, ctx.getColor(R.color.accent)), dp(4).toFloat()) },
-            LinearLayout.LayoutParams(ctx.dp(8), ctx.dp(8)).apply { marginEnd = ctx.dp(6) })
-        subject.addView(UI.oneLine(UI.text(ctx, Agenda.pretty(h.subject), 13f, R.color.text2, UI.MEDIUM)), UI.weight())
-        if (h.attachments > 0) {
-            subject.addView(UI.icon(ctx, R.drawable.ic_attach, R.color.text3, 16))
-            subject.addView(UI.text(ctx, h.attachments.toString(), 12f, R.color.text3))
-        }
-        col.addView(subject, UI.matchWidth())
+        val col = UI.column(ctx).apply { if (done) alpha = 0.45f }
+        val head = UI.row(ctx)
+        head.addView(UI.subjectChip(ctx, h.subject), UI.wrap())
+        head.addView(View(ctx), UI.weight())
+        if (h.attachments > 0) head.addView(UI.icon(ctx, R.drawable.ic_attach, R.color.text3, 16))
+        col.addView(head, UI.matchWidth())
         val description = UI.text(ctx, h.description.ifEmpty { "(pas de consigne)" }, 15f).apply {
             maxLines = if (compact) 2 else if (h.id in activity.expanded) Int.MAX_VALUE else 4
             ellipsize = android.text.TextUtils.TruncateAt.END
-            setPadding(0, dp(3), 0, 0)
+            setPadding(0, dp(5), 0, 0)
         }
         if (done) description.paintFlags = description.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
         col.addView(description)
-        if (!compact) col.setOnClickListener {
-            if (!activity.expanded.remove(h.id)) activity.expanded.add(h.id)
-            activity.render()
-        } else col.setOnClickListener { activity.openTab(MainActivity.Tab.HOMEWORK) }
+        col.setOnClickListener {
+            if (compact) activity.openTab(MainActivity.Tab.HOMEWORK)
+            else {
+                if (!activity.expanded.remove(h.id)) activity.expanded.add(h.id)
+                activity.render()
+            }
+        }
         row.addView(col, UI.weight())
         return row
     }
@@ -333,44 +374,45 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val root = UI.column(ctx)
         val report = s.report
         if (report == null || (report.grades.isEmpty() && report.subjects.isEmpty())) {
-            root.addView(UI.gap(ctx, 8))
-            root.addView(emptyCard(if (s.status.lastSuccess == 0L) "Tes notes arrivent à la prochaine mise à jour." else "Pas encore de note sur cette période."), UI.matchWidth())
+            root.addView(emptyCard(R.drawable.ic_star, if (s.status.lastSuccess == 0L) "Tes notes arrivent à la prochaine mise à jour." else "Pas encore de note sur cette période."), UI.matchWidth())
             return root
         }
 
-        val overview = UI.card(ctx, R.color.accent_container, padding = 22)
-        overview.addView(UI.text(ctx, "MOYENNE GÉNÉRALE · ${report.periodName.uppercase(fr)}", 12f, R.color.on_accent_container, UI.MEDIUM).apply { letterSpacing = 0.06f; alpha = 0.8f })
+        val overview = UI.card(ctx, R.color.accent, R.color.accent_edge, padding = 18)
+        overview.addView(UI.text(ctx, "MOYENNE GÉNÉRALE", 12f, R.color.on_accent, 800).apply { alpha = 0.85f; letterSpacing = 0.04f })
         val line = UI.row(ctx).apply { gravity = Gravity.BOTTOM }
-        line.addView(UI.text(ctx, UI.number(report.overall), 48f, R.color.on_accent_container, UI.BOLD).apply { includeFontPadding = false })
-        line.addView(UI.text(ctx, " /20", 18f, R.color.on_accent_container).apply { alpha = 0.7f; setPadding(0, 0, 0, dp(6)) })
+        line.addView(UI.title(ctx, UI.number(report.overall), 52f, R.color.on_accent).apply { setPadding(0, dp(6), 0, 0) })
+        line.addView(UI.title(ctx, " /20", 18f, R.color.on_accent).apply { alpha = 0.8f; setPadding(0, 0, 0, dp(6)) })
         overview.addView(line)
-        report.classOverall?.let { overview.addView(UI.text(ctx, "Classe : ${UI.number(it)}", 14f, R.color.on_accent_container).apply { alpha = 0.8f }) }
+        report.classOverall?.let { overview.addView(UI.text(ctx, "Classe : ${UI.number(it)}", 13f, R.color.on_accent, 800).apply { alpha = 0.85f; setPadding(0, dp(6), 0, 0) }) }
         root.addView(overview, UI.matchWidth())
 
-        // Segmented switch.
         val seg = UI.row(ctx).apply {
-            background = UI.rounded(ctx.getColor(R.color.surface2), dp(16).toFloat())
+            background = UI.rounded(color(R.color.surface2), dp(16).toFloat())
             setPadding(dp(4), dp(4), dp(4), dp(4))
         }
         for ((label, mode) in listOf("Dernières notes" to false, "Par matière" to true)) {
-            seg.addView(UI.text(ctx, label, 14f, if (mode == bySubject) R.color.text else R.color.text2, UI.MEDIUM).apply {
+            val on = mode == bySubject
+            seg.addView(UI.text(ctx, label, 14f, if (on) R.color.text else R.color.text2, 800).apply {
                 gravity = Gravity.CENTER
-                setPadding(0, dp(9), 0, dp(9))
-                if (mode == bySubject) background = UI.rounded(ctx.getColor(R.color.surface), dp(12).toFloat())
+                if (on) {
+                    background = UI.sticker(ctx, color(R.color.surface), color(R.color.edge), 12, 2)
+                    setPadding(0, dp(8), 0, dp(10))
+                } else setPadding(0, dp(8), 0, dp(8))
                 setOnClickListener { onMode(mode) }
             }, UI.weight())
         }
         root.addView(seg, UI.matchWidth().apply { topMargin = ctx.dp(16); bottomMargin = ctx.dp(12) })
 
-        val card = UI.card(ctx, padding = 6)
+        val card = UI.card(ctx, padding = 14)
         if (!bySubject) {
             report.grades.forEachIndexed { i, g ->
-                if (i > 0) card.addView(divider())
+                if (i > 0) card.addView(UI.divider(ctx))
                 card.addView(gradeRow(g, g.id in s.unseenGrades), UI.matchWidth())
             }
         } else {
             report.subjects.forEachIndexed { i, sub ->
-                if (i > 0) card.addView(divider())
+                if (i > 0) card.addView(UI.divider(ctx))
                 card.addView(subjectRow(sub), UI.matchWidth())
             }
         }
@@ -379,79 +421,80 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
     }
 
     private fun gradeRow(g: Grade, isNew: Boolean): View {
-        val row = UI.row(ctx).apply { setPadding(dp(14), dp(12), dp(14), dp(12)) }
+        val row = UI.row(ctx).apply { setPadding(0, dp(10), 0, dp(10)) }
+        row.addView(UI.subjectTile(ctx, g.subject))
+        row.addView(UI.hgap(ctx, 12))
         val col = UI.column(ctx)
         val top = UI.row(ctx)
-        top.addView(UI.oneLine(UI.text(ctx, Agenda.pretty(g.subject), 15f, weight = UI.MEDIUM)), UI.weight())
-        if (isNew) top.addView(UI.text(ctx, "Nouveau", 11f, R.color.on_accent, UI.MEDIUM).apply {
-            background = UI.rounded(ctx.getColor(R.color.accent), dp(8).toFloat())
-            setPadding(dp(7), dp(2), dp(7), dp(2))
-        })
+        top.addView(UI.oneLine(UI.title(ctx, Agenda.pretty(g.subject), 16f)), LinearLayout.LayoutParams(0, -2, 1f))
+        if (isNew) top.addView(UI.chip(ctx, "NOUVEAU", 0xFFFF6B5B.toInt(), Color.WHITE, 9f), UI.wrap().apply { marginStart = ctx.dp(6) })
         col.addView(top, UI.matchWidth())
         val details = buildList {
             add("${g.date.dayOfMonth} ${g.date.month.getDisplayName(TextStyle.SHORT, fr)}")
             g.classAverage?.let { add("classe ${UI.number(it)}") }
             g.coefficient?.takeIf { it != 1.0 }?.let { add("coef ${UI.number(it)}") }
         }.joinToString(" · ")
-        col.addView(UI.oneLine(UI.text(ctx, details, 13f, R.color.text2)))
-        g.comment?.let { col.addView(UI.oneLine(UI.text(ctx, "« $it »", 13f, R.color.text3))) }
+        col.addView(UI.oneLine(UI.text(ctx, details, 12f, R.color.text2)).apply { setPadding(0, dp(3), 0, 0) })
+        g.comment?.let { col.addView(UI.oneLine(UI.text(ctx, "« $it »", 12f, R.color.text3))) }
         row.addView(col, UI.weight())
-        row.addView(UI.hgap(ctx, 12))
+        row.addView(UI.hgap(ctx, 10))
+        row.addView(gradeValue(g))
+        return row
+    }
 
-        // Above the class average reads green, the rest stays neutral: no red for a grade.
+    /** Green sticker above the class average; neutral otherwise. Never red for a grade. */
+    private fun gradeValue(g: Grade): View {
         val on20 = if (g.points != null && g.outOf != null && g.outOf > 0) g.points / g.outOf * 20 else null
         val class20 = if (g.classAverage != null && g.outOf != null && g.outOf > 0) g.classAverage / g.outOf * 20 else null
         val good = on20 != null && class20 != null && on20 >= class20
         val value = UI.row(ctx).apply {
             gravity = Gravity.BOTTOM
-            background = UI.rounded(ctx.getColor(if (good) R.color.success_bg else R.color.surface2), dp(14).toFloat())
-            setPadding(dp(12), dp(6), dp(12), dp(6))
+            background = if (good) UI.sticker(ctx, color(R.color.success_bg), color(R.color.success_edge), 12, 2)
+            else UI.sticker(ctx, color(R.color.surface2), color(R.color.edge), 12, 2)
+            setPadding(dp(10), dp(3), dp(10), dp(5))
         }
-        value.addView(UI.text(ctx, g.value.replace('.', ','), 20f, if (good) R.color.success else R.color.text, UI.BOLD))
-        if (g.points != null && g.outOf != null) value.addView(UI.text(ctx, "/${UI.number(g.outOf)}", 12f, R.color.text2).apply { setPadding(0, 0, 0, dp(3)) })
-        row.addView(value)
-        return row
+        value.addView(UI.title(ctx, g.value.replace('.', ','), 19f, if (good) R.color.success else R.color.text))
+        if (g.points != null && g.outOf != null) value.addView(UI.text(ctx, "/${UI.number(g.outOf)}", 11f, if (good) R.color.success else R.color.text2).apply { alpha = 0.75f; setPadding(0, 0, 0, dp(1)) })
+        return value
     }
 
-    private fun subjectRow(sub: fr.sallio.pronote.SubjectAverage): View {
-        val row = UI.column(ctx).apply { setPadding(dp(14), dp(12), dp(14), dp(12)) }
+    private fun subjectRow(sub: SubjectAverage): View {
+        val family = Subjects.style(sub.subject).family
+        val row = UI.row(ctx).apply { setPadding(0, dp(10), 0, dp(10)) }
+        row.addView(UI.subjectTile(ctx, sub.subject))
+        row.addView(UI.hgap(ctx, 12))
+        val col = UI.column(ctx)
         val top = UI.row(ctx)
-        top.addView(UI.oneLine(UI.text(ctx, Agenda.pretty(sub.subject), 15f, weight = UI.MEDIUM)), UI.weight())
-        top.addView(UI.text(ctx, UI.number(sub.student), 18f, weight = UI.BOLD))
-        row.addView(top, UI.matchWidth())
-        // Bar: the student's average over 20, with the class average as a tick.
-        val track = FrameLayout(ctx).apply { background = UI.rounded(ctx.getColor(R.color.surface2), dp(4).toFloat()) }
+        top.addView(UI.oneLine(UI.title(ctx, Agenda.pretty(sub.subject), 16f)), UI.weight())
+        top.addView(UI.title(ctx, UI.number(sub.student), 19f))
+        col.addView(top, UI.matchWidth())
+        // The student's average out of 20, in the subject's colour.
+        val track = FrameLayout(ctx).apply { background = UI.rounded(color(R.color.surface2), dp(5).toFloat()) }
         val fraction = ((sub.student ?: 0.0) / 20.0).coerceIn(0.0, 1.0)
-        val fill = View(ctx).apply { background = UI.rounded(UI.parseColor(sub.color, ctx.getColor(R.color.accent)), dp(4).toFloat()) }
-        track.addView(fill, FrameLayout.LayoutParams(0, ctx.dp(8)))
-        track.post { fill.layoutParams = FrameLayout.LayoutParams((track.width * fraction).toInt(), ctx.dp(8)); fill.requestLayout() }
-        row.addView(track, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ctx.dp(8)).apply { topMargin = ctx.dp(8) })
-        sub.classAverage?.let { row.addView(UI.text(ctx, "Classe : ${UI.number(it)}", 12f, R.color.text3).apply { setPadding(0, dp(4), 0, 0) }) }
+        val fill = View(ctx).apply { background = UI.rounded(Subjects.solid(family), dp(5).toFloat()) }
+        track.addView(fill, FrameLayout.LayoutParams(0, ctx.dp(10)))
+        track.post { fill.layoutParams = FrameLayout.LayoutParams((track.width * fraction).toInt(), ctx.dp(10)); fill.requestLayout() }
+        col.addView(track, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ctx.dp(10)).apply { topMargin = ctx.dp(6) })
+        sub.classAverage?.let { col.addView(UI.text(ctx, "Classe : ${UI.number(it)}", 12f, R.color.text2).apply { setPadding(0, dp(4), 0, 0) }) }
+        row.addView(col, UI.weight())
         return row
     }
 
     // ---- Shared ------------------------------------------------------------------
 
-    private fun divider() = View(ctx).apply {
-        setBackgroundColor(ctx.getColor(R.color.line))
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply {
-            marginStart = ctx.dp(14); marginEnd = ctx.dp(14)
-        }
-    }
-
-    private fun emptyCard(text: String) = UI.card(ctx).apply {
-        gravity = Gravity.CENTER
-        addView(UI.text(ctx, text, 15f, R.color.text2).apply { gravity = Gravity.CENTER }, UI.matchWidth())
+    private fun emptyCard(icon: Int, text: String) = UI.card(ctx, padding = 18).apply {
+        gravity = Gravity.CENTER_HORIZONTAL
+        addView(UI.icon(ctx, icon, R.color.accent, 28))
+        addView(UI.text(ctx, text, 15f, R.color.text2, 800).apply { gravity = Gravity.CENTER; setPadding(0, dp(8), 0, 0) }, UI.matchWidth())
     }
 
     private fun sectionWithLink(title: String, link: String, onClick: () -> Unit): View {
-        val row = UI.row(ctx)
-        row.addView(UI.title(ctx, title), UI.weight())
-        row.addView(UI.text(ctx, link, 13f, R.color.accent, UI.MEDIUM).apply {
-            setPadding(dp(8), dp(22), dp(4), dp(8))
+        val row = UI.row(ctx).apply { gravity = Gravity.BOTTOM }
+        row.addView(UI.section(ctx, title), UI.weight())
+        row.addView(UI.text(ctx, link, 13f, R.color.accent, 800).apply {
+            setPadding(dp(8), dp(22), dp(4), dp(12))
             setOnClickListener { onClick() }
         })
         return row
     }
-
 }

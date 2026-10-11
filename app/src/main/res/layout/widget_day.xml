@@ -47,7 +47,8 @@
             android:layout_height="40dp"
             android:contentDescription="Actualiser"
             android:padding="9dp"
-            android:src="@drawable/ic_refresh" />
+            android:src="@drawable/ic_refresh"
+            android:tint="@color/text2" />
     </LinearLayout>
 
     <LinearLayout

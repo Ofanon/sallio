@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Android 12+: follow the wallpaper colours (Material You). -->
-    <color name="accent">@android:color/system_accent1_600</color>
-    <color name="bg">@android:color/system_neutral1_50</color>
-    <color name="surface2">@android:color/system_neutral2_100</color>
-    <color name="accent_container">@android:color/system_accent1_100</color>
-    <color name="on_accent_container">@android:color/system_accent1_900</color>
-</resources>
