@@ -1,4 +1,4 @@
-package fr.masalle.pronote
+package fr.sallio.pronote
 
 import org.json.JSONArray
 import org.json.JSONObject

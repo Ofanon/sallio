@@ -13,11 +13,11 @@ val signing = Properties().apply {
 }
 
 android {
-    namespace = "fr.masalle.app"
+    namespace = "fr.sallio.app"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "fr.masalle.app"
+        applicationId = "fr.sallio.app"
         minSdk = 26
         targetSdk = 36
         // Bump both for every GitHub release: the in-app updater compares versionCode.

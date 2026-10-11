@@ -1,4 +1,4 @@
-package fr.masalle.app
+package fr.sallio.app
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
@@ -72,7 +72,7 @@ class Vault(context: Context) {
     }
 
     private companion object {
-        const val ALIAS = "ma-salle-vault"
+        const val ALIAS = "sallio-vault"
         const val TRANSFORMATION = "AES/GCM/NoPadding"
     }
 }

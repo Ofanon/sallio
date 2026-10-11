@@ -1,6 +1,6 @@
 # Confidentialité
 
-Ma Salle n'a **aucun serveur**. Personne d'autre que l'élève et son
+Sallio n'a **aucun serveur**. Personne d'autre que l'élève et son
 établissement n'a jamais accès à ses données.
 
 ## Ce que l'app enregistre, et où

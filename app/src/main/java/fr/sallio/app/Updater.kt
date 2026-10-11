@@ -1,4 +1,4 @@
-package fr.masalle.app
+package fr.sallio.app
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -18,16 +18,16 @@ import java.security.MessageDigest
 /**
  * Updates from the project's GitHub releases, without any store.
  *
- * A release carries one asset named `ma-salle-<versionCode>.apk`. The app
+ * A release carries one asset named `sallio-<versionCode>.apk`. The app
  * only installs it if Android confirms it is the same app, newer, and signed
  * with the same key as the one installed: a tampered or foreign APK is
  * rejected before the student is even asked.
  */
 object Updater {
 
-    const val REPO = "Ofanon/ma-salle"
+    const val REPO = "Ofanon/sallio"
     private const val CHECK_EVERY_MS = 6 * 3600_000L
-    private val ASSET = Regex("""^ma-salle-(\d+)\.apk$""")
+    private val ASSET = Regex("""^sallio-(\d+)\.apk$""")
 
     class Update(val versionName: String, val versionCode: Int, val notes: String, val url: String, val size: Long)
 
@@ -95,7 +95,7 @@ object Updater {
     fun downloadAndInstall(context: Context, update: Update, progress: (Int) -> Unit) {
         val dir = File(context.cacheDir, "updates").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
-        val apk = File(dir, "ma-salle.apk")
+        val apk = File(dir, "sallio.apk")
         download(update.url, apk, update.size, progress)
         verify(context, apk, update.versionCode)
         install(context, apk)
@@ -106,7 +106,7 @@ object Updater {
         val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else @Suppress("DEPRECATION") PackageManager.GET_SIGNATURES
         val archive = pm.getPackageArchiveInfo(apk.path, flags) ?: throw IOException("Fichier de mise à jour illisible")
         val installed = pm.getPackageInfo(context.packageName, flags)
-        if (archive.packageName != context.packageName) throw IOException("Ce n'est pas Ma Salle")
+        if (archive.packageName != context.packageName) throw IOException("Ce n'est pas Sallio")
         @Suppress("DEPRECATION")
         val archiveCode = if (Build.VERSION.SDK_INT >= 28) archive.longVersionCode else archive.versionCode.toLong()
         if (archiveCode != expectedCode.toLong()) throw IOException("Version inattendue")
@@ -132,7 +132,7 @@ object Updater {
             .apply { setAppPackageName(context.packageName) }
         val id = installer.createSession(params)
         installer.openSession(id).use { session ->
-            session.openWrite("ma-salle.apk", 0, apk.length()).use { out ->
+            session.openWrite("sallio.apk", 0, apk.length()).use { out ->
                 apk.inputStream().use { it.copyTo(out) }
                 session.fsync(out)
             }
@@ -151,7 +151,7 @@ object Updater {
             c.connectTimeout = 10_000
             c.readTimeout = 15_000
             c.setRequestProperty("Accept", "application/vnd.github+json")
-            c.setRequestProperty("User-Agent", "ma-salle")
+            c.setRequestProperty("User-Agent", "sallio")
             if (c.responseCode != 200) throw IOException("GitHub ${c.responseCode}")
             return c.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
         } finally {
@@ -166,7 +166,7 @@ object Updater {
             c.instanceFollowRedirects = true
             c.connectTimeout = 15_000
             c.readTimeout = 30_000
-            c.setRequestProperty("User-Agent", "ma-salle")
+            c.setRequestProperty("User-Agent", "sallio")
             if (c.responseCode != 200 || c.url.protocol != "https") throw IOException("Téléchargement refusé (${c.responseCode})")
             val total = c.contentLengthLong.takeIf { it > 0 } ?: expectedSize
             c.inputStream.use { input ->

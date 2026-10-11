@@ -1,7 +1,7 @@
-package fr.masalle.app
+package fr.sallio.app
 
-import fr.masalle.pronote.Lesson
-import fr.masalle.pronote.Schools
+import fr.sallio.pronote.Lesson
+import fr.sallio.pronote.Schools
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

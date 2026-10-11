@@ -1,4 +1,4 @@
-package fr.masalle.pronote
+package fr.sallio.pronote
 
 import java.io.IOException
 import java.net.HttpURLConnection

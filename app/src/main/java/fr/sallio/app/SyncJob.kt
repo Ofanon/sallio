@@ -1,4 +1,4 @@
-package fr.masalle.app
+package fr.sallio.app
 
 import android.app.job.JobInfo
 import android.app.job.JobParameters

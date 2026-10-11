@@ -1,6 +1,6 @@
-package fr.masalle.pronote
+package fr.sallio.pronote
 
-import fr.masalle.pronote.Pronote.objects
+import fr.sallio.pronote.Pronote.objects
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate

@@ -1,4 +1,4 @@
-package fr.masalle.app
+package fr.sallio.app
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -21,12 +21,12 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import fr.masalle.pronote.Credentials
-import fr.masalle.pronote.LoggedIn
-import fr.masalle.pronote.Pronote
-import fr.masalle.pronote.PronoteException
-import fr.masalle.pronote.SecurityChallenge
-import fr.masalle.pronote.UrlConnectionHttp
+import fr.sallio.pronote.Credentials
+import fr.sallio.pronote.LoggedIn
+import fr.sallio.pronote.Pronote
+import fr.sallio.pronote.PronoteException
+import fr.sallio.pronote.SecurityChallenge
+import fr.sallio.pronote.UrlConnectionHttp
 import org.json.JSONObject
 import org.json.JSONTokener
 import java.net.URI
@@ -163,7 +163,7 @@ class LoginActivity : Activity() {
             }
             document.cookie = "ielang=1036; expires=" + year;
           } catch (e) {}
-          window.location.assign("$base/mobile.${fr.masalle.pronote.AccountKinds.path(6)}.html?fd=1");
+          window.location.assign("$base/mobile.${fr.sallio.pronote.AccountKinds.path(6)}.html?fd=1");
         })();
     """.trimIndent()
 
@@ -258,7 +258,7 @@ class LoginActivity : Activity() {
 
     private fun solve(challenge: SecurityChallenge, pin: String?) {
         showOverlay("Enregistrement de ce téléphone auprès de Pronote…")
-        val name = ("Ma Salle " + Build.MODEL).take(30)
+        val name = ("Sallio " + Build.MODEL).take(30)
         worker.execute {
             try {
                 complete(Pronote.solveSecurity(challenge, name, pin))

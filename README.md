@@ -1,7 +1,7 @@
-# Ma Salle
+# Sallio
 
 À la fin d'une récré, tout le lycée ouvre Pronote en même temps pour savoir
-dans quelle salle aller, et Pronote ne charge plus. Ma Salle met la réponse
+dans quelle salle aller, et Pronote ne charge plus. Sallio met la réponse
 sur l'écran d'accueil **avant** la sonnerie : la salle du prochain cours, les
 profs absents, les cours annulés, sans rien demander aux serveurs à ce
 moment-là.
@@ -25,7 +25,7 @@ Pronote n'a pas d'API publique, et les ENT (monlycee.net, etc.) bloquent les
 connexions automatiques : monlycee.net renvoie `403 X-Blocked` à tout ce qui
 n'est pas un navigateur.
 
-Ma Salle fait comme l'application officielle Pronote :
+Sallio fait comme l'application officielle Pronote :
 
 1. elle ouvre la vraie page de connexion de l'établissement dans une WebView
    (un vrai navigateur, que les ENT ne distinguent pas de Chrome) ;
@@ -90,18 +90,18 @@ le compte de démonstration, pratique pour essayer les widgets.
 ## Publier une mise à jour
 
 L'app vérifie au plus toutes les 6 heures, à l'ouverture, la dernière release
-GitHub de `Ofanon/ma-salle`. Si son APK (`ma-salle-<versionCode>.apk`) est plus
+GitHub de `Ofanon/sallio`. Si son APK (`sallio-<versionCode>.apk`) est plus
 récent, elle propose « Mettre à jour » ; Android demande confirmation à
-l'élève. Avant de l'installer, l'app vérifie que l'APK est bien Ma Salle, du
+l'élève. Avant de l'installer, l'app vérifie que l'APK est bien Sallio, du
 bon numéro de version, et signé avec la même clé.
 
 1. Augmenter `versionCode` **et** `versionName` dans `app/build.gradle.kts`, commiter.
 2. `./release.sh "Ce qui change, pour les élèves."`
 
 Le script refuse de publier s'il reste des changements non commités, si la
-version existe déjà ou si l'APK n'est pas signé avec la clé Ma Salle.
+version existe déjà ou si l'APK n'est pas signé avec la clé Sallio.
 
-**La clé `ma-salle-release.jks` et `keystore.properties` n'existent que sur ce
+**La clé `sallio-release.jks` et `keystore.properties` n'existent que sur ce
 PC** (exclus de git). Clé perdue : plus aucune mise à jour possible, il faudrait
 que chacun désinstalle et réinstalle. Clé volée : quelqu'un pourrait publier
 une fausse mise à jour. À sauvegarder hors ligne (clé USB), jamais en ligne.

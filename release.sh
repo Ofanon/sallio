@@ -24,13 +24,13 @@ fi
 apk=app/build/outputs/apk/release/app-release.apk
 apksigner=$(ls -d "$(sed -n 's/^sdk.dir=//p' local.properties)"/build-tools/*/ | sort -V | tail -1)apksigner.bat
 # The updater refuses any APK not signed with the installed key: check before shipping.
-"$apksigner" verify --print-certs "$apk" | grep -q "CN=Ma Salle" || { echo "APK mal signé." >&2; exit 1; }
+"$apksigner" verify --print-certs "$apk" | grep -q "CN=Sallio" || { echo "APK mal signé." >&2; exit 1; }
 
 mkdir -p dist
-out="dist/ma-salle-$code.apk"
+out="dist/sallio-$code.apk"
 cp "$apk" "$out"
 sha256sum "$out"
 
 git push origin HEAD
-"$gh" release create "v$name" "$out" --title "Ma Salle $name" --notes "$notes"
+"$gh" release create "v$name" "$out" --title "Sallio $name" --notes "$notes"
 echo "Publié : v$name (versionCode $code)"

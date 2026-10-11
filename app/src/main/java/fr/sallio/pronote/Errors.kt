@@ -1,4 +1,4 @@
-package fr.masalle.pronote
+package fr.sallio.pronote
 
 /** Every failure the app knows how to explain to a student. */
 sealed class PronoteException(message: String) : Exception(message) {

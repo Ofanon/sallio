@@ -1,4 +1,4 @@
-package fr.masalle.app
+package fr.sallio.app
 
 import android.Manifest
 import android.app.Activity
@@ -21,10 +21,10 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
-import fr.masalle.pronote.Lesson
-import fr.masalle.pronote.PronoteException
-import fr.masalle.pronote.Schools
-import fr.masalle.pronote.UrlConnectionHttp
+import fr.sallio.pronote.Lesson
+import fr.sallio.pronote.PronoteException
+import fr.sallio.pronote.Schools
+import fr.sallio.pronote.UrlConnectionHttp
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.concurrent.Executors
@@ -100,7 +100,7 @@ class MainActivity : Activity() {
         if (!Updater.canInstall(this)) {
             AlertDialog.Builder(this)
                 .setTitle("Une autorisation, une seule fois")
-                .setMessage("Android doit autoriser Ma Salle à installer ses propres mises à jour. Active « Autoriser cette source », puis reviens ici.")
+                .setMessage("Android doit autoriser Sallio à installer ses propres mises à jour. Active « Autoriser cette source », puis reviens ici.")
                 .setPositiveButton("Ouvrir les réglages") { _, _ -> startActivity(Updater.unknownSourcesSettings(this)) }
                 .setNegativeButton("Annuler", null)
                 .show()
@@ -134,7 +134,7 @@ class MainActivity : Activity() {
     // ---- Setup ----------------------------------------------------------------
 
     private fun renderSetup() {
-        content.addView(UI.text(this, "Ma Salle", 32f, bold = true))
+        content.addView(UI.text(this, "Sallio", 32f, bold = true))
         content.addView(UI.gap(this, 6))
         content.addView(
             UI.text(
@@ -182,7 +182,7 @@ class MainActivity : Activity() {
         val card = UI.card(this)
         card.addView(UI.text(this, "Tes données restent chez toi", 17f, bold = true))
         for (line in listOf(
-            "Ma Salle n'a aucun serveur : ton téléphone parle directement à Pronote.",
+            "Sallio n'a aucun serveur : ton téléphone parle directement à Pronote.",
             "Tu te connectes sur la vraie page de ton ENT. L'app ne voit jamais ton mot de passe, seulement le jeton que Pronote donne à ce téléphone.",
             "Le jeton et ton emploi du temps sont chiffrés sur le téléphone et exclus des sauvegardes.",
             "Aucune pub, aucun traqueur, aucune statistique.",
@@ -243,7 +243,7 @@ class MainActivity : Activity() {
         showLoading("Chargement de la démo…")
         worker.execute {
             val result = runCatching {
-                val logged = fr.masalle.pronote.Pronote.loginCredentials(
+                val logged = fr.sallio.pronote.Pronote.loginCredentials(
                     UrlConnectionHttp(), "https://demo.index-education.net/pronote",
                     "demonstration", "pronotevs", java.util.UUID.randomUUID().toString(),
                 )

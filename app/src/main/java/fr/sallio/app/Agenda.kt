@@ -1,6 +1,6 @@
-package fr.masalle.app
+package fr.sallio.app
 
-import fr.masalle.pronote.Lesson
+import fr.sallio.pronote.Lesson
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime

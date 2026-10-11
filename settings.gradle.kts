@@ -12,5 +12,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ma-salle"
+rootProject.name = "sallio"
 include(":app")

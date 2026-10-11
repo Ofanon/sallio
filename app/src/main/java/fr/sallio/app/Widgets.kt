@@ -1,4 +1,4 @@
-package fr.masalle.app
+package fr.sallio.app
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -11,7 +11,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.view.View
 import android.widget.RemoteViews
-import fr.masalle.pronote.Lesson
+import fr.sallio.pronote.Lesson
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -36,8 +36,8 @@ class WidgetEvents : BroadcastReceiver() {
 }
 
 object Widgets {
-    const val ACTION_TICK = "fr.masalle.app.TICK"
-    const val ACTION_REFRESH = "fr.masalle.app.REFRESH"
+    const val ACTION_TICK = "fr.sallio.app.TICK"
+    const val ACTION_REFRESH = "fr.sallio.app.REFRESH"
     private const val MAX_ROWS = 9
 
     fun refreshAll(context: Context) {
@@ -95,7 +95,7 @@ object Widgets {
         val focus = view.focus
         when {
             !loggedIn -> {
-                rv.setTextViewText(R.id.label, "MA SALLE")
+                rv.setTextViewText(R.id.label, "SALLIO")
                 rv.setTextViewText(R.id.room, "Connexion")
                 rv.setTextViewText(R.id.subject, "Touche ici pour relier ton compte Pronote")
                 rv.setTextViewText(R.id.footer, "")

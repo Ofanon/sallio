@@ -1,13 +1,13 @@
-package fr.masalle.app
+package fr.sallio.app
 
 import android.content.Context
-import fr.masalle.pronote.Credentials
-import fr.masalle.pronote.Lesson
-import fr.masalle.pronote.LoggedIn
-import fr.masalle.pronote.Pronote
-import fr.masalle.pronote.PronoteException
-import fr.masalle.pronote.Timetable
-import fr.masalle.pronote.UrlConnectionHttp
+import fr.sallio.pronote.Credentials
+import fr.sallio.pronote.Lesson
+import fr.sallio.pronote.LoggedIn
+import fr.sallio.pronote.Pronote
+import fr.sallio.pronote.PronoteException
+import fr.sallio.pronote.Timetable
+import fr.sallio.pronote.UrlConnectionHttp
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
