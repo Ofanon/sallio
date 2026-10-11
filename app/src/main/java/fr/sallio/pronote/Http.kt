@@ -8,6 +8,9 @@ import java.net.URL
 interface Http {
     fun get(url: String, cookies: List<String> = emptyList()): String
     fun post(url: String, body: String, contentType: String = "application/json"): String
+
+    /** Raw bytes of an image or a file, null when the server answers anything else. */
+    fun bytes(url: String, maxBytes: Int): ByteArray?
 }
 
 /**
@@ -59,6 +62,33 @@ class UrlConnectionHttp(
         connection.setFixedLengthStreamingMode(bytes.size)
         connection.outputStream.use { it.write(bytes) }
         read(connection)
+    }
+
+    override fun bytes(url: String, maxBytes: Int): ByteArray? = try {
+        val connection = open(url)
+        try {
+            if (connection.responseCode != 200) null
+            else if (connection.contentType?.startsWith("image/") != true) null
+            else connection.inputStream.use { input ->
+                val data = input.readNBytesCompat(maxBytes + 1)
+                if (data.size > maxBytes) null else data
+            }
+        } finally {
+            connection.disconnect()
+        }
+    } catch (e: IOException) {
+        null
+    }
+
+    private fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(16 * 1024)
+        while (out.size() < limit) {
+            val n = read(buffer, 0, minOf(buffer.size, limit - out.size()))
+            if (n < 0) break
+            out.write(buffer, 0, n)
+        }
+        return out.toByteArray()
     }
 
     private inline fun wrap(block: () -> String): String =

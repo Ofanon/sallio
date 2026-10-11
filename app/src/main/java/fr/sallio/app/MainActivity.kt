@@ -154,7 +154,7 @@ class MainActivity : Activity() {
             Tab.HOME -> tabs.home(s)
             Tab.TIMETABLE -> tabs.timetable(s, selectedDay) { selectedDay = it; entering = Enter.TAB; render() }
             Tab.HOMEWORK -> tabs.homework(s)
-            Tab.GRADES -> tabs.grades(s, gradesBySubject) { gradesBySubject = it; entering = Enter.TAB; render() }
+            Tab.GRADES -> tabs.grades(s, gradesBySubject) { gradesBySubject = it; render() }
         }
         content.addView(body, UI.matchWidth())
         when (entering) {
@@ -247,9 +247,21 @@ class MainActivity : Activity() {
         spinner = if (syncing) Motion.spin(refresh) else null
         row.addView(UI.squareButton(this, R.color.surface, R.color.edge, refresh) { refresh(manual = true) })
         row.addView(UI.hgap(this, 8))
-        val letter = UI.title(this, first.take(1).uppercase().ifEmpty { "?" }, 19f, R.color.on_sun)
-        row.addView(UI.squareButton(this, R.color.sun, R.color.sun_edge, letter) { settingsSheet(s) })
+        row.addView(UI.squareButton(this, R.color.sun, R.color.sun_edge, avatar(first, 40, 19f)) { settingsSheet(s) })
         return row
+    }
+
+    /** The PRONOTE photo, rounded inside the sticker; the initial when there is none. */
+    private fun avatar(first: String, sizeDp: Int, letterSize: Float): View {
+        val photo = repo.photo() ?: return UI.title(this, first.take(1).uppercase().ifEmpty { "?" }, letterSize, R.color.on_sun)
+        return android.widget.ImageView(this).apply {
+            setImageBitmap(photo)
+            scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+            background = UI.rounded(getColor(R.color.sun), dp(sizeDp * 12 / 40).toFloat())
+            clipToOutline = true
+            layoutParams = FrameLayout.LayoutParams(dp(sizeDp), dp(sizeDp), Gravity.CENTER)
+            contentDescription = "Photo de profil"
+        }
     }
 
     private fun bottomNav(s: Snapshot): View {
@@ -313,7 +325,7 @@ class MainActivity : Activity() {
 
         val who = UI.row(this)
         val first = firstName(s.account.studentName)
-        who.addView(UI.squareButton(this, R.color.sun, R.color.sun_edge, UI.title(this, first.take(1).uppercase().ifEmpty { "?" }, 22f, R.color.on_sun)) {}.apply {
+        who.addView(UI.squareButton(this, R.color.sun, R.color.sun_edge, avatar(first, 50, 22f)) {}.apply {
             layoutParams = LinearLayout.LayoutParams(dp(56), dp(59))
             isClickable = false
         })

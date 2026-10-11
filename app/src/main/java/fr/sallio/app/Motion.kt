@@ -56,22 +56,25 @@ internal object Motion {
         return VibrationEffect.createPredefined(fallback)
     }
 
+    // The system scales touch vibrations with the "touch feedback" intensity
+    // (x0.51 when it is set to low), so only full-strength clicks stay noticeable.
+
     /** Switching tab or day. */
     fun tick(view: View) = vibrate(view) {
-        primitives(view, VibrationEffect.Composition.PRIMITIVE_TICK to 1f, fallback = VibrationEffect.EFFECT_TICK)
+        primitives(view, VibrationEffect.Composition.PRIMITIVE_CLICK to 0.9f, fallback = VibrationEffect.EFFECT_CLICK)
     }
 
     /** Pressing a button. */
     fun tap(view: View) = vibrate(view) {
-        primitives(view, VibrationEffect.Composition.PRIMITIVE_CLICK to 0.8f, fallback = VibrationEffect.EFFECT_CLICK)
+        primitives(view, VibrationEffect.Composition.PRIMITIVE_CLICK to 1f, fallback = VibrationEffect.EFFECT_HEAVY_CLICK)
     }
 
     /** Something done: homework ticked, refresh succeeded. */
     fun success(view: View) = vibrate(view) {
         primitives(
             view,
-            VibrationEffect.Composition.PRIMITIVE_CLICK to 0.7f,
             VibrationEffect.Composition.PRIMITIVE_CLICK to 1f,
+            VibrationEffect.Composition.PRIMITIVE_QUICK_RISE to 1f,
             fallback = VibrationEffect.EFFECT_DOUBLE_CLICK,
         )
     }
@@ -93,7 +96,7 @@ internal object Motion {
      * down, then springs back. Click listeners still fire as usual.
      */
     @SuppressLint("ClickableViewAccessibility")
-    fun pressable(view: View, depthDp: Int = 4) {
+    fun pressable(view: View, depthDp: Int = 4, haptic: Boolean = true) {
         val depth = view.dp(depthDp).toFloat()
         view.setOnTouchListener { v, event ->
             val shadow = (v.background as? LayerDrawable)?.takeIf { it.numberOfLayers == 2 }?.getDrawable(0)
@@ -105,7 +108,7 @@ internal object Motion {
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     // Vibrate on release only: a scroll that starts on a card cancels instead.
-                    if (event.actionMasked == MotionEvent.ACTION_UP) tap(v)
+                    if (haptic && event.actionMasked == MotionEvent.ACTION_UP) tap(v)
                     shadow?.alpha = 255
                     if (enabled()) v.animate().translationY(0f).setDuration(220).setInterpolator(OvershootInterpolator(3f)).start()
                     else v.translationY = 0f

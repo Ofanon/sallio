@@ -253,7 +253,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             else UI.sticker(ctx, color(R.color.surface), color(R.color.edge), 16, 4, true)
             setPadding(0, dp(8), 0, dp(7 + 4))
             setOnClickListener { Motion.tick(this); onSelect(d) }
-            Motion.pressable(this)
+            Motion.pressable(this, haptic = false)
             if (selected && activity.entering != MainActivity.Enter.NONE) post { Motion.pop(this, 0.9f) }
         }
         chip.addView(UI.text(ctx, d.dayOfWeek.getDisplayName(TextStyle.SHORT, fr).trimEnd('.').uppercase(fr), 11f, if (selected) R.color.on_accent else R.color.text2, 800).apply { gravity = Gravity.CENTER }, UI.matchWidth())
@@ -441,7 +441,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val row = UI.row(ctx).apply {
             setPadding(0, dp(10), 0, dp(10))
             foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, dp(14).toFloat()))
-            setOnClickListener { activity.showGrade(g) }
+            setOnClickListener { Motion.tap(this); activity.showGrade(g) }
         }
         row.addView(UI.subjectTile(ctx, g.subject))
         row.addView(UI.hgap(ctx, 12))

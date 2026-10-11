@@ -37,7 +37,28 @@ class LoggedIn internal constructor(
     val studentName: String,
     val schoolName: String,
     val className: String?,
-)
+    internal val hasPhoto: Boolean = false,
+    internal val resourceId: String? = null,
+) {
+    /**
+     * The student's PRONOTE photo, the same file the official app shows. The
+     * URL is an entity encrypted with this session's key, so it only works
+     * while the session is alive. Null when the school publishes no photo.
+     */
+    fun photo(): ByteArray? {
+        if (!hasPhoto || resourceId == null) return null
+        val entity = "{\"N\":${JSONObject.quote(resourceId)},\"Actif\":true}".toByteArray(Charsets.UTF_8)
+        // Pawnote encrypts the entity once; pronotepy pads it by hand before its
+        // own padding. Both are tried, Pawnote's first.
+        val padLength = 16 - entity.size % 16
+        for (clear in listOf(entity, entity + ByteArray(padLength) { padLength.toByte() })) {
+            val encrypted = Crypto.hex(Crypto.aesEncrypt(clear, session.aesKey, session.aesIv))
+            session.http.bytes("${session.base}/FichiersExternes/$encrypted/photo.jpg?Session=${session.id}", 2_000_000)
+                ?.let { return it }
+        }
+        return null
+    }
+}
 
 /**
  * What PRONOTE asks when the account has "double authentification" on.
@@ -344,6 +365,8 @@ object Pronote {
             studentName = resource.optString("L"),
             schoolName = resource.optJSONObject("Etablissement")?.optJSONObject("V")?.optString("L").orEmpty(),
             className = resource.optJSONObject("classeDEleve")?.optString("L")?.ifEmpty { null },
+            hasPhoto = resource.optBoolean("avecPhoto"),
+            resourceId = resource.optString("N").ifEmpty { null },
         )
     }
 

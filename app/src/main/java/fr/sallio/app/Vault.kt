@@ -64,6 +64,11 @@ class Vault(context: Context) {
     }
 
     @Synchronized
+    fun delete(name: String) {
+        File(dir, name).delete()
+    }
+
+    @Synchronized
     fun wipe() {
         dir.listFiles()?.forEach { it.delete() }
         runCatching {

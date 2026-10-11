@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Creme, dark. A neutral interface (cream and ink): the subjects bring the colour.
+<!-- Creme, dark. Cream and ink, with blue as the one dominant colour; the subjects bring the rest.
      "edge" colours draw the sticker outline and its offset shadow. -->
 <resources>
     <color name="bg">#1A1820</color>
@@ -10,13 +10,13 @@
     <color name="text">#F4EFE6</color>
     <color name="text2">#B0A79A</color>
     <color name="text3">#7E776D</color>
-    <color name="accent">#F4EFE6</color>
+    <color name="accent">#4D7EF0</color>
     <color name="accent_edge">#0E0D12</color>
-    <color name="on_accent">#1A1820</color>
-    <color name="accent_container">#34303E</color>
+    <color name="on_accent">#FFFFFF</color>
+    <color name="accent_container">#23304F</color>
     <color name="accent_container_edge">#0E0D12</color>
-    <color name="on_accent_container">#F4EFE6</color>
-    <color name="box_edge">#4A4553</color>
+    <color name="on_accent_container">#BCD0FF</color>
+    <color name="box_edge">#46506A</color>
     <color name="alert">#FFB2A6</color>
     <color name="alert_bg">#41262A</color>
     <color name="alert_edge">#0E0D12</color>

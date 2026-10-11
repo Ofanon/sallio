@@ -107,7 +107,6 @@ object GradeSheet {
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             setWindowAnimations(android.R.style.Animation_InputMethod)
         }
-        Motion.tap(activity.window.decorView)
         dialog.show()
     }
 

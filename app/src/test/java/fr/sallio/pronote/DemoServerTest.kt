@@ -24,6 +24,8 @@ class DemoServerTest {
         val first = Pronote.loginCredentials(http, demo, "demonstration", "pronotevs", device)
         println("élève=${first.studentName} classe=${first.className} établissement=${first.schoolName}")
         assertTrue(first.credentials.token.isNotEmpty())
+        val photo = first.photo()
+        println("photo : ${photo?.size ?: 0} octets, JPEG=${photo != null && photo[0] == 0xFF.toByte() && photo[1] == 0xD8.toByte()}")
 
         // The demo is read only (its "last connection" is frozen in 2023), so it
         // cannot store a device token: the token login has to be tested on a

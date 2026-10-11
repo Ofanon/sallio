@@ -94,6 +94,18 @@ class Repo private constructor(private val context: Context) {
         }.getOrDefault(emptyList())
     }
 
+    @Volatile private var cachedPhoto: android.graphics.Bitmap? = null
+
+    /** The PRONOTE profile photo, decoded once. */
+    fun photo(): android.graphics.Bitmap? {
+        cachedPhoto?.let { return it }
+        val text = vault.read(PHOTO) ?: return null
+        return runCatching {
+            val bytes = android.util.Base64.decode(text, android.util.Base64.NO_WRAP)
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        }.getOrNull()?.also { cachedPhoto = it }
+    }
+
     fun report(): Report? = vault.read(GRADES)?.let { runCatching { Report.fromJson(JSONObject(it)) }.getOrNull() }
 
     /**
@@ -199,6 +211,8 @@ class Repo private constructor(private val context: Context) {
     fun onLoggedIn(logged: LoggedIn) {
         lock.lock()
         try {
+            vault.delete(PHOTO)
+            cachedPhoto = null
             saveAccount(logged)
             prefs.edit().putBoolean("needsLogin", false).remove("error")
                 .putLong("attempt", System.currentTimeMillis()).apply()
@@ -266,6 +280,11 @@ class Repo private constructor(private val context: Context) {
             val synced = pushTicks(logged, list)
             vault.write(HOMEWORK, JSONArray(synced.map { it.toJson() }).toString())
         }
+        // The photo rarely changes: fetched once, then again after a new login.
+        if (vault.read(PHOTO) == null) runCatching { logged.photo() }.getOrNull()?.let { bytes ->
+            vault.write(PHOTO, android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
+            cachedPhoto = null
+        }
         runCatching { Schoolwork.report(logged) }.onSuccess { report ->
             val first = vault.read(GRADES) == null
             vault.write(GRADES, report.toJson().toString())
@@ -283,6 +302,7 @@ class Repo private constructor(private val context: Context) {
         lock.lock()
         try {
             vault.wipe()
+            cachedPhoto = null
             prefs.edit().clear().apply()
         } finally {
             lock.unlock()
@@ -294,6 +314,7 @@ class Repo private constructor(private val context: Context) {
         private const val ACCOUNT = "account"
         private const val CACHE = "timetable"
         private const val HOMEWORK = "homework"
+        private const val PHOTO = "photo"
         private const val GRADES = "grades"
         private const val FETCH_DAYS = 13L
         private const val MANUAL_GAP_MS = 30_000L

@@ -207,7 +207,7 @@ internal object UI {
     fun squareButton(context: Context, fill: Int, edge: Int, content: View, onClick: () -> Unit) = FrameLayout(context).apply {
         background = sticker(context, context.getColor(fill), context.getColor(edge), 15, 3, pressable = true)
         setPadding(0, 0, 0, dp(3))
-        addView(content, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        addView(content, (content.layoutParams as? FrameLayout.LayoutParams) ?: FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         layoutParams = LinearLayout.LayoutParams(dp(46), dp(49))
         setOnClickListener { onClick() }
         Motion.pressable(this, 3)
