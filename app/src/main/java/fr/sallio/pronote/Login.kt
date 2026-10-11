@@ -39,6 +39,7 @@ class LoggedIn internal constructor(
     val className: String?,
     internal val hasPhoto: Boolean = false,
     internal val resourceId: String? = null,
+    private val photoBase64: String? = null,
 ) {
     /**
      * The student's PRONOTE photo, the same file the official app shows. The
@@ -46,15 +47,22 @@ class LoggedIn internal constructor(
      * while the session is alive. Null when the school publishes no photo.
      */
     fun photo(): ByteArray? {
+        // Some servers send the photo inline with the user parameters.
+        photoBase64?.let { inline ->
+            runCatching { java.util.Base64.getMimeDecoder().decode(inline.substringAfter("base64,")) }.getOrNull()
+                ?.takeIf { it.size > 100 }?.let { return it }
+        }
         if (!hasPhoto || resourceId == null) return null
+        // Same URL as PRONOTE's own client (composeUrlImgPhotoIndividu): the
+        // element {N, Actif} encrypted with the session key, and the person's
+        // name with spaces turned into underscores as the file name.
         val entity = "{\"N\":${JSONObject.quote(resourceId)},\"Actif\":true}".toByteArray(Charsets.UTF_8)
-        // Pawnote encrypts the entity once; pronotepy pads it by hand before its
-        // own padding. Both are tried, Pawnote's first.
-        val padLength = 16 - entity.size % 16
-        for (clear in listOf(entity, entity + ByteArray(padLength) { padLength.toByte() })) {
-            val encrypted = Crypto.hex(Crypto.aesEncrypt(clear, session.aesKey, session.aesIv))
-            session.http.bytes("${session.base}/FichiersExternes/$encrypted/photo.jpg?Session=${session.id}", 2_000_000)
-                ?.let { return it }
+        val encrypted = Crypto.hex(Crypto.aesEncrypt(entity, session.aesKey, session.aesIv))
+        val names = listOf(studentName.replace(Regex("\\s"), "_") + ".jpg", "photo.jpg")
+        for (name in names) {
+            val file = java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")
+            val url = "${session.base}/FichiersExternes/$encrypted/$file?Session=${session.id}"
+            session.http.bytes(url, 2_000_000)?.let { return it }
         }
         return null
     }
@@ -367,6 +375,10 @@ object Pronote {
             className = resource.optJSONObject("classeDEleve")?.optString("L")?.ifEmpty { null },
             hasPhoto = resource.optBoolean("avecPhoto"),
             resourceId = resource.optString("N").ifEmpty { null },
+            // {"_T": 25, "V": "<base64>"}, with V = 0 when the school shares no photo.
+            photoBase64 = resource.opt("photoBase64").let { v ->
+                (if (v is JSONObject) v.opt("V") else v)?.toString()?.takeIf { it.length > 100 }
+            },
         )
     }
 

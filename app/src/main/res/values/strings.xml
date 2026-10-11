@@ -4,4 +4,7 @@
     <string name="widget_next_desc">La salle de ton prochain cours, et les profs absents</string>
     <string name="widget_day">Ma journée</string>
     <string name="widget_day_desc">Tous les cours de la journée avec leur salle</string>
+    <string name="shortcut_cours">Cours</string>
+    <string name="shortcut_devoirs">Devoirs</string>
+    <string name="shortcut_notes">Notes</string>
 </resources>

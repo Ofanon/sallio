@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long press on the app icon: straight to a tab. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/shortcut_cours"
+        android:shortcutId="cours"
+        android:shortcutShortLabel="@string/shortcut_cours">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="fr.sallio.app.MainActivity"
+            android:targetPackage="fr.sallio.app">
+            <extra android:name="tab" android:value="TIMETABLE" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/shortcut_devoirs"
+        android:shortcutId="devoirs"
+        android:shortcutShortLabel="@string/shortcut_devoirs">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="fr.sallio.app.MainActivity"
+            android:targetPackage="fr.sallio.app">
+            <extra android:name="tab" android:value="HOMEWORK" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/shortcut_notes"
+        android:shortcutId="notes"
+        android:shortcutShortLabel="@string/shortcut_notes">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="fr.sallio.app.MainActivity"
+            android:targetPackage="fr.sallio.app">
+            <extra android:name="tab" android:value="GRADES" />
+        </intent>
+    </shortcut>
+</shortcuts>

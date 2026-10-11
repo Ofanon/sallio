@@ -281,7 +281,11 @@ class Repo private constructor(private val context: Context) {
             vault.write(HOMEWORK, JSONArray(synced.map { it.toJson() }).toString())
         }
         // The photo rarely changes: fetched once, then again after a new login.
-        if (vault.read(PHOTO) == null) runCatching { logged.photo() }.getOrNull()?.let { bytes ->
+        // Not every school publishes photos: after a miss, try again only a week later.
+        val photoDue = System.currentTimeMillis() - prefs.getLong("photoTried", 0) > 7 * 24 * 3600_000L
+        if (vault.read(PHOTO) == null && photoDue) runCatching { logged.photo() }
+            .also { prefs.edit().putLong("photoTried", System.currentTimeMillis()).apply() }
+            .getOrNull()?.let { bytes ->
             vault.write(PHOTO, android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
             cachedPhoto = null
         }

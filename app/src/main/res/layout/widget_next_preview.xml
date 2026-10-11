@@ -1,95 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/root"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_bg"
-    android:gravity="center_vertical"
-    android:orientation="vertical"
-    android:paddingStart="16dp"
-    android:paddingTop="12dp"
-    android:paddingEnd="16dp"
-    android:paddingBottom="10dp">
+    android:background="@drawable/widget_preview_face">
 
-    <TextView
-        android:id="@+id/label"
-        android:text="À 10H05 · DANS 5 MIN"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textColor="@color/accent"
-        android:textSize="12sp"
-        android:textStyle="bold" />
+    <ImageView
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="6dp"
+        android:layout_marginBottom="14dp"
+        android:alpha="0.22"
+        android:src="@drawable/ic_maths"
+        android:tint="#FFFFFF" />
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="17dp">
 
         <TextView
-            android:id="@+id/room"
-        android:text="B204"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:ellipsize="end"
-            android:fontFamily="sans-serif-medium"
-            android:includeFontPadding="false"
-            android:maxLines="1"
-            android:paddingTop="2dp"
-            android:paddingBottom="2dp"
-            android:textColor="@color/text"
-            android:textSize="34sp" />
-
-        <TextView
-            android:id="@+id/badge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/pill_alert"
-            android:maxLines="1"
-            android:paddingStart="8dp"
+            android:background="@drawable/widget_tag_light"
+            android:fontFamily="sans-serif-medium"
+            android:paddingStart="10dp"
             android:paddingTop="3dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="3dp"
-            android:textColor="@color/alert"
-            android:textSize="12sp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="4dp"
+            android:text="À 10h05 · dans 3 min"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:fontFamily="sans-serif"
             android:textStyle="bold"
-            android:visibility="gone" />
+            android:includeFontPadding="false"
+            android:text="B204"
+            android:textColor="#FFFFFF"
+            android:textSize="40sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:fontFamily="sans-serif-medium"
+            android:text="Mathématiques · Gallet B."
+            android:textColor="#FFFFFF"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/widget_tag_light"
+            android:fontFamily="sans-serif-medium"
+            android:paddingStart="10dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="5dp"
+            android:text="Ensuite 11h05 · C102 · Anglais"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp" />
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/subject"
-        android:text="Mathématiques · Gallet B."
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textColor="@color/text2"
-        android:textSize="14sp" />
-
-    <TextView
-        android:id="@+id/then"
-        android:text="Puis 11h00 · C102 · Anglais LV1"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textColor="@color/text2"
-        android:textSize="12sp"
-        android:visibility="visible" />
-
-    <TextView
-        android:id="@+id/footer"
-        android:text="Mis à jour il y a 3 min"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textColor="@color/text3"
-        android:textSize="10sp" />
-</LinearLayout>
+</FrameLayout>

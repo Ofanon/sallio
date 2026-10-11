@@ -25,6 +25,14 @@ Quatre onglets, pour l'essentiel de Pronote au quotidien sans le charger :
 
 Pour tout le reste (messagerie, vie scolaire, bulletins), « Ouvrir Pronote ».
 
+Accès le plus rapide possible, sans même ouvrir l'app :
+
+- **Widgets** « Prochaine salle » (aux couleurs de la matière) et « Ma journée ».
+- **Tuile des réglages rapides** « Ma salle » : un glissement vers le bas,
+  depuis n'importe où, affiche la prochaine salle (ajout en un clic depuis le
+  menu du profil, Android 13+).
+- **Raccourcis** sur l'icône (appui long) : Cours, Devoirs, Notes.
+
 ## Comment ça marche
 
 - **L'emploi du temps est téléchargé à l'avance**, environ toutes les heures

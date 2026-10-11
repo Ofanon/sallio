@@ -90,10 +90,20 @@ class MainActivity : Activity() {
             insets
         }
         setContentView(root)
+        intent?.getStringExtra(EXTRA_TAB)?.let { name -> runCatching { tab = Tab.valueOf(name) } }
         savedInstanceState?.let { state ->
             tab = runCatching { Tab.valueOf(state.getString("tab") ?: "") }.getOrDefault(Tab.HOME)
             selectedDay = state.getString("day")?.let { LocalDate.parse(it) }
             gradesBySubject = state.getBoolean("bySubject")
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra(EXTRA_TAB)?.let { name ->
+            runCatching { Tab.valueOf(name) }.getOrNull()?.let { target ->
+                if (target != tab) { tab = target; entering = Enter.ALL; scroll = null }
+            }
         }
     }
 
@@ -149,6 +159,7 @@ class MainActivity : Activity() {
         content.addView(header(s), UI.matchWidth())
         update?.let { content.addView(updateCard(it), UI.matchWidth().apply { topMargin = dp(14) }) }
         if (s.status.needsLogin) content.addView(reconnectCard(s), UI.matchWidth().apply { topMargin = dp(14) })
+        if (tab == Tab.HOME) widgetInvite()?.let { content.addView(it, UI.matchWidth().apply { topMargin = dp(14) }) }
         content.addView(UI.gap(this, 14))
         val body = when (tab) {
             Tab.HOME -> tabs.home(s)
@@ -299,6 +310,41 @@ class MainActivity : Activity() {
     private fun topBordered(fill: Int, line: Int, width: Int): android.graphics.drawable.Drawable =
         android.graphics.drawable.LayerDrawable(arrayOf(ColorDrawable(line), ColorDrawable(fill))).apply { setLayerInset(1, 0, width, 0, 0) }
 
+    /**
+     * Until a widget is on the home screen, the home tab suggests one: it is the
+     * fastest way to the room, without even opening the app.
+     */
+    private fun widgetInvite(): View? {
+        val manager = getSystemService(AppWidgetManager::class.java)
+        if (!manager.isRequestPinAppWidgetSupported) return null
+        val placed = manager.getAppWidgetIds(ComponentName(this, NextWidget::class.java)).isNotEmpty() ||
+            manager.getAppWidgetIds(ComponentName(this, DayWidget::class.java)).isNotEmpty()
+        val prefs = getSharedPreferences("ui", MODE_PRIVATE)
+        if (placed || prefs.getBoolean("widgetInviteDismissed", false)) return null
+
+        val card = UI.card(this, R.color.accent_container, R.color.accent_container_edge)
+        card.addView(UI.row(this).apply {
+            addView(UI.icon(context, R.drawable.ic_widgets, R.color.on_accent_container, 22))
+            addView(UI.hgap(context, 8))
+            addView(UI.title(context, "Ta salle sans ouvrir l'app", 17f, R.color.on_accent_container), UI.weight())
+        })
+        card.addView(UI.text(this, "Pose le widget sur ton écran d'accueil : il marche même quand Pronote est saturé.", 14f, R.color.on_accent_container).apply {
+            alpha = 0.85f
+            setPadding(0, dp(6), 0, dp(12))
+        })
+        val buttons = UI.row(this)
+        buttons.addView(UI.button(this, "Ajouter le widget") {
+            manager.requestPinAppWidget(ComponentName(this, NextWidget::class.java), null, null)
+        }, UI.weight())
+        buttons.addView(UI.hgap(this, 10))
+        buttons.addView(UI.ghostButton(this, "Plus tard") {
+            prefs.edit().putBoolean("widgetInviteDismissed", true).apply()
+            render()
+        })
+        card.addView(buttons, UI.matchWidth())
+        return card
+    }
+
     private fun reconnectCard(s: Snapshot): View {
         val card = UI.card(this, R.color.alert_bg, R.color.alert_edge)
         card.addView(UI.title(this, "Ta connexion Pronote a expiré", 18f, R.color.alert))
@@ -356,6 +402,17 @@ class MainActivity : Activity() {
             }
             item(R.drawable.ic_widgets, "Ajouter le widget « Ma journée »") {
                 widgets.requestPinAppWidget(ComponentName(this, DayWidget::class.java), null, null)
+            }
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            // One swipe down, from anywhere, shows the next room.
+            item(R.drawable.ic_school, "Ajouter « Ma salle » aux réglages rapides") {
+                getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
+                    ComponentName(this, RoomTile::class.java),
+                    "Ma salle",
+                    android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_school),
+                    mainExecutor,
+                ) { }
             }
         }
         item(R.drawable.ic_shield, "Tes données") { privacyDialog() }
@@ -718,6 +775,7 @@ class MainActivity : Activity() {
     }
 
     companion object {
+        const val EXTRA_TAB = "tab"
         private const val REQ_LOCATION = 1
 
         private val PRIVACY = listOf(

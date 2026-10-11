@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Static coral sticker for the widget picker preview (maths). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:top="5dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#D9705A" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    <item android:bottom="5dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#F28B74" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+</layer-list>
