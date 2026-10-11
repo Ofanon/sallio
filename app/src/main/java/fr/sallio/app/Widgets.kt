@@ -42,6 +42,8 @@ object Widgets {
 
     fun refreshAll(context: Context) {
         RoomTile.refresh(context)
+        runCatching { Wallpaper.update(context) }
+        runCatching { Reminders.schedule(context) }
         val manager = AppWidgetManager.getInstance(context)
         val nextIds = manager.getAppWidgetIds(ComponentName(context, NextWidget::class.java))
         val dayIds = manager.getAppWidgetIds(ComponentName(context, DayWidget::class.java))

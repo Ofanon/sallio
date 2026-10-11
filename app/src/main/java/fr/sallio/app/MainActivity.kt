@@ -403,6 +403,7 @@ class MainActivity : Activity() {
                 setOnClickListener { dialog.dismiss(); action() }
             }, UI.matchWidth())
         }
+        item(R.drawable.ic_sparkles, "Réglages : fond d'écran, rappels…") { openSettings() }
         item(R.drawable.ic_open, "Ouvrir Pronote") { openPronote() }
         val widgets = getSystemService(AppWidgetManager::class.java)
         if (widgets.isRequestPinAppWidgetSupported) {
@@ -442,6 +443,94 @@ class MainActivity : Activity() {
         }
         dialog.show()
     }
+
+    private fun openSettings() {
+        val options = listOf(
+            SettingsSheet.Option(
+                R.drawable.ic_calendar, "Salles sur l'écran verrouillé",
+                "Ton fond d'écran de verrouillage affiche les cours du jour, mis à jour tout seul.",
+                { Wallpaper.isEnabled(this) },
+            ) { on, done ->
+                if (on) previewWallpaper(done)
+                else {
+                    worker.execute { Wallpaper.disable(applicationContext) }
+                    done()
+                }
+            },
+            SettingsSheet.Option(
+                R.drawable.ic_clock, "Rappel avant chaque cours",
+                "Une notification 5 min avant : la salle, le prof, et si le cours est annulé.",
+                { Reminders.isEnabled(this) && notificationsAllowed() },
+            ) { on, done ->
+                if (on && !notificationsAllowed()) {
+                    afterNotificationPermission = done
+                    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFICATIONS)
+                } else {
+                    Reminders.setEnabled(this, on)
+                    done()
+                }
+            },
+            SettingsSheet.Option(
+                R.drawable.ic_sparkles, "Vibrations",
+                "Un petit retour quand tu touches un bouton ou coches un devoir.",
+                { Motion.hapticsOn(this) },
+            ) { on, done ->
+                getSharedPreferences("ui", MODE_PRIVATE).edit().putBoolean("haptics", on).apply()
+                done()
+            },
+        )
+        SettingsSheet.show(this, options, bottomInset)
+    }
+
+    private var afterNotificationPermission: (() -> Unit)? = null
+
+    /** Shows the lock screen picture before replacing the student's own. */
+    private fun previewWallpaper(done: () -> Unit) {
+        val bitmap = Wallpaper.preview(this)
+        val dialog = android.app.Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val box = UI.column(this).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            background = UI.rounded(getColor(R.color.bg), dp(28).toFloat())
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+        }
+        box.addView(UI.title(this, "Ton écran verrouillé", 20f))
+        box.addView(UI.text(this, "Il se met à jour tout seul chaque jour. Ton fond d'écran d'accueil ne change pas.", 13f, R.color.text2).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(6), 0, dp(12))
+        }, UI.matchWidth())
+        val height = (resources.displayMetrics.heightPixels * 0.5f).toInt()
+        val width = height * bitmap.width / bitmap.height
+        box.addView(android.widget.ImageView(this).apply {
+            setImageBitmap(bitmap)
+            scaleType = android.widget.ImageView.ScaleType.FIT_XY
+            background = UI.rounded(Color.BLACK, dp(22).toFloat())
+            clipToOutline = true
+        }, LinearLayout.LayoutParams(width, height))
+        val buttons = UI.row(this).apply { setPadding(0, dp(14), 0, 0) }
+        buttons.addView(UI.ghostButton(this, "Annuler") { dialog.dismiss() }, UI.weight())
+        buttons.addView(UI.hgap(this, 10))
+        buttons.addView(UI.button(this, "Utiliser") {
+            dialog.dismiss()
+            Wallpaper.enable(applicationContext)
+            done()
+            worker.execute {
+                Wallpaper.update(applicationContext)
+                runOnUiThread { Motion.success(root) }
+            }
+        }, UI.weight())
+        box.addView(buttons, UI.matchWidth())
+        dialog.setContentView(box)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout(resources.displayMetrics.widthPixels - dp(32), ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+        dialog.setOnDismissListener { done() }
+        dialog.show()
+    }
+
+    private fun notificationsAllowed() = Build.VERSION.SDK_INT < 33 ||
+        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
     private fun privacyDialog() {
         AlertDialog.Builder(this)
@@ -660,6 +749,15 @@ class MainActivity : Activity() {
 
     @Deprecated("Activity API")
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        if (requestCode == REQ_NOTIFICATIONS) {
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+                Reminders.setEnabled(this, true)
+                Motion.success(root)
+            }
+            afterNotificationPermission?.invoke()
+            afterNotificationPermission = null
+            return
+        }
         if (requestCode == REQ_LOCATION) {
             if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) findNearby()
             else showSchoolMessage("Sans la localisation, tape le code ou l'adresse de ton Pronote.")
@@ -794,6 +892,7 @@ class MainActivity : Activity() {
 
         const val EXTRA_TAB = "tab"
         private const val REQ_LOCATION = 1
+        private const val REQ_NOTIFICATIONS = 2
 
         private val PRIVACY = listOf(
             "Sallio n'a aucun serveur : ton téléphone parle directement à Pronote.",

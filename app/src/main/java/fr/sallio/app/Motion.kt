@@ -33,7 +33,11 @@ internal object Motion {
      * felt on most phones). Played with the touch usage, so Android still
      * applies the user's haptic intensity setting and silences them when it is off.
      */
+    fun hapticsOn(context: android.content.Context) =
+        context.getSharedPreferences("ui", android.content.Context.MODE_PRIVATE).getBoolean("haptics", true)
+
     private fun vibrate(view: View, effect: () -> VibrationEffect?) {
+        if (!hapticsOn(view.context)) return
         val vibrator = view.context.getSystemService(Vibrator::class.java) ?: return
         if (!vibrator.hasVibrator()) return
         val e = runCatching { effect() }.getOrNull() ?: return

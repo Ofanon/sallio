@@ -307,6 +307,8 @@ class Repo private constructor(private val context: Context) {
         try {
             vault.wipe()
             cachedPhoto = null
+            runCatching { Reminders.cancel(context) }
+            if (Wallpaper.isEnabled(context)) runCatching { Wallpaper.disable(context) }
             prefs.edit().clear().apply()
         } finally {
             lock.unlock()
