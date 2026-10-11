@@ -41,7 +41,11 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
 
     // ---- Accueil -----------------------------------------------------------------
 
+    /** The snapshot the current views were built from, for their click handlers. */
+    private var lastSnapshot: Snapshot? = null
+
     fun home(s: Snapshot): View {
+        lastSnapshot = s
         val root = UI.column(ctx)
         val view = Agenda.view(s.lessons, s.now)
         val today = s.now.toLocalDate()
@@ -135,6 +139,8 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             col.addView(UI.chip(ctx, it, Color.WHITE, if (focus.canceled) 0xFFB3423A.toInt() else 0xFF9A6212.toInt(), 13f), UI.wrap())
         }
         frame.addView(col, FrameLayout.LayoutParams(-1, -2))
+        frame.setOnClickListener { activity.showLesson(focus, s) }
+        Motion.pressable(frame, 5, haptic = false)
         return frame
     }
 
@@ -150,6 +156,8 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         col.addView(UI.oneLine(UI.text(ctx, "${Agenda.time(next.start)} · ${Agenda.pretty(next.subject)}", 13f, R.color.text2)).apply { setPadding(0, dp(3), 0, 0) })
         card.addView(col, UI.weight())
         Agenda.alert(next)?.let { card.addView(UI.alertChip(ctx, it, next.canceled)) }
+        card.setOnClickListener { activity.showLesson(next, lastSnapshot!!) }
+        Motion.pressable(card, haptic = false)
         return card
     }
 
@@ -164,6 +172,8 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val day = Agenda.dayTitle(lesson.start.toLocalDate(), today).let { if (it == "Aujourd'hui") "" else "${it.lowercase(fr)} " }
         val text = "${Agenda.pretty(lesson.subject)} ${day}${Agenda.time(lesson.start)} : ${Agenda.alert(lesson)!!.replaceFirstChar { it.lowercase(fr) }}"
         row.addView(UI.text(ctx, text, 14f, if (severe) R.color.alert else R.color.warn, 800), UI.weight())
+        row.setOnClickListener { activity.showLesson(lesson, lastSnapshot!!) }
+        Motion.pressable(row, haptic = false)
         return row
     }
 
@@ -203,6 +213,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
     // ---- Cours -------------------------------------------------------------------
 
     fun timetable(s: Snapshot, selected: LocalDate?, onSelect: (LocalDate) -> Unit): View {
+        lastSnapshot = s
         val root = UI.column(ctx)
         val today = s.now.toLocalDate()
         val days = (0L..13L).map { today.plusDays(it) }.filter { d ->
@@ -218,9 +229,20 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             addView(strip)
         }
         root.addView(scroller, UI.matchWidth())
-        scroller.post {
-            strip.getChildAt(days.indexOf(day))?.let { scroller.smoothScrollTo((it.left - ctx.dp(24)).coerceAtLeast(0), 0) }
-        }
+        // Back to where the strip was, at once (no visible jump), then nudge only if
+        // the selected day is off screen.
+        scroller.setOnScrollChangeListener { _, x, _, _, _ -> activity.stripScroll = x }
+        scroller.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                scroller.viewTreeObserver.removeOnPreDrawListener(this)
+                val chip = strip.getChildAt(days.indexOf(day)) ?: return true
+                val start = if (activity.stripScroll >= 0) activity.stripScroll else (chip.left - ctx.dp(24)).coerceAtLeast(0)
+                scroller.scrollTo(start, 0)
+                val visible = chip.left >= start && chip.right <= start + scroller.width
+                if (!visible) scroller.smoothScrollTo((chip.left - ctx.dp(24)).coerceAtLeast(0), 0)
+                return true
+            }
+        })
 
         val title = Agenda.dayTitle(day, today).let { if (day <= today.plusDays(1)) "$it · ${day.dayOfMonth} ${day.month.getDisplayName(TextStyle.FULL, fr)}" else it }
         root.addView(UI.section(ctx, title))
@@ -291,6 +313,8 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         col.addView(UI.oneLine(UI.text(ctx, subtitle, 12f, R.color.text2)).apply { setPadding(0, dp(3), 0, 0) })
         card.addView(col, UI.weight())
         Agenda.alert(lesson)?.let { card.addView(UI.alertChip(ctx, it, lesson.canceled), UI.wrap().apply { marginStart = ctx.dp(6) }) }
+        card.setOnClickListener { activity.showLesson(lesson, lastSnapshot!!) }
+        Motion.pressable(card, haptic = false)
         return card
     }
 

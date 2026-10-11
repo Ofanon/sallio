@@ -275,6 +275,7 @@ class LoginActivity : Activity() {
         runCatching { Repo.get(applicationContext).onLoggedIn(logged) }
         SyncJob.schedulePeriodic(applicationContext)
         runOnUiThread {
+            Motion.success(window.decorView)
             forgetBrowsing()
             setResult(RESULT_OK)
             finish()
@@ -282,6 +283,7 @@ class LoginActivity : Activity() {
     }
 
     private fun fail(e: Exception) {
+        Motion.failure(window.decorView)
         val message = (e as? PronoteException)?.let { Repo.explain(it) } ?: "Erreur inattendue"
         AlertDialog.Builder(this)
             .setTitle("Connexion impossible")

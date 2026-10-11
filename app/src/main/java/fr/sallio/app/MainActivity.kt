@@ -154,6 +154,10 @@ class MainActivity : Activity() {
             now = LocalDateTime.now(),
         )
 
+        // Pages appear instantly; only the home tab rises in, the first time it opens.
+        entering = if (entering != Enter.NONE && tab == Tab.HOME && !homeIntroPlayed) Enter.ALL else Enter.NONE
+        if (entering == Enter.ALL) homeIntroPlayed = true
+
         val column = UI.column(this)
         val content = UI.column(this).apply { setPadding(dp(16), topInset + dp(8), dp(16), dp(28)) }
         content.addView(header(s), UI.matchWidth())
@@ -199,6 +203,11 @@ class MainActivity : Activity() {
         tab = target
         scroll = null
         render()
+    }
+
+    fun showLesson(lesson: fr.sallio.pronote.Lesson, s: Snapshot) {
+        Motion.tap(root)
+        LessonSheet.show(this, lesson, s, bottomInset)
     }
 
     fun showGrade(g: fr.sallio.pronote.Grade) {
@@ -532,8 +541,8 @@ class MainActivity : Activity() {
             val found = nearby?.let { Schools.filterByName(it, input) }
             when {
                 found == null -> showSchoolMessage("Touche d'abord « Autour de moi » pour chercher par nom, ou tape le code ou l'adresse de ton Pronote.")
-                found.isEmpty() -> showSchoolMessage("Aucun établissement de ce nom autour de toi.")
-                else -> { showSchoolMessage(null); showResults(found) }
+                found.isEmpty() -> { Motion.failure(root); showSchoolMessage("Aucun établissement de ce nom autour de toi.") }
+                else -> { Motion.tick(root); showSchoolMessage(null); showResults(found) }
             }
             return
         }
@@ -616,10 +625,11 @@ class MainActivity : Activity() {
                 hideLoading()
                 val schools = result.getOrNull()
                 when {
-                    schools == null -> showSchoolMessage("La recherche n'a pas répondu. Réessaie, ou tape le code de ton lycée.")
+                    schools == null -> { Motion.failure(root); showSchoolMessage("La recherche n'a pas répondu. Réessaie, ou tape le code de ton lycée.") }
                     schools.isEmpty() -> showSchoolMessage("Aucun établissement trouvé autour de toi.")
                     else -> {
                         nearby = schools
+                        Motion.success(root)
                         showSchoolMessage(null)
                         showResults(schools)
                     }
@@ -642,7 +652,8 @@ class MainActivity : Activity() {
                 col.addView(UI.oneLine(UI.text(context, Schools.prettySchool(school.name), 15f, weight = 800)))
                 col.addView(UI.text(context, "${school.postalCode} · ${"%.1f".format(school.distanceKm)} km", 12f, R.color.text2))
                 addView(col, UI.weight())
-                setOnClickListener { checkSchool(school.url, school.name) }
+                foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, dp(12).toFloat()))
+                setOnClickListener { Motion.tap(this); checkSchool(school.url, school.name) }
             }, UI.matchWidth())
         }
     }
@@ -774,7 +785,13 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
+    /** Day strip of the Cours tab: kept across renders so picking a day does not jump. */
+    internal var stripScroll = -1
+
     companion object {
+        /** The home cascade plays once per launch of the app, not at every visit. */
+        private var homeIntroPlayed = false
+
         const val EXTRA_TAB = "tab"
         private const val REQ_LOCATION = 1
 
