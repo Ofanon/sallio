@@ -19,6 +19,9 @@ class Vault(context: Context) {
 
     private val dir = File(context.noBackupFilesDir, "vault").apply { mkdirs() }
 
+    /** Decrypted texts kept in memory: every screen redraw reads them, the Keystore is slow. */
+    private val memory = HashMap<String, String?>()
+
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getEntry(ALIAS, null) as? KeyStore.SecretKeyEntry)?.let { return it.secretKey }
@@ -38,6 +41,7 @@ class Vault(context: Context) {
         val cipher = Cipher.getInstance(TRANSFORMATION).apply { init(Cipher.ENCRYPT_MODE, key()) }
         val sealed = cipher.iv + cipher.doFinal(text.toByteArray(Charsets.UTF_8))
         // Write then rename, so a crash never leaves half a token behind.
+        memory[name] = text
         val tmp = File(dir, "$name.tmp")
         tmp.writeBytes(sealed)
         if (!tmp.renameTo(File(dir, name))) {
@@ -48,6 +52,11 @@ class Vault(context: Context) {
 
     @Synchronized
     fun read(name: String): String? {
+        if (memory.containsKey(name)) return memory[name]
+        return readFile(name).also { memory[name] = it }
+    }
+
+    private fun readFile(name: String): String? {
         val file = File(dir, name)
         if (!file.exists()) return null
         return try {
@@ -65,11 +74,13 @@ class Vault(context: Context) {
 
     @Synchronized
     fun delete(name: String) {
+        memory.remove(name)
         File(dir, name).delete()
     }
 
     @Synchronized
     fun wipe() {
+        memory.clear()
         dir.listFiles()?.forEach { it.delete() }
         runCatching {
             KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.deleteEntry(ALIAS)

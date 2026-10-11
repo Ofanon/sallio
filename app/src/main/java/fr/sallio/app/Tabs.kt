@@ -238,8 +238,10 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
                 val chip = strip.getChildAt(days.indexOf(day)) ?: return true
                 val start = if (activity.stripScroll >= 0) activity.stripScroll else (chip.left - ctx.dp(24)).coerceAtLeast(0)
                 scroller.scrollTo(start, 0)
-                val visible = chip.left >= start && chip.right <= start + scroller.width
-                if (!visible) scroller.smoothScrollTo((chip.left - ctx.dp(24)).coerceAtLeast(0), 0)
+                val visible = chip.left >= start + ctx.dp(8) && chip.right <= start + scroller.width - ctx.dp(8)
+                val centered = (chip.left - (scroller.width - chip.width) / 2).coerceAtLeast(0)
+                if (activity.stripScroll < 0) scroller.scrollTo(centered, 0)
+                else if (!visible || kotlin.math.abs(centered - start) > ctx.dp(4)) scroller.smoothScrollTo(centered, 0)
                 return true
             }
         })
@@ -409,9 +411,12 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
 
     // ---- Notes -------------------------------------------------------------------
 
+    private var lastReport: Report? = null
+
     fun grades(s: Snapshot, bySubject: Boolean, onMode: (Boolean) -> Unit): View {
         val root = UI.column(ctx)
         val report = s.report
+        lastReport = report
         if (report == null || (report.grades.isEmpty() && report.subjects.isEmpty())) {
             root.addView(emptyCard(R.drawable.ic_star, if (s.status.lastSuccess == 0L) "Tes notes arrivent à la prochaine mise à jour." else "Pas encore de note sur cette période."), UI.matchWidth())
             return root
@@ -426,6 +431,13 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         line.addView(UI.title(ctx, " /20", 18f, R.color.on_accent).apply { alpha = 0.8f; setPadding(0, 0, 0, dp(6)) })
         overview.addView(line)
         report.classOverall?.let { overview.addView(UI.text(ctx, "Classe : ${UI.number(it)}", 13f, R.color.on_accent, 800).apply { alpha = 0.85f; setPadding(0, dp(6), 0, 0) }) }
+        overview.addView(UI.row(ctx).apply {
+            setPadding(0, dp(10), 0, 0)
+            addView(UI.text(ctx, "Voir mes statistiques", 13f, R.color.on_accent, 900))
+            addView(UI.icon(ctx, R.drawable.ic_chart, R.color.on_accent, 16).apply { (layoutParams as LinearLayout.LayoutParams).marginStart = dp(6) })
+        })
+        overview.setOnClickListener { Motion.tap(overview); GradesSheets.showOverview(activity, report, activity.bottomInsetPx) }
+        Motion.pressable(overview, haptic = false)
         root.addView(overview, UI.matchWidth())
 
         val seg = UI.row(ctx).apply {
@@ -505,7 +517,14 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
 
     private fun subjectRow(sub: SubjectAverage): View {
         val family = Subjects.style(sub.subject).family
-        val row = UI.row(ctx).apply { setPadding(0, dp(10), 0, dp(10)) }
+        val row = UI.row(ctx).apply {
+            setPadding(0, dp(10), 0, dp(10))
+            foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, dp(14).toFloat()))
+            setOnClickListener {
+                Motion.tap(this)
+                lastReport?.let { GradesSheets.showSubject(activity, sub, it, activity.bottomInsetPx) }
+            }
+        }
         row.addView(UI.subjectTile(ctx, sub.subject))
         row.addView(UI.hgap(ctx, 12))
         val col = UI.column(ctx)

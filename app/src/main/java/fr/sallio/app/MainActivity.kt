@@ -94,12 +94,13 @@ class MainActivity : Activity() {
             insets
         }
         setContentView(root)
-        intent?.getStringExtra(EXTRA_TAB)?.let { name -> runCatching { tab = Tab.valueOf(name) } }
         savedInstanceState?.let { state ->
             tab = runCatching { Tab.valueOf(state.getString("tab") ?: "") }.getOrDefault(Tab.HOME)
             selectedDay = state.getString("day")?.let { LocalDate.parse(it) }
             gradesBySubject = state.getBoolean("bySubject")
         }
+        // A widget, shortcut or tile asking for a tab wins over the restored one.
+        if (savedInstanceState == null) intent?.getStringExtra(EXTRA_TAB)?.let { name -> runCatching { tab = Tab.valueOf(name) } }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -204,7 +205,15 @@ class MainActivity : Activity() {
                 render()
             }
         }
-        if (entering == Enter.NONE) sv.post { sv.scrollTo(0, keepScroll) }
+        if (entering == Enter.NONE && keepScroll > 0) {
+            sv.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    sv.viewTreeObserver.removeOnPreDrawListener(this)
+                    sv.scrollTo(0, keepScroll)
+                    return true
+                }
+            })
+        }
         entering = Enter.NONE
     }
 
@@ -248,6 +257,17 @@ class MainActivity : Activity() {
         handler.removeCallbacks(pushNow)
         pushScheduled = true
         handler.postDelayed(pushNow, 1500)
+    }
+
+    val bottomInsetPx: Int get() = bottomInset
+
+    fun isHomeworkDone(h: fr.sallio.pronote.Homework) = repo.isDone(h)
+
+    /** Ticks from a sheet: saved at once, sent to PRONOTE shortly after, page redrawn behind. */
+    fun setHomeworkDone(h: fr.sallio.pronote.Homework, done: Boolean) {
+        repo.setDone(h, done)
+        render()
+        schedulePush()
     }
 
     fun pinWidget() {
@@ -323,7 +343,7 @@ class MainActivity : Activity() {
                 if (selected) background = UI.sticker(context, getColor(R.color.accent_container), getColor(R.color.accent_container_edge), 13, 2)
             }
             if (selected && switched) { switched = false; pill.post { Motion.pop(pill) } }
-            pill.addView(UI.icon(this, t.icon, if (selected) R.color.on_accent_container else R.color.text3, 22).apply {
+            pill.addView(UI.icon(this, t.icon, if (selected) R.color.accent else R.color.text3, 22).apply {
                 layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER).apply { bottomMargin = if (selected) dp(2) else 0 }
             })
             if (t == Tab.GRADES && s.unseenGrades.isNotEmpty() && !selected) pill.addView(View(this).apply {
@@ -392,18 +412,10 @@ class MainActivity : Activity() {
         return card
     }
 
+    /** Everything in one place: faster access, preferences, account. */
     private fun settingsSheet(s: Snapshot) {
-        val dialog = Dialog(this)
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        val sheet = UI.column(this).apply {
-            background = UI.rounded(getColor(R.color.bg), dp(30).toFloat())
-            setPadding(dp(18), dp(12), dp(18), dp(18) + bottomInset)
-        }
-        sheet.addView(View(this).apply { background = UI.rounded(getColor(R.color.text3), dp(3).toFloat()) },
-            LinearLayout.LayoutParams(dp(40), dp(5)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(16) })
-
-        val who = UI.row(this)
         val first = firstName(s.account.studentName)
+        val who = UI.row(this)
         who.addView(UI.squareButton(this, R.color.sun, R.color.sun_edge, avatar(first, 50, 22f)) {}.apply {
             layoutParams = LinearLayout.LayoutParams(dp(56), dp(59))
             isClickable = false
@@ -413,97 +425,69 @@ class MainActivity : Activity() {
         info.addView(UI.title(this, prettyStudent(s.account.studentName), 20f))
         info.addView(UI.text(this, listOfNotNull(s.account.className, Schools.prettySchool(s.account.schoolName).ifEmpty { null }).joinToString(" · "), 13f, R.color.text2).apply { setPadding(0, dp(4), 0, 0) })
         who.addView(info, UI.weight())
-        sheet.addView(who, UI.matchWidth())
-        sheet.addView(UI.gap(this, 16))
 
-        val list = UI.card(this, padding = 6)
-        fun item(icon: Int, label: String, danger: Boolean = false, action: () -> Unit) {
-            if (list.childCount > 0) list.addView(UI.divider(this).apply { (layoutParams as LinearLayout.LayoutParams).apply { marginStart = dp(12); marginEnd = dp(12) } })
-            list.addView(UI.row(this).apply {
-                setPadding(dp(12), dp(13), dp(12), dp(13))
-                addView(UI.icon(context, icon, if (danger) R.color.alert else R.color.accent, 22))
-                addView(UI.hgap(context, 14))
-                addView(UI.text(context, label, 15f, if (danger) R.color.alert else R.color.text, 800), UI.weight())
-                setOnClickListener { dialog.dismiss(); action() }
-            }, UI.matchWidth())
-        }
-        item(R.drawable.ic_sparkles, "Réglages : fond d'écran, rappels…") { openSettings() }
-        item(R.drawable.ic_open, "Ouvrir Pronote") { openPronote() }
         val widgets = getSystemService(AppWidgetManager::class.java)
-        if (widgets.isRequestPinAppWidgetSupported) {
-            item(R.drawable.ic_widgets, "Ajouter le widget « Prochaine salle »") {
-                widgets.requestPinAppWidget(ComponentName(this, NextWidget::class.java), null, null)
+        fun placed(cls: Class<*>) = widgets.getAppWidgetIds(ComponentName(this, cls)).isNotEmpty()
+        val faster = buildList {
+            if (widgets.isRequestPinAppWidgetSupported) {
+                add(SettingsSheet.Item.Action(R.drawable.ic_widgets, "Widget « Prochaine salle »", "Ta salle en grand sur l'écran d'accueil.",
+                    badge = if (placed(NextWidget::class.java)) "Ajouté" else null) {
+                    widgets.requestPinAppWidget(ComponentName(this@MainActivity, NextWidget::class.java), null, null)
+                })
+                add(SettingsSheet.Item.Action(R.drawable.ic_widgets, "Widget « Ma journée »", "Tous les cours du jour avec leur salle.",
+                    badge = if (placed(DayWidget::class.java)) "Ajouté" else null) {
+                    widgets.requestPinAppWidget(ComponentName(this@MainActivity, DayWidget::class.java), null, null)
+                })
             }
-            item(R.drawable.ic_widgets, "Ajouter le widget « Ma journée »") {
-                widgets.requestPinAppWidget(ComponentName(this, DayWidget::class.java), null, null)
+            if (Build.VERSION.SDK_INT >= 33) {
+                add(SettingsSheet.Item.Action(R.drawable.ic_school, "Tuile des réglages rapides", "Glisse vers le bas, n'importe où : ta salle.") {
+                    getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
+                        ComponentName(this@MainActivity, RoomTile::class.java), "Ma salle",
+                        android.graphics.drawable.Icon.createWithResource(this@MainActivity, R.drawable.ic_school), mainExecutor,
+                    ) { }
+                })
             }
-        }
-        if (Build.VERSION.SDK_INT >= 33) {
-            // One swipe down, from anywhere, shows the next room.
-            item(R.drawable.ic_school, "Ajouter « Ma salle » aux réglages rapides") {
-                getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
-                    ComponentName(this, RoomTile::class.java),
-                    "Ma salle",
-                    android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_school),
-                    mainExecutor,
-                ) { }
-            }
-        }
-        item(R.drawable.ic_shield, "Tes données") { privacyDialog() }
-        item(R.drawable.ic_logout, "Se déconnecter et tout effacer", danger = true) { confirmLogout() }
-        sheet.addView(list, UI.matchWidth())
-
-        sheet.addView(UI.text(this, "Sallio ${BuildConfig.VERSION_NAME} · code source sur GitHub", 12f, R.color.text3).apply {
-            gravity = Gravity.CENTER
-            setPadding(0, dp(16), 0, 0)
-            setOnClickListener { runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/${Updater.REPO}"))) } }
-        }, UI.matchWidth())
-
-        dialog.setContentView(sheet)
-        dialog.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            setGravity(Gravity.BOTTOM)
-            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        }
-        dialog.show()
-    }
-
-    private fun openSettings() {
-        val options = listOf(
-            SettingsSheet.Option(
-                R.drawable.ic_calendar, "Salles sur l'écran verrouillé",
-                "Ton fond d'écran de verrouillage affiche les cours du jour, mis à jour tout seul.",
-                { Wallpaper.isEnabled(this) },
-            ) { on, done ->
+            add(SettingsSheet.Item.Toggle(R.drawable.ic_calendar, "Salles sur l'écran verrouillé",
+                "Ton fond de verrouillage affiche les cours du jour, mis à jour tout seul.", { Wallpaper.isEnabled(this@MainActivity) }) { on, done ->
                 if (on) previewWallpaper(done)
                 else {
                     worker.execute { Wallpaper.disable(applicationContext) }
                     done()
                 }
-            },
-            SettingsSheet.Option(
-                R.drawable.ic_clock, "Rappel avant chaque cours",
-                "Une notification 5 min avant : la salle, le prof, et si le cours est annulé.",
-                { Reminders.isEnabled(this) && notificationsAllowed() },
-            ) { on, done ->
+            })
+            add(SettingsSheet.Item.Toggle(R.drawable.ic_clock, "Rappel avant chaque cours",
+                "Une notification 5 min avant : la salle, le prof, ou s'il est annulé.", { Reminders.isEnabled(this@MainActivity) && notificationsAllowed() }) { on, done ->
                 if (on && !notificationsAllowed()) {
                     afterNotificationPermission = done
                     requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFICATIONS)
                 } else {
-                    Reminders.setEnabled(this, on)
+                    Reminders.setEnabled(this@MainActivity, on)
                     done()
                 }
-            },
-            SettingsSheet.Option(
-                R.drawable.ic_sparkles, "Vibrations",
-                "Un petit retour quand tu touches un bouton ou coches un devoir.",
-                { Motion.hapticsOn(this) },
-            ) { on, done ->
+            })
+        }
+        val preferences = listOf(
+            SettingsSheet.Item.Toggle(R.drawable.ic_sparkles, "Vibrations", "Un petit retour quand tu touches un bouton.", { Motion.hapticsOn(this) }) { on, done ->
                 getSharedPreferences("ui", MODE_PRIVATE).edit().putBoolean("haptics", on).apply()
                 done()
             },
         )
-        SettingsSheet.show(this, options, bottomInset)
+        val account = listOf(
+            SettingsSheet.Item.Action(R.drawable.ic_open, "Ouvrir Pronote", "Messagerie, vie scolaire, bulletins…") { openPronote() },
+            SettingsSheet.Item.Action(R.drawable.ic_shield, "Tes données", "Ce que Sallio garde, et où.") { privacyDialog() },
+            SettingsSheet.Item.Action(R.drawable.ic_logout, "Se déconnecter et tout effacer", danger = true) { confirmLogout() },
+        )
+        SettingsSheet.show(
+            this, who,
+            listOf(
+                SettingsSheet.Section("Voir ta salle plus vite", faster),
+                SettingsSheet.Section("Préférences", preferences),
+                SettingsSheet.Section("Compte", account),
+            ),
+            "Sallio ${BuildConfig.VERSION_NAME} · code source sur GitHub",
+            { runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/${Updater.REPO}"))) } },
+            bottomInset,
+        )
     }
 
     private var afterNotificationPermission: (() -> Unit)? = null
@@ -586,9 +570,9 @@ class MainActivity : Activity() {
         card.addView(UI.title(this, "Trouve ton lycée", 20f))
         card.addView(UI.gap(this, 14))
         card.addView(UI.button(this, "Autour de moi", R.drawable.ic_place) { findNearby() }, UI.matchWidth())
-        card.addView(UI.text(this, "ou tape son nom après une recherche, son code (ex. 0782924E) ou l'adresse de son Pronote :", 13f, R.color.text2).apply { setPadding(0, dp(16), 0, dp(8)) })
+        card.addView(UI.text(this, "Tu connais le code de ton lycée (ex. 0782924E) ou l'adresse de son Pronote ?", 13f, R.color.text2).apply { setPadding(0, dp(16), 0, dp(8)) })
         val field = EditText(this).apply {
-            hint = "Nom, code ou adresse"
+            hint = "Code ou adresse"
             setSingleLine()
             inputType = InputType.TYPE_TEXT_VARIATION_URI or InputType.TYPE_CLASS_TEXT
             imeOptions = EditorInfo.IME_ACTION_GO
@@ -608,7 +592,9 @@ class MainActivity : Activity() {
         card.addView(schoolMessage)
         results = UI.column(this)
         card.addView(results, UI.matchWidth())
-        nearby?.let { showResults(it) }
+        nearby?.let { list ->
+            card.addView(UI.ghostButton(this, "Revoir les ${list.size} établissements trouvés") { openPicker(list) }, UI.matchWidth().apply { topMargin = dp(12) })
+        }
         content.addView(card, UI.matchWidth())
         val rising = mutableListOf<View>(appName, tagline, card)
 
@@ -656,7 +642,7 @@ class MainActivity : Activity() {
             when {
                 found == null -> showSchoolMessage("Touche d'abord « Autour de moi » pour chercher par nom, ou tape le code ou l'adresse de ton Pronote.")
                 found.isEmpty() -> { Motion.failure(root); showSchoolMessage("Aucun établissement de ce nom autour de toi.") }
-                else -> { Motion.tick(root); showSchoolMessage(null); showResults(found) }
+                else -> { Motion.tick(root); showSchoolMessage(null); openPicker(found) }
             }
             return
         }
@@ -745,11 +731,15 @@ class MainActivity : Activity() {
                         nearby = schools
                         Motion.success(root)
                         showSchoolMessage(null)
-                        showResults(schools)
+                        openPicker(schools)
                     }
                 }
             }
         }
+    }
+
+    private fun openPicker(schools: List<Schools.Nearby>) {
+        SchoolPicker.show(this, schools, bottomInset) { school -> checkSchool(school.url, SchoolPicker.titleCase(school.name)) }
     }
 
     private fun showResults(schools: List<Schools.Nearby>) {

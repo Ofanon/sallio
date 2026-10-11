@@ -213,6 +213,45 @@ internal object UI {
         Motion.pressable(this, 3)
     }
 
+    /**
+     * A homework line with its sticker checkbox. [isDone] / [toggle] come from the
+     * repository; the row redraws itself, so it works inside any sheet.
+     */
+    fun homeworkCheck(context: Context, h: fr.sallio.pronote.Homework, isDone: () -> Boolean, toggle: (Boolean) -> Unit): View {
+        val row = row(context).apply {
+            gravity = Gravity.TOP
+            setPadding(0, dp(10), 0, dp(10))
+        }
+        val box = FrameLayout(context)
+        val text = text(context, h.description.ifEmpty { "(pas de consigne)" }, 15f).apply { setPadding(0, dp(2), 0, 0) }
+        fun paint(done: Boolean) {
+            box.removeAllViews()
+            box.background = if (done) sticker(context, context.getColor(R.color.accent), context.getColor(R.color.accent_edge), 9, 2)
+            else rounded(0, context.dp(9).toFloat(), context.dp(3), context.getColor(R.color.box_edge))
+            if (done) box.addView(icon(context, R.drawable.ic_check, R.color.on_accent, 16).apply {
+                layoutParams = FrameLayout.LayoutParams(context.dp(16), context.dp(16), Gravity.CENTER).apply { bottomMargin = context.dp(2) }
+            })
+            text.alpha = if (done) 0.45f else 1f
+            text.paintFlags = if (done) text.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
+            else text.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
+        }
+        paint(isDone())
+        val click = View.OnClickListener {
+            val done = !isDone()
+            if (done) Motion.success(box) else Motion.tick(box)
+            Motion.bounce(box) {
+                toggle(done)
+                paint(done)
+            }
+        }
+        box.setOnClickListener(click)
+        text.setOnClickListener(click)
+        row.addView(box, LinearLayout.LayoutParams(context.dp(28), context.dp(28)))
+        row.addView(hgap(context, 12))
+        row.addView(text, weight())
+        return row
+    }
+
     // ---- Layout --------------------------------------------------------------------
 
     fun row(context: Context) = LinearLayout(context).apply {

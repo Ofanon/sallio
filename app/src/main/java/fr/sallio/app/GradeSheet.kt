@@ -21,93 +21,77 @@ object GradeSheet {
         val ctx = activity
         val fr = Locale.FRANCE
         val style = Subjects.style(g.subject)
-        val dialog = Dialog(ctx)
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        Sheet.open(activity, bottomInset) { sheet, _ ->
 
-        val sheet = UI.column(ctx).apply {
-            background = UI.rounded(ctx.getColor(R.color.bg), ctx.dp(30).toFloat())
-            setPadding(ctx.dp(18), ctx.dp(12), ctx.dp(18), ctx.dp(22) + bottomInset)
-        }
-        sheet.addView(View(ctx).apply { background = UI.rounded(ctx.getColor(R.color.text3), ctx.dp(3).toFloat()) },
-            LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(5)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = ctx.dp(16) })
+            // Header: subject tile, subject, date.
+            val head = UI.row(ctx)
+            head.addView(UI.subjectTile(ctx, g.subject, 48))
+            head.addView(UI.hgap(ctx, 14))
+            val titles = UI.column(ctx)
+            titles.addView(UI.title(ctx, Agenda.pretty(g.subject), 21f))
+            val day = "${Agenda.dayName(g.date)} ${g.date.dayOfMonth} ${g.date.month.getDisplayName(TextStyle.FULL, fr)}"
+            titles.addView(UI.text(ctx, day, 13f, R.color.text2).apply { setPadding(0, ctx.dp(4), 0, 0) })
+            head.addView(titles, UI.weight())
+            sheet.addView(head, UI.matchWidth())
 
-        // Header: subject tile, subject, date.
-        val head = UI.row(ctx)
-        head.addView(UI.subjectTile(ctx, g.subject, 48))
-        head.addView(UI.hgap(ctx, 14))
-        val titles = UI.column(ctx)
-        titles.addView(UI.title(ctx, Agenda.pretty(g.subject), 21f))
-        val day = "${Agenda.dayName(g.date)} ${g.date.dayOfMonth} ${g.date.month.getDisplayName(TextStyle.FULL, fr)}"
-        titles.addView(UI.text(ctx, day, 13f, R.color.text2).apply { setPadding(0, ctx.dp(4), 0, 0) })
-        head.addView(titles, UI.weight())
-        sheet.addView(head, UI.matchWidth())
-
-        // The grade itself, big, on the subject colour.
-        val hero = UI.column(ctx).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-            background = UI.sticker(ctx, Subjects.solid(style.family), Subjects.edge(ctx, style.family), 24, 5)
-            UI.stickerPadding(this, 16, 16, 5)
-        }
-        val ink = Subjects.onSolid(style.family)
-        val line = UI.row(ctx).apply { gravity = Gravity.BOTTOM }
-        val big = UI.title(ctx, g.value.replace('.', ','), 58f).apply { setTextColor(ink) }
-        line.addView(big)
-        if (g.points != null && g.outOf != null) line.addView(UI.title(ctx, " /${UI.number(g.outOf)}", 22f).apply { setTextColor(ink); alpha = 0.75f; setPadding(0, 0, 0, ctx.dp(8)) })
-        hero.addView(line, UI.wrap())
-        val on20 = if (g.points != null && g.outOf != null && g.outOf > 0 && g.outOf != 20.0) g.points / g.outOf * 20 else null
-        on20?.let { hero.addView(UI.text(ctx, "soit ${UI.number(it)} sur 20", 14f, weight = 800).apply { setTextColor(ink); alpha = 0.85f }) }
-        g.points?.let { target -> Motion.countUp(big, target) { UI.number(it) } }
-        sheet.addView(hero, UI.matchWidth().apply { topMargin = ctx.dp(16) })
-
-        // Where the grade sits in the class: min, class average, max, and you.
-        if (g.points != null && g.outOf != null && g.outOf > 0 && (g.classAverage != null || g.min != null || g.max != null)) {
-            sheet.addView(UI.section(ctx, "Par rapport à la classe"))
-            val card = UI.card(ctx, padding = 16)
-            val diff = g.classAverage?.let { g.points - it }
-            val verdict = when {
-                diff == null -> null
-                diff > 0.05 -> "${UI.number(diff)} point${if (diff >= 2) "s" else ""} au-dessus de la moyenne"
-                diff < -0.05 -> "${UI.number(-diff)} point${if (-diff >= 2) "s" else ""} sous la moyenne"
-                else -> "Pile dans la moyenne"
+            // The grade itself, big, on the subject colour.
+            val hero = UI.column(ctx).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                background = UI.sticker(ctx, Subjects.solid(style.family), Subjects.edge(ctx, style.family), 24, 5)
+                UI.stickerPadding(this, 16, 16, 5)
             }
-            verdict?.let { card.addView(UI.title(ctx, it, 17f, if (diff!! > 0.05) R.color.success else R.color.text)) }
-            card.addView(scale(activity, g, style), UI.matchWidth().apply { topMargin = ctx.dp(16) })
-            card.addView(statsRow(activity, g), UI.matchWidth().apply { topMargin = ctx.dp(10) })
-            sheet.addView(card, UI.matchWidth())
-        }
+            val ink = Subjects.onSolid(style.family)
+            val line = UI.row(ctx).apply { gravity = Gravity.BOTTOM }
+            val big = UI.title(ctx, g.value.replace('.', ','), 58f).apply { setTextColor(ink) }
+            line.addView(big)
+            if (g.points != null && g.outOf != null) line.addView(UI.title(ctx, " /${UI.number(g.outOf)}", 22f).apply { setTextColor(ink); alpha = 0.75f; setPadding(0, 0, 0, ctx.dp(8)) })
+            hero.addView(line, UI.wrap())
+            val on20 = if (g.points != null && g.outOf != null && g.outOf > 0 && g.outOf != 20.0) g.points / g.outOf * 20 else null
+            on20?.let { hero.addView(UI.text(ctx, "soit ${UI.number(it)} sur 20", 14f, weight = 800).apply { setTextColor(ink); alpha = 0.85f }) }
+            g.points?.let { target -> Motion.countUp(big, target) { UI.number(it) } }
+            sheet.addView(hero, UI.matchWidth().apply { topMargin = ctx.dp(16) })
 
-        // Details.
-        val details = buildList {
-            g.coefficient?.let { add("Coefficient" to UI.number(it)) }
-            report?.subjects?.firstOrNull { it.subject == g.subject }?.student?.let { add("Ta moyenne dans la matière" to UI.number(it)) }
-            add("Période" to (report?.periodName ?: "—"))
-        }
-        if (g.comment != null || details.isNotEmpty()) {
-            sheet.addView(UI.section(ctx, "Détails"))
-            val card = UI.card(ctx, padding = 14)
-            g.comment?.let {
-                card.addView(UI.text(ctx, "« $it »", 15f, weight = 800).apply { setPadding(0, ctx.dp(2), 0, ctx.dp(10)) })
+            // Where the grade sits in the class: min, class average, max, and you.
+            if (g.points != null && g.outOf != null && g.outOf > 0 && (g.classAverage != null || g.min != null || g.max != null)) {
+                sheet.addView(UI.section(ctx, "Par rapport à la classe"))
+                val card = UI.card(ctx, padding = 16)
+                val diff = g.classAverage?.let { g.points - it }
+                val verdict = when {
+                    diff == null -> null
+                    diff > 0.05 -> "${UI.number(diff)} point${if (diff >= 2) "s" else ""} au-dessus de la moyenne"
+                    diff < -0.05 -> "${UI.number(-diff)} point${if (-diff >= 2) "s" else ""} sous la moyenne"
+                    else -> "Pile dans la moyenne"
+                }
+                verdict?.let { card.addView(UI.title(ctx, it, 17f, if (diff!! > 0.05) R.color.success else R.color.text)) }
+                card.addView(scale(activity, g, style), UI.matchWidth().apply { topMargin = ctx.dp(16) })
+                card.addView(statsRow(activity, g), UI.matchWidth().apply { topMargin = ctx.dp(10) })
+                sheet.addView(card, UI.matchWidth())
             }
-            details.forEachIndexed { i, (label, value) ->
-                if (i > 0 || g.comment != null) card.addView(UI.divider(ctx))
-                card.addView(UI.row(ctx).apply {
-                    setPadding(0, ctx.dp(10), 0, ctx.dp(10))
-                    addView(UI.text(ctx, label, 14f, R.color.text2), UI.weight())
-                    addView(UI.title(ctx, value, 16f))
-                }, UI.matchWidth())
-            }
-            sheet.addView(card, UI.matchWidth())
-        }
 
-        val scroll = android.widget.ScrollView(ctx).apply { addView(sheet) }
-        dialog.setContentView(scroll)
-        dialog.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            setGravity(Gravity.BOTTOM)
-            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            setWindowAnimations(android.R.style.Animation_InputMethod)
+            // Details.
+            val details = buildList {
+                g.coefficient?.let { add("Coefficient" to UI.number(it)) }
+                report?.subjects?.firstOrNull { it.subject == g.subject }?.student?.let { add("Ta moyenne dans la matière" to UI.number(it)) }
+                add("Période" to (report?.periodName ?: "—"))
+            }
+            if (g.comment != null || details.isNotEmpty()) {
+                sheet.addView(UI.section(ctx, "Détails"))
+                val card = UI.card(ctx, padding = 14)
+                g.comment?.let {
+                    card.addView(UI.text(ctx, "« $it »", 15f, weight = 800).apply { setPadding(0, ctx.dp(2), 0, ctx.dp(10)) })
+                }
+                details.forEachIndexed { i, (label, value) ->
+                    if (i > 0 || g.comment != null) card.addView(UI.divider(ctx))
+                    card.addView(UI.row(ctx).apply {
+                        setPadding(0, ctx.dp(10), 0, ctx.dp(10))
+                        addView(UI.text(ctx, label, 14f, R.color.text2), UI.weight())
+                        addView(UI.title(ctx, value, 16f))
+                    }, UI.matchWidth())
+                }
+                sheet.addView(card, UI.matchWidth())
+            }
+
         }
-        dialog.show()
     }
 
     /** A track from 0 to the scale, with min-max shaded, the class average and the student marked. */

@@ -21,8 +21,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // Bump both for every GitHub release: the in-app updater compares versionCode.
-        versionCode = 3
-        versionName = "0.3"
+        versionCode = 4
+        versionName = "0.4"
     }
 
     signingConfigs {
@@ -55,7 +55,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             resValue("string", "app_name", "Sallio")
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (signing.containsKey("storeFile")) {
                 signingConfig = signingConfigs.getByName("release")
             }

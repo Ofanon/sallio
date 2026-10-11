@@ -1,73 +1,92 @@
 package fr.sallio.app
 
-import android.app.Dialog
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
-import android.view.Window
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.ScrollView
 
-/** The practical switches: lock screen wallpaper, reminders, vibrations. */
+/**
+ * Everything in one place, behind the avatar: the ways to see the room
+ * faster, the preferences and the account.
+ */
 object SettingsSheet {
 
-    /** [set] receives the wanted state and a callback to redraw the switch once it is applied. */
-    class Option(val icon: Int, val title: String, val description: String, val isOn: () -> Boolean, val set: (Boolean, () -> Unit) -> Unit)
+    sealed class Item(val icon: Int, val title: String, val description: String?) {
+        /** A switch. [set] receives the wanted state and a callback once it is applied. */
+        class Toggle(icon: Int, title: String, description: String, val isOn: () -> Boolean, val set: (Boolean, () -> Unit) -> Unit) :
+            Item(icon, title, description)
 
-    fun show(activity: MainActivity, options: List<Option>, bottomInset: Int) {
-        val ctx = activity
-        val dialog = Dialog(ctx)
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        val sheet = UI.column(ctx).apply {
-            background = UI.rounded(ctx.getColor(R.color.bg), ctx.dp(30).toFloat())
-            setPadding(ctx.dp(18), ctx.dp(12), ctx.dp(18), ctx.dp(22) + bottomInset)
-        }
-        sheet.addView(View(ctx).apply { background = UI.rounded(ctx.getColor(R.color.text3), ctx.dp(3).toFloat()) },
-            LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(5)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = ctx.dp(14) })
-        sheet.addView(UI.title(ctx, "Réglages", 24f))
-        sheet.addView(UI.text(ctx, "Pour voir ta salle encore plus vite.", 14f, R.color.text2).apply { setPadding(0, ctx.dp(4), 0, ctx.dp(8)) })
-
-        val card = UI.card(ctx, padding = 6)
-        options.forEachIndexed { i, option ->
-            if (i > 0) card.addView(UI.divider(ctx).apply { (layoutParams as LinearLayout.LayoutParams).apply { marginStart = ctx.dp(12); marginEnd = ctx.dp(12) } })
-            card.addView(row(activity, option), UI.matchWidth())
-        }
-        sheet.addView(card, UI.matchWidth().apply { topMargin = ctx.dp(8) })
-
-        dialog.setContentView(ScrollView(ctx).apply { addView(sheet) })
-        dialog.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            setGravity(Gravity.BOTTOM)
-            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            setWindowAnimations(android.R.style.Animation_InputMethod)
-        }
-        dialog.show()
+        /** A button; [badge] like "Ajouté" shows on the right. */
+        class Action(icon: Int, title: String, description: String? = null, val badge: String? = null, val danger: Boolean = false, val closes: Boolean = true, val run: () -> Unit) :
+            Item(icon, title, description)
     }
 
-    private fun row(ctx: MainActivity, option: Option): View {
-        val row = UI.row(ctx).apply { setPadding(ctx.dp(12), ctx.dp(14), ctx.dp(12), ctx.dp(14)) }
+    class Section(val title: String, val items: List<Item>)
+
+    fun show(activity: MainActivity, header: View, sections: List<Section>, footer: String, onFooter: () -> Unit, bottomInset: Int) {
+        val ctx = activity
+        Sheet.open(activity, bottomInset) { sheet, dialog ->
+            sheet.addView(header, UI.matchWidth())
+            for (section in sections) {
+                if (section.items.isEmpty()) continue
+                sheet.addView(UI.section(ctx, section.title))
+                val card = UI.card(ctx, padding = 6)
+                section.items.forEachIndexed { i, item ->
+                    if (i > 0) card.addView(UI.divider(ctx).apply { (layoutParams as LinearLayout.LayoutParams).apply { marginStart = ctx.dp(12); marginEnd = ctx.dp(12) } })
+                    card.addView(row(activity, item) { dialog.dismiss() }, UI.matchWidth())
+                }
+                sheet.addView(card, UI.matchWidth())
+            }
+            sheet.addView(UI.text(ctx, footer, 12f, R.color.text3).apply {
+                gravity = Gravity.CENTER
+                setPadding(0, ctx.dp(18), 0, 0)
+                setOnClickListener { Motion.tap(this); onFooter() }
+            }, UI.matchWidth())
+        }
+    }
+
+    private fun row(ctx: MainActivity, item: Item, close: () -> Unit): View {
+        val row = UI.row(ctx).apply {
+            setPadding(ctx.dp(12), ctx.dp(13), ctx.dp(12), ctx.dp(13))
+            foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, ctx.dp(16).toFloat()))
+        }
+        val danger = item is Item.Action && item.danger
         val tile = FrameLayout(ctx).apply {
-            background = UI.rounded(ctx.getColor(R.color.accent_container), ctx.dp(12).toFloat())
-            addView(UI.icon(ctx, option.icon, R.color.on_accent_container, 20).apply {
+            background = UI.rounded(ctx.getColor(if (danger) R.color.alert_bg else R.color.accent_container), ctx.dp(12).toFloat())
+            addView(UI.icon(ctx, item.icon, if (danger) R.color.alert else R.color.accent, 20).apply {
                 layoutParams = FrameLayout.LayoutParams(ctx.dp(20), ctx.dp(20), Gravity.CENTER)
             })
         }
         row.addView(tile, LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(40)))
         row.addView(UI.hgap(ctx, 12))
         val col = UI.column(ctx)
-        col.addView(UI.title(ctx, option.title, 16f))
-        col.addView(UI.text(ctx, option.description, 13f, R.color.text2).apply { setPadding(0, ctx.dp(3), 0, 0) })
+        col.addView(UI.title(ctx, item.title, 16f, if (danger) R.color.alert else R.color.text))
+        item.description?.let { col.addView(UI.text(ctx, it, 13f, R.color.text2).apply { setPadding(0, ctx.dp(3), 0, 0) }) }
         row.addView(col, UI.weight())
         row.addView(UI.hgap(ctx, 10))
-        val switch = toggle(ctx, option.isOn())
-        row.addView(switch)
-        row.setOnClickListener {
-            Motion.tick(row)
-            // The option may ask first (preview, permission): redraw from its real state.
-            option.set(!option.isOn()) { redraw(ctx, switch, option.isOn()) }
+
+        when (item) {
+            is Item.Toggle -> {
+                val switch = toggle(ctx, item.isOn())
+                row.addView(switch)
+                row.setOnClickListener {
+                    val wanted = !item.isOn()
+                    if (wanted) Motion.success(row) else Motion.tick(row)
+                    redraw(ctx, switch, wanted)
+                    // The option may ask first (preview, permission): redraw from its real state.
+                    item.set(wanted) { redraw(ctx, switch, item.isOn()) }
+                }
+            }
+            is Item.Action -> {
+                item.badge?.let { row.addView(UI.chip(ctx, it, ctx.getColor(R.color.success_bg), ctx.getColor(R.color.success), 11f)) }
+                    ?: row.addView(UI.icon(ctx, R.drawable.ic_open, R.color.text3, 16).apply { visibility = if (item.danger) View.GONE else View.VISIBLE })
+                row.setOnClickListener {
+                    Motion.tap(row)
+                    if (item.closes) close()
+                    item.run()
+                }
+            }
         }
         return row
     }
