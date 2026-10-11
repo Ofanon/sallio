@@ -211,6 +211,8 @@ class Repo private constructor(private val context: Context) {
     fun onLoggedIn(logged: LoggedIn) {
         lock.lock()
         try {
+            // A first login gets the welcome celebration; a reconnection does not.
+            if (account() == null) context.getSharedPreferences("ui", Context.MODE_PRIVATE).edit().putBoolean("welcomePending", true).apply()
             vault.delete(PHOTO)
             cachedPhoto = null
             saveAccount(logged)

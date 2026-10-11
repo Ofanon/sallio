@@ -78,10 +78,14 @@ class MainActivity : Activity() {
         // Insets are read once here and applied by render(), which rebuilds every view.
         root.setOnApplyWindowInsetsListener { _, insets ->
             val (t, b) = if (Build.VERSION.SDK_INT >= 30) {
-                insets.getInsets(android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.ime()).let { it.top to it.bottom }
+                insets.getInsets(android.view.WindowInsets.Type.systemBars()).let { it.top to it.bottom }
             } else {
                 @Suppress("DEPRECATION") (insets.systemWindowInsetTop to insets.systemWindowInsetBottom)
             }
+            // The keyboard only pads the screen: rebuilding the views would empty the field being typed in.
+            val ime = if (Build.VERSION.SDK_INT >= 30) insets.getInsets(android.view.WindowInsets.Type.ime()).bottom else 0
+            root.setPadding(0, 0, 0, (ime - b).coerceAtLeast(0))
+            if (ime > 0) root.post { root.findFocus()?.let { f -> f.requestRectangleOnScreen(android.graphics.Rect(0, 0, f.width, f.height + dp(120)), false) } }
             if (t != topInset || b != bottomInset) {
                 topInset = t
                 bottomInset = b
@@ -188,6 +192,18 @@ class MainActivity : Activity() {
         root.addView(column, FrameLayout.LayoutParams(-1, -1))
         // Opaque strip under the status bar, so scrolled content never runs beneath the clock.
         root.addView(View(this).apply { setBackgroundColor(getColor(R.color.bg)) }, FrameLayout.LayoutParams(-1, topInset))
+        val ui = getSharedPreferences("ui", MODE_PRIVATE)
+        if (ui.getBoolean("welcomePending", false)) {
+            ui.edit().putBoolean("welcomePending", false).apply()
+            Welcome.celebrate(this, s, root, topInset, bottomInset) {
+                // Then the home tab rises in for the first time.
+                tab = Tab.HOME
+                entering = Enter.ALL
+                homeIntroPlayed = false
+                scroll = null
+                render()
+            }
+        }
         if (entering == Enter.NONE) sv.post { sv.scrollTo(0, keepScroll) }
         entering = Enter.NONE
     }
@@ -233,6 +249,14 @@ class MainActivity : Activity() {
         pushScheduled = true
         handler.postDelayed(pushNow, 1500)
     }
+
+    fun pinWidget() {
+        val manager = getSystemService(AppWidgetManager::class.java)
+        if (manager.isRequestPinAppWidgetSupported) manager.requestPinAppWidget(ComponentName(this, NextWidget::class.java), null, null)
+    }
+
+    /** The welcome screen animates the first time it shows, not when redrawn by a search. */
+    private var setupAnimated = false
 
     fun openPronote() {
         val url = repo.account()?.credentials?.url ?: return
@@ -543,20 +567,19 @@ class MainActivity : Activity() {
     // ---- Setup -------------------------------------------------------------------
 
     private fun renderSetup() {
-        val content = UI.column(this).apply { setPadding(dp(22), topInset + dp(32), dp(22), bottomInset + dp(28)) }
+        val content = UI.column(this).apply { setPadding(dp(22), topInset + dp(12), dp(22), bottomInset + dp(28)) }
 
-        val badge = FrameLayout(this).apply {
-            background = UI.sticker(context, getColor(R.color.accent), getColor(R.color.accent_edge), 28, 5)
-            setPadding(0, 0, 0, dp(5))
-        }
-        badge.addView(android.widget.ImageView(this).apply { setImageResource(R.drawable.ic_launcher_fg) }, FrameLayout.LayoutParams(-1, -1))
-        content.addView(badge, LinearLayout.LayoutParams(dp(88), dp(93)))
-        content.addView(UI.gap(this, 20))
-        content.addView(UI.title(this, "Sallio", 44f))
-        content.addView(UI.text(this, "Ta salle, tes profs absents, tes devoirs et tes notes. Même quand Pronote rame.", 18f, R.color.text2).apply {
-            setPadding(0, dp(8), 0, 0)
+        val animate = !setupAnimated
+        setupAnimated = true
+        content.addView(Welcome.hero(this, animate))
+        val appName = UI.title(this, "Sallio", 46f).apply { gravity = Gravity.CENTER }
+        content.addView(appName, UI.matchWidth())
+        val tagline = UI.text(this, "Ta salle, tes profs absents, tes devoirs et tes notes. Même quand Pronote rame.", 18f, R.color.text2).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(8), dp(8), 0)
             setLineSpacing(0f, 1.1f)
-        })
+        }
+        content.addView(tagline, UI.matchWidth())
         content.addView(UI.gap(this, 26))
 
         val card = UI.card(this, padding = 18)
@@ -587,6 +610,7 @@ class MainActivity : Activity() {
         card.addView(results, UI.matchWidth())
         nearby?.let { showResults(it) }
         content.addView(card, UI.matchWidth())
+        val rising = mutableListOf<View>(appName, tagline, card)
 
         content.addView(UI.gap(this, 22))
         for ((icon, line) in listOf(
@@ -604,8 +628,9 @@ class MainActivity : Activity() {
                 addView(tile, LinearLayout.LayoutParams(dp(38), dp(38)))
                 addView(UI.hgap(context, 12))
                 addView(UI.text(context, line, 14f, R.color.text2), UI.weight())
-            }, UI.matchWidth())
+            }.also { rising += it }, UI.matchWidth())
         }
+        if (animate) Welcome.riseIn(rising)
 
         val sv = ScrollView(this).apply {
             isFillViewport = true
