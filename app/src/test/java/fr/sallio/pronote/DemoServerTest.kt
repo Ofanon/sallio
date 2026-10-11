@@ -36,6 +36,16 @@ class DemoServerTest {
         lessons.take(12).forEach { println("${it.start} → ${it.end.toLocalTime()} ${it.subject} ${it.rooms} ${it.teachers} ${it.status ?: ""}") }
         println("${lessons.size} cours, ${lessons.count { it.canceled }} annulés, ${lessons.count { it.modified }} modifiés")
         assertTrue(lessons.isNotEmpty())
+
+        // The demo only has homework in September.
+        val homework = Schoolwork.homework(first, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 10, 31))
+        println("${homework.size} devoirs")
+        assertTrue(homework.isNotEmpty())
+        homework.take(4).forEach { println("devoir ${it.due} ${it.subject} : ${it.description.take(60)} fait=${it.done}") }
+        val report = Schoolwork.report(first)
+        println("${report.periodName} moyenne=${report.overall} classe=${report.classOverall} ${report.grades.size} notes ${report.subjects.size} matières")
+        report.grades.take(4).forEach { println("note ${it.date} ${it.subject} ${it.value}/${it.outOf} classe=${it.classAverage}") }
+        assertTrue(report.subjects.isNotEmpty())
         assertTrue(lessons.all { it.end > it.start })
     }
 }

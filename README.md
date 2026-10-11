@@ -6,6 +6,22 @@ sur l'écran d'accueil **avant** la sonnerie : la salle du prochain cours, les
 profs absents, les cours annulés, sans rien demander aux serveurs à ce
 moment-là.
 
+## L'app
+
+Quatre onglets, pour l'essentiel de Pronote au quotidien sans le charger :
+
+- **Accueil** : le prochain cours en grand (salle, prof, horaires, alerte),
+  ce qui a changé aujourd'hui et demain, les devoirs du prochain jour de cours
+  et les dernières notes.
+- **Cours** : deux semaines d'emploi du temps, jour par jour ; un point rouge
+  signale les jours avec un prof absent ou un cours modifié.
+- **Devoirs** : le cahier de textes des deux prochaines semaines, à cocher
+  (les coches restent sur le téléphone, Pronote n'est jamais modifié).
+- **Notes** : moyenne générale et de classe, dernières notes, moyennes par
+  matière ; les notes arrivées depuis la dernière visite sont signalées.
+
+Pour tout le reste (messagerie, vie scolaire, bulletins), « Ouvrir Pronote ».
+
 ## Comment ça marche
 
 - **L'emploi du temps est téléchargé à l'avance**, environ toutes les heures

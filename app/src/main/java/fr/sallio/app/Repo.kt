@@ -2,6 +2,9 @@ package fr.sallio.app
 
 import android.content.Context
 import fr.sallio.pronote.Credentials
+import fr.sallio.pronote.Homework
+import fr.sallio.pronote.Report
+import fr.sallio.pronote.Schoolwork
 import fr.sallio.pronote.Lesson
 import fr.sallio.pronote.LoggedIn
 import fr.sallio.pronote.Pronote
@@ -83,6 +86,38 @@ class Repo private constructor(private val context: Context) {
         }.getOrDefault(emptyList())
     }
 
+    fun homework(): List<Homework> {
+        val text = vault.read(HOMEWORK) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(text)
+            (0 until array.length()).map { Homework.fromJson(array.getJSONObject(it)) }
+        }.getOrDefault(emptyList())
+    }
+
+    fun report(): Report? = vault.read(GRADES)?.let { runCatching { Report.fromJson(JSONObject(it)) }.getOrNull() }
+
+    /** Homework ticked in the app. Kept on the phone only: PRONOTE is never written to. */
+    fun isDone(h: Homework): Boolean = prefs.getStringSet("done", emptySet())!!.let { set ->
+        if (h.id in set) true else if ("!" + h.id in set) false else h.done
+    }
+
+    fun setDone(h: Homework, done: Boolean) {
+        val set = prefs.getStringSet("done", emptySet())!!.toMutableSet()
+        set.remove(h.id); set.remove("!" + h.id)
+        if (done != h.done) set += if (done) h.id else "!" + h.id
+        prefs.edit().putStringSet("done", set).apply()
+    }
+
+    /** Grades the student has not seen in the app yet. */
+    fun unseenGrades(): Set<String> {
+        val seen = prefs.getStringSet("seenGrades", null) ?: return emptySet()
+        return report()?.grades?.map { it.id }?.filter { it !in seen }?.toSet().orEmpty()
+    }
+
+    fun markGradesSeen() {
+        prefs.edit().putStringSet("seenGrades", report()?.grades?.map { it.id }?.toSet().orEmpty()).apply()
+    }
+
     fun status() = Status(
         lastSuccess = prefs.getLong("success", 0),
         lastAttempt = prefs.getLong("attempt", 0),
@@ -156,6 +191,16 @@ class Repo private constructor(private val context: Context) {
         val today = LocalDate.now()
         val lessons = Timetable.fetch(logged, today, today.plusDays(FETCH_DAYS))
         vault.write(CACHE, JSONArray(lessons.map { it.toJson() }).toString())
+        // Homework and grades are extras: when PRONOTE fails on them, the timetable still counts.
+        runCatching { Schoolwork.homework(logged, today, today.plusDays(FETCH_DAYS)) }.onSuccess { list ->
+            vault.write(HOMEWORK, JSONArray(list.map { it.toJson() }).toString())
+        }
+        runCatching { Schoolwork.report(logged) }.onSuccess { report ->
+            val first = vault.read(GRADES) == null
+            vault.write(GRADES, report.toJson().toString())
+            // On the very first download nothing is "new": everything was already on PRONOTE.
+            if (first) markGradesSeen()
+        }
         prefs.edit()
             .putLong("success", System.currentTimeMillis())
             .remove("error")
@@ -177,6 +222,8 @@ class Repo private constructor(private val context: Context) {
     companion object {
         private const val ACCOUNT = "account"
         private const val CACHE = "timetable"
+        private const val HOMEWORK = "homework"
+        private const val GRADES = "grades"
         private const val FETCH_DAYS = 13L
         private const val MANUAL_GAP_MS = 30_000L
         private const val BACKGROUND_GAP_MS = 20 * 60_000L

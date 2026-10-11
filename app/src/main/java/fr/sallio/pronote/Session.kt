@@ -32,6 +32,9 @@ class Session internal constructor(
     /** The `{G, L, N}` resource of the logged in student. */
     internal var userResource: JSONObject? = null
 
+    /** Default period id per tab (198 = grades). */
+    internal var defaultPeriods: Map<Int, String> = emptyMap()
+
     internal val properties: ApiProperties get() = ApiProperties.of(version)
 
     /** `Uuid` of `FonctionParametres`: the IV, RSA encrypted unless over HTTPS with the built-in key. */

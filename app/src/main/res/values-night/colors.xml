@@ -13,4 +13,8 @@
     <color name="warn">#FFCC80</color>
     <color name="warn_bg">#3B2C10</color>
     <color name="line">#2E2F33</color>
+    <color name="accent_container">#26355F</color>
+    <color name="on_accent_container">#DCE4FF</color>
+    <color name="success">#8BD6A0</color>
+    <color name="success_bg">#1B3A24</color>
 </resources>

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Sallio</string>
     <string name="widget_next">Prochaine salle</string>
     <string name="widget_next_desc">La salle de ton prochain cours, et les profs absents</string>
     <string name="widget_day">Ma journée</string>

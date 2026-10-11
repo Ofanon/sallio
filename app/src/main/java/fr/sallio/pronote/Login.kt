@@ -4,14 +4,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
 
-/** The parts of `FonctionParametres` the timetable needs. */
+/** The parts of `FonctionParametres` the app needs. */
 internal class InstanceParameters(
     val navigatorIdentifier: String?,
     /** "8h55", "9h50"... end time of each block of the day. */
     val endings: List<String>,
     val blocksPerDay: Int,
     val firstMonday: LocalDate?,
+    /** Trimestres / semestres, as `{N, G, L}` entities plus their dates. */
+    val periods: List<Period>,
 )
+
+internal class Period(val entity: JSONObject, val name: String, val start: LocalDate?, val end: LocalDate?)
 
 /**
  * What survives between two logins. The token is single use: PRONOTE hands a
@@ -195,12 +199,21 @@ object Pronote {
             for (i in 0 until list.length()) endings += list.getJSONObject(i).optString("L")
         }
         val firstMonday = general.optJSONObject("PremierLundi")?.optString("V")?.let { PronoteDates.parse(it)?.toLocalDate() }
+        val periods = general.optJSONArray("ListePeriodes")?.objects().orEmpty().map { p ->
+            Period(
+                entity = JSONObject().put("N", p.opt("N")).put("G", p.opt("G")).put("L", p.opt("L")),
+                name = p.optString("L"),
+                start = p.optJSONObject("dateDebut")?.optString("V")?.let { PronoteDates.parse(it)?.toLocalDate() },
+                end = p.optJSONObject("dateFin")?.optString("V")?.let { PronoteDates.parse(it)?.toLocalDate() },
+            )
+        }
 
         return InstanceParameters(
             navigatorIdentifier = params.optString("identifiantNav").ifEmpty { null },
             endings = endings,
             blocksPerDay = general.optInt("PlacesParJour", endings.size),
             firstMonday = firstMonday,
+            periods = periods,
         )
     }
 
@@ -313,6 +326,7 @@ object Pronote {
             .put("G", resource.opt("G"))
             .put("L", resource.opt("L"))
             .put("N", resource.opt("N"))
+        session.defaultPeriods = defaultPeriods(resource)
 
         val token = authentication.optString("jetonConnexionAppliMobile")
         if (token.isEmpty()) throw PronoteException.Protocol("Pas de jeton d'appareil")
@@ -332,6 +346,14 @@ object Pronote {
             className = resource.optJSONObject("classeDEleve")?.optString("L")?.ifEmpty { null },
         )
     }
+
+    /** Tab number -> id of the period PRONOTE opens that tab on ("Trimestre 1"...). */
+    private fun defaultPeriods(resource: JSONObject): Map<Int, String> =
+        resource.optJSONObject("listeOngletsPourPeriodes")?.optJSONArray("V")?.objects().orEmpty()
+            .mapNotNull { tab ->
+                val id = tab.optJSONObject("periodeParDefaut")?.optJSONObject("V")?.optString("N") ?: return@mapNotNull null
+                tab.optInt("G") to id
+            }.toMap()
 
     internal fun JSONArray.objects(): List<JSONObject> = (0 until length()).mapNotNull { optJSONObject(it) }
 }

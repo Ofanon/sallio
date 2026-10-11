@@ -46,9 +46,15 @@ android {
     }
 
     buildTypes {
+        // Debug installs next to the real app, so testing never logs the student out.
+        debug {
+            applicationIdSuffix = ".debug"
+            resValue("string", "app_name", "Sallio test")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            resValue("string", "app_name", "Sallio")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             if (signing.containsKey("storeFile")) {
                 signingConfig = signingConfigs.getByName("release")
@@ -58,6 +64,7 @@ android {
 
     buildFeatures {
         buildConfig = true
+        resValues = true
     }
 
     testOptions {
