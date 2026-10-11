@@ -1,0 +1,19 @@
+# Signing key and its passwords: whoever gets them can ship a fake update.
+*.jks
+*.keystore
+keystore.properties
+
+# Machine-specific SDK path.
+local.properties
+
+# Build outputs.
+build/
+.gradle/
+.kotlin/
+*.apk
+*.aab
+
+# Editors.
+.idea/
+*.iml
+.DS_Store

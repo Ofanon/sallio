@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A classroom door, ajar, on the 108dp adaptive canvas (safe zone 66dp). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillAlpha="0.35"
+        android:fillColor="#FFFFFF"
+        android:pathData="M37,31h34a3,3 0,0 1,3 3v43h-40v-43a3,3 0,0 1,3 -3z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M37,31l25,5v41l-25,0z" />
+    <path
+        android:fillColor="#2450B8"
+        android:pathData="M53,56m-2.6,0a2.6,2.6 0,1 1,5.2 0a2.6,2.6 0,1 1,-5.2 0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M31,77h46v3h-46z" />
+</vector>
