@@ -63,7 +63,7 @@ object GradeSheet {
                     else -> "Pile dans la moyenne"
                 }
                 verdict?.let { card.addView(UI.title(ctx, it, 17f, if (diff!! > 0.05) R.color.success else R.color.text)) }
-                card.addView(scale(activity, g, style), UI.matchWidth().apply { topMargin = ctx.dp(16) })
+                card.addView(scale(activity, g, style), LinearLayout.LayoutParams(-1, ctx.dp(104)).apply { topMargin = ctx.dp(8) })
                 card.addView(statsRow(activity, g), UI.matchWidth().apply { topMargin = ctx.dp(10) })
                 sheet.addView(card, UI.matchWidth())
             }
@@ -95,42 +95,88 @@ object GradeSheet {
     }
 
     /** A track from 0 to the scale, with min-max shaded, the class average and the student marked. */
-    private fun scale(ctx: MainActivity, g: Grade, style: Subjects.Style): View {
-        val outOf = g.outOf ?: 20.0
-        fun frac(v: Double) = (v / outOf).coerceIn(0.0, 1.0)
-        val frame = FrameLayout(ctx)
-        val trackHeight = ctx.dp(12)
-        val markerTop = ctx.dp(22)
-        frame.addView(View(ctx).apply { background = UI.rounded(ctx.getColor(R.color.surface2), ctx.dp(6).toFloat()) },
-            FrameLayout.LayoutParams(-1, trackHeight).apply { topMargin = markerTop })
-        val range = View(ctx).apply { background = UI.rounded(Subjects.tint(ctx, style.family), ctx.dp(6).toFloat()) }
-        frame.addView(range, FrameLayout.LayoutParams(0, trackHeight).apply { topMargin = markerTop })
-        val avgMark = View(ctx).apply { background = UI.rounded(ctx.getColor(R.color.text2), ctx.dp(2).toFloat()) }
-        frame.addView(avgMark, FrameLayout.LayoutParams(ctx.dp(4), trackHeight + ctx.dp(8)).apply { topMargin = markerTop - ctx.dp(4) })
-        val you = UI.text(ctx, "toi", 11f, weight = 900).apply {
-            gravity = Gravity.CENTER
-            setTextColor(Subjects.onSolid(style.family))
-            background = UI.rounded(Subjects.solid(style.family), ctx.dp(9).toFloat(), ctx.dp(2), Subjects.edge(ctx, style.family))
-            setPadding(ctx.dp(6), 0, ctx.dp(6), ctx.dp(1))
+    private fun scale(ctx: MainActivity, g: Grade, style: Subjects.Style): View =
+        ClassScale(ctx, g, style).apply { layoutParams = LinearLayout.LayoutParams(-1, ctx.dp(104)) }
+
+    /**
+     * The class from 0 to the scale: grey track, the class spread (lowest to
+     * highest) in the subject tint, the class average as a tick, and the
+     * student as a big pin with a "Toi · 16,5" bubble, sliding in.
+     */
+    @android.annotation.SuppressLint("ViewConstructor")
+    private class ClassScale(ctx: MainActivity, private val g: Grade, style: Subjects.Style) : View(ctx) {
+        private val d = resources.displayMetrics.density
+        private val outOf = g.outOf ?: 20.0
+        private val solid = Subjects.solid(style.family)
+        private val edge = Subjects.edge(ctx, style.family)
+        private val ink = Subjects.onSolid(style.family)
+        private val track = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = ctx.getColor(R.color.surface2) }
+        private val spread = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = Subjects.tint(ctx, style.family) }
+        private val tick = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = ctx.getColor(R.color.text2) }
+        private val pin = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = solid }
+        private val pinEdge = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = edge }
+        private val pinCore = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE }
+        private val bubbleText = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = ink; textSize = 14 * d; typeface = UI.display(ctx); textAlign = android.graphics.Paint.Align.CENTER
         }
-        frame.addView(you, FrameLayout.LayoutParams(-2, -2))
-        frame.post {
-            val w = frame.width
-            val lo = frac(g.min ?: g.points!!)
-            val hi = frac(g.max ?: g.points!!)
-            range.layoutParams = (range.layoutParams as FrameLayout.LayoutParams).apply { leftMargin = (w * lo).toInt(); width = ((hi - lo) * w).toInt().coerceAtLeast(ctx.dp(12)) }
-            g.classAverage?.let { avg -> avgMark.layoutParams = (avgMark.layoutParams as FrameLayout.LayoutParams).apply { leftMargin = (w * frac(avg)).toInt() - ctx.dp(2) } }
-                ?: run { avgMark.visibility = View.GONE }
-            val x = (w * frac(g.points!!)).toInt() - you.width / 2
-            you.layoutParams = (you.layoutParams as FrameLayout.LayoutParams).apply { leftMargin = x.coerceIn(0, w - you.width) }
-            frame.requestLayout()
-            if (android.animation.ValueAnimator.areAnimatorsEnabled()) {
-                you.translationX = -x.toFloat()
-                you.animate().translationX(0f).setDuration(650).setInterpolator(android.view.animation.DecelerateInterpolator(2f)).start()
+        private val small = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = ctx.getColor(R.color.text2); textSize = 11 * d; typeface = UI.body(ctx, 800); textAlign = android.graphics.Paint.Align.CENTER
+        }
+        private var progress = if (android.animation.ValueAnimator.areAnimatorsEnabled()) 0f else 1f
+
+        init {
+            if (progress == 0f) android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 800
+                startDelay = 250
+                interpolator = android.view.animation.OvershootInterpolator(1.3f)
+                addUpdateListener { progress = it.animatedValue as Float; invalidate() }
+                start()
             }
         }
-        frame.layoutParams = LinearLayout.LayoutParams(-1, markerTop + trackHeight + ctx.dp(6))
-        return frame
+
+        override fun onDraw(c: android.graphics.Canvas) {
+            val pad = 14 * d
+            val left = pad
+            val right = width - pad
+            val trackY = 62 * d
+            val th = 12 * d
+            fun x(v: Double) = (left + (right - left) * (v / outOf).coerceIn(0.0, 1.0)).toFloat()
+
+            c.drawRoundRect(left, trackY - th / 2, right, trackY + th / 2, th / 2, th / 2, track)
+            val lo = g.min ?: g.points!!
+            val hi = g.max ?: g.points!!
+            c.drawRoundRect(x(lo) - th / 2, trackY - th / 2, x(hi) + th / 2, trackY + th / 2, th / 2, th / 2, spread)
+            g.classAverage?.let { avg ->
+                val ax = x(avg)
+                c.drawRoundRect(ax - 2 * d, trackY - th, ax + 2 * d, trackY + th, 2 * d, 2 * d, tick)
+                c.drawText("classe", ax, trackY + th + 16 * d, small)
+            }
+            c.drawText("0", left, trackY + th + 16 * d, small.apply { alpha = 160 })
+            c.drawText(UI.number(outOf), right, trackY + th + 16 * d, small)
+            small.alpha = 255
+
+            // The student: a pin on the track, a stem, and a bubble above.
+            val px = x(g.points!! * progress.coerceAtMost(1.04f).toDouble().coerceAtMost(1.0)).coerceIn(left, right)
+            val r = 11 * d
+            c.drawCircle(px, trackY + 1.5f * d, r, pinEdge)
+            c.drawCircle(px, trackY, r, pin)
+            c.drawCircle(px, trackY, r * 0.42f, pinCore)
+            val label = "Toi · ${g.value.replace('.', ',')}"
+            val bw = bubbleText.measureText(label) + 20 * d
+            val bh = 28 * d
+            val bx = (px - bw / 2).coerceIn(0f, width - bw)
+            val by = trackY - r - 10 * d - bh
+            c.drawRoundRect(bx, by + 3 * d, bx + bw, by + bh + 3 * d, 10 * d, 10 * d, pinEdge)
+            c.drawRoundRect(bx, by, bx + bw, by + bh, 10 * d, 10 * d, pin)
+            val tri = android.graphics.Path().apply {
+                moveTo(px - 7 * d, by + bh - 1)
+                lineTo(px + 7 * d, by + bh - 1)
+                lineTo(px, by + bh + 8 * d)
+                close()
+            }
+            c.drawPath(tri, pin)
+            c.drawText(label, bx + bw / 2, by + bh / 2 + 5 * d, bubbleText)
+        }
     }
 
     private fun statsRow(ctx: MainActivity, g: Grade): View {

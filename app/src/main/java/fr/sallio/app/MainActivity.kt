@@ -184,6 +184,7 @@ class MainActivity : Activity() {
         }
 
         val sv = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
             isFillViewport = true
             addView(content)
         }
@@ -619,6 +620,7 @@ class MainActivity : Activity() {
         if (animate) Welcome.riseIn(rising)
 
         val sv = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
             isFillViewport = true
             addView(content)
         }
