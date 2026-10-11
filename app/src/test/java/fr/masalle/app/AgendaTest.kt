@@ -73,5 +73,14 @@ class AgendaTest {
         assertEquals("https://0750655e.index-education.net/pronote", Schools.urlFromInput("0750655e.index-education.net/pronote/eleve.html"))
         assertEquals("https://x.fr/pronote", Schools.urlFromInput("http://x.fr/pronote/"))
         assertNull(Schools.urlFromInput("lycée"))
+
+        val list = listOf(
+            Schools.Nearby("LYCÉE EVARISTE GALOIS", "https://a", "78500", 1.0),
+            Schools.Nearby("COLLÈGE EVARISTE GALOIS", "https://b", "92000", 2.0),
+            Schools.Nearby("LYCÉE JEAN ZAY", "https://c", "93604", 3.0),
+        )
+        assertEquals(listOf("https://a"), Schools.filterByName(list, "lycee évariste galois").map { it.url })
+        assertEquals(2, Schools.filterByName(list, "Galois").size)
+        assertEquals(listOf("https://b"), Schools.filterByName(list, "galois 92").map { it.url })
     }
 }

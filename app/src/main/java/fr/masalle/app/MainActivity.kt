@@ -39,6 +39,8 @@ class MainActivity : Activity() {
     // Setup screen state
     private var schoolMessage: TextView? = null
     private var results: LinearLayout? = null
+    /** Last "autour de moi" answer, so the field can filter it by name. */
+    private var nearby: List<Schools.Nearby>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -82,7 +84,7 @@ class MainActivity : Activity() {
         card.addView(UI.gap(this, 12))
         card.addView(UI.button(this, "Chercher autour de moi") { findNearby() }, UI.matchWidth())
         card.addView(UI.gap(this, 14))
-        card.addView(UI.text(this, "ou colle l'adresse de ton Pronote, ou le code de ton lycée (ex. 0750655E) :", 13f, R.color.text2))
+        card.addView(UI.text(this, "ou tape l'adresse de ton Pronote, le code de ton lycée (ex. 0750655E), ou son nom après une recherche :", 13f, R.color.text2))
         card.addView(UI.gap(this, 8))
         val field = EditText(this).apply {
             hint = "https://…index-education.net/pronote"
@@ -137,7 +139,12 @@ class MainActivity : Activity() {
         if (debuggable && input.trim() == "demo") return loadDemo()
         val url = Schools.urlFromInput(input)
         if (url == null) {
-            showSchoolMessage("Ce n'est pas une adresse Pronote. Elle ressemble à https://0750655e.index-education.net/pronote")
+            val found = nearby?.let { Schools.filterByName(it, input) }
+            when {
+                found == null -> showSchoolMessage("Ce n'est pas une adresse Pronote. Elle ressemble à https://0750655e.index-education.net/pronote, ou touche « Chercher autour de moi » puis tape le nom.")
+                found.isEmpty() -> showSchoolMessage("Aucun établissement de ce nom autour de toi.")
+                else -> { showSchoolMessage(null); showResults(found) }
+            }
             return
         }
         showSchoolMessage(null)
@@ -227,20 +234,29 @@ class MainActivity : Activity() {
                     showSchoolMessage("Aucun établissement trouvé autour de toi.")
                     return@runOnUiThread
                 }
-                list.addView(UI.gap(this, 12))
-                for (school in schools.take(15)) {
-                    val row = LinearLayout(this).apply {
-                        orientation = LinearLayout.VERTICAL
-                        setPadding(0, dp(10), 0, dp(10))
-                        isClickable = true
-                        setBackgroundResource(android.R.drawable.list_selector_background)
-                        setOnClickListener { checkSchool(school.url, school.name) }
-                    }
-                    row.addView(UI.text(this, school.name, 15f))
-                    row.addView(UI.text(this, "${school.postalCode} · ${"%.1f".format(school.distanceKm)} km", 12f, R.color.text3))
-                    list.addView(row, UI.matchWidth())
-                }
+                nearby = schools
+                showSchoolMessage(null)
+                showResults(schools)
             }
+        }
+    }
+
+    private fun showResults(schools: List<Schools.Nearby>) {
+        val list = results ?: return
+        list.removeAllViews()
+        list.addView(UI.gap(this, 12))
+        list.addView(UI.text(this, "Pas dans la liste ? Tape son nom dans le champ ci-dessus.", 12f, R.color.text3))
+        for (school in schools.take(15)) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, dp(10), 0, dp(10))
+                isClickable = true
+                setBackgroundResource(android.R.drawable.list_selector_background)
+                setOnClickListener { checkSchool(school.url, school.name) }
+            }
+            row.addView(UI.text(this, school.name, 15f))
+            row.addView(UI.text(this, "${school.postalCode} · ${"%.1f".format(school.distanceKm)} km", 12f, R.color.text3))
+            list.addView(row, UI.matchWidth())
         }
     }
 

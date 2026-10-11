@@ -62,17 +62,37 @@ object Schools {
         )
         if (text.trim() == "{}" || text.isBlank()) return emptyList()
         val array = runCatching { JSONArray(text) }.getOrElse { throw PronoteException.Unavailable() }
-        return (0 until array.length()).mapNotNull { array.optJSONObject(it) }.map {
-            val la = it.optString("lat").toDoubleOrNull() ?: 0.0
-            val lo = it.optString("long").toDoubleOrNull() ?: 0.0
+        // The directory is hand-filled by schools: some addresses contain spaces
+        // or are broken. A bad row is skipped, it must not hide all the others.
+        return (0 until array.length()).mapNotNull { array.optJSONObject(it) }.mapNotNull {
+            val la = it.optString("lat").toDoubleOrNull() ?: return@mapNotNull null
+            val lo = it.optString("long").toDoubleOrNull() ?: return@mapNotNull null
+            val url = runCatching {
+                Pronote.cleanUrl(it.optString("url").replace(Regex("\\s"), "").lowercase(Locale.ROOT))
+            }.getOrNull()?.takeIf { u -> u.startsWith("https://") } ?: return@mapNotNull null
             Nearby(
                 name = prettySchool(it.optString("nomEtab")),
-                url = Pronote.cleanUrl(it.optString("url").lowercase(Locale.ROOT)),
+                url = url,
                 postalCode = it.optString("cp"),
                 distanceKm = haversine(latitude, longitude, la, lo),
             )
         }.sortedWith(compareBy({ it.distanceKm }, { it.name }))
     }
+
+    /** "evariste galois" finds "LYCÉE EVARISTE GALOIS": every word, accents and case ignored. */
+    fun filterByName(schools: List<Nearby>, query: String): List<Nearby> {
+        val words = fold(query).split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() }
+        if (words.isEmpty()) return emptyList()
+        return schools.filter { school ->
+            val name = fold(school.name + " " + school.postalCode)
+            words.all { it in name }
+        }
+    }
+
+    private fun fold(text: String): String =
+        java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{M}+"), "")
+            .lowercase(Locale.ROOT)
 
     fun prettySchool(name: String): String =
         name.trim().replace("COLLEGE", "COLLÈGE").replace("LYCEE", "LYCÉE")
