@@ -87,13 +87,36 @@ La reconnexion par jeton ne peut donc être vérifiée que sur un vrai
 Dans une version de debug, taper `demo` à la place de l'adresse Pronote charge
 le compte de démonstration, pratique pour essayer les widgets.
 
+## Publier une mise à jour
+
+L'app vérifie au plus toutes les 6 heures, à l'ouverture, la dernière release
+GitHub de `Ofanon/ma-salle`. Si son APK (`ma-salle-<versionCode>.apk`) est plus
+récent, elle propose « Mettre à jour » ; Android demande confirmation à
+l'élève. Avant de l'installer, l'app vérifie que l'APK est bien Ma Salle, du
+bon numéro de version, et signé avec la même clé.
+
+1. Augmenter `versionCode` **et** `versionName` dans `app/build.gradle.kts`, commiter.
+2. `./release.sh "Ce qui change, pour les élèves."`
+
+Le script refuse de publier s'il reste des changements non commités, si la
+version existe déjà ou si l'APK n'est pas signé avec la clé Ma Salle.
+
+**La clé `ma-salle-release.jks` et `keystore.properties` n'existent que sur ce
+PC** (exclus de git). Clé perdue : plus aucune mise à jour possible, il faudrait
+que chacun désinstalle et réinstalle. Clé volée : quelqu'un pourrait publier
+une fausse mise à jour. À sauvegarder hors ligne (clé USB), jamais en ligne.
+
+Si l'app passe un jour sur le Play Store, la mise à jour intégrée devra être
+retirée de cette version : Google interdit qu'une app se mette à jour seule.
+
 ## Organisation
 
 - `pronote/` : le protocole, en Kotlin pur (sans Android, testé sur la JVM).
   `Session` (chiffrement, ordre des messages), `Login` (jeton, identifiants,
   double authentification), `Timetable`, `Schools` (trouver l'adresse Pronote).
 - `app/` : `LoginActivity` (WebView), `Repo` (état, synchronisation), `Vault`
-  (fichiers chiffrés), `SyncJob`, `Widgets`, `Agenda` (quel cours afficher).
+  (fichiers chiffrés), `SyncJob`, `Widgets`, `Agenda` (quel cours afficher),
+  `Updater` (mises à jour depuis GitHub).
 
 ## Licence
 

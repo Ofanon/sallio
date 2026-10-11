@@ -35,6 +35,8 @@ class MainActivity : Activity() {
     private val worker = Executors.newSingleThreadExecutor()
     private val repo by lazy { Repo.get(applicationContext) }
     private var syncing = false
+    private var update: Updater.Update? = null
+    private var updateStatus: String? = null
 
     // Setup screen state
     private var schoolMessage: TextView? = null
@@ -58,11 +60,75 @@ class MainActivity : Activity() {
         super.onResume()
         render()
         if (repo.account() != null) refresh(manual = false)
+        worker.execute {
+            val found = Updater.check(applicationContext)
+            runOnUiThread {
+                if (found?.versionCode != update?.versionCode) {
+                    update = found
+                    render()
+                }
+            }
+        }
     }
 
     private fun render() {
         content.removeAllViews()
+        update?.let { content.addView(updateCard(it), UI.matchWidth()); content.addView(UI.gap(this, 16)) }
         if (repo.account() == null) renderSetup() else renderTimetable()
+    }
+
+    // ---- Update -----------------------------------------------------------------
+
+    private fun updateCard(u: Updater.Update): View {
+        val card = UI.card(this)
+        card.addView(UI.text(this, "Nouvelle version ${u.versionName}", 17f, R.color.accent, bold = true))
+        if (u.notes.isNotEmpty()) {
+            card.addView(UI.gap(this, 6))
+            card.addView(UI.text(this, u.notes.take(600), 14f, R.color.text2))
+        }
+        card.addView(UI.gap(this, 12))
+        val status = updateStatus
+        if (status != null) {
+            card.addView(UI.text(this, status, 14f, R.color.text2))
+        } else {
+            card.addView(UI.button(this, "Mettre à jour (${u.size / 1024} Ko)") { startUpdate(u) }, UI.matchWidth())
+        }
+        return card
+    }
+
+    private fun startUpdate(u: Updater.Update) {
+        if (!Updater.canInstall(this)) {
+            AlertDialog.Builder(this)
+                .setTitle("Une autorisation, une seule fois")
+                .setMessage("Android doit autoriser Ma Salle à installer ses propres mises à jour. Active « Autoriser cette source », puis reviens ici.")
+                .setPositiveButton("Ouvrir les réglages") { _, _ -> startActivity(Updater.unknownSourcesSettings(this)) }
+                .setNegativeButton("Annuler", null)
+                .show()
+            return
+        }
+        updateStatus = "Téléchargement…"
+        render()
+        worker.execute {
+            val error = runCatching {
+                Updater.downloadAndInstall(applicationContext, u) { percent ->
+                    runOnUiThread {
+                        val text = "Téléchargement… $percent %"
+                        if (updateStatus != text) { updateStatus = text; render() }
+                    }
+                }
+            }.exceptionOrNull()
+            runOnUiThread {
+                updateStatus = null
+                if (error != null) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Mise à jour impossible")
+                        .setMessage(error.message ?: "Erreur de téléchargement")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+                render()
+            }
+        }
     }
 
     // ---- Setup ----------------------------------------------------------------

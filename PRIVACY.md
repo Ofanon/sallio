@@ -26,6 +26,9 @@ la fin de chaque connexion.
   « Chercher autour de moi » : la position, arrondie à environ 1 km, est
   envoyée au service de recherche d'établissements qu'utilise l'app officielle.
   Rien n'est envoyé sans ce geste.
+- **GitHub**, au plus toutes les 6 heures quand l'app est ouverte, pour savoir
+  s'il existe une nouvelle version. GitHub voit l'adresse IP du téléphone, et
+  rien d'autre : aucune donnée de compte ni d'emploi du temps n'est envoyée.
 
 ## Ce que l'app ne fait pas
 
