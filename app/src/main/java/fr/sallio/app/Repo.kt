@@ -96,26 +96,96 @@ class Repo private constructor(private val context: Context) {
 
     fun report(): Report? = vault.read(GRADES)?.let { runCatching { Report.fromJson(JSONObject(it)) }.getOrNull() }
 
-    /** Homework ticked in the app. Kept on the phone only: PRONOTE is never written to. */
-    fun isDone(h: Homework): Boolean = prefs.getStringSet("done", emptySet())!!.let { set ->
-        if (h.id in set) true else if ("!" + h.id in set) false else h.done
+    /**
+     * Ticks waiting to reach PRONOTE, as "+key" (done) or "-key" (not done).
+     * Keys, not ids: PRONOTE changes every id at each login.
+     */
+    private fun pending(): Set<String> = prefs.getStringSet("pendingDone", emptySet())!!
+
+    fun isDone(h: Homework): Boolean {
+        val p = pending()
+        return when {
+            "+" + h.key in p -> true
+            "-" + h.key in p -> false
+            else -> h.done
+        }
     }
 
+    /** Records the tick on the phone at once; [pushPending] then sends it to PRONOTE. */
     fun setDone(h: Homework, done: Boolean) {
-        val set = prefs.getStringSet("done", emptySet())!!.toMutableSet()
-        set.remove(h.id); set.remove("!" + h.id)
-        if (done != h.done) set += if (done) h.id else "!" + h.id
-        prefs.edit().putStringSet("done", set).apply()
+        val set = pending().toMutableSet()
+        set.remove("+" + h.key)
+        set.remove("-" + h.key)
+        if (done != h.done) set += (if (done) "+" else "-") + h.key
+        prefs.edit().putStringSet("pendingDone", set).apply()
     }
+
+    /** Number of ticks not yet on PRONOTE. */
+    fun pendingCount(): Int = pending().size
 
     /** Grades the student has not seen in the app yet. */
     fun unseenGrades(): Set<String> {
-        val seen = prefs.getStringSet("seenGrades", null) ?: return emptySet()
-        return report()?.grades?.map { it.id }?.filter { it !in seen }?.toSet().orEmpty()
+        val seen = prefs.getStringSet("seenGradeKeys", null) ?: return emptySet()
+        return report()?.grades?.map { it.key }?.filter { it !in seen }?.toSet().orEmpty()
     }
 
     fun markGradesSeen() {
-        prefs.edit().putStringSet("seenGrades", report()?.grades?.map { it.id }?.toSet().orEmpty()).apply()
+        prefs.edit().putStringSet("seenGradeKeys", report()?.grades?.map { it.key }?.toSet().orEmpty()).apply()
+    }
+
+    /**
+     * Sends pending ticks right away (log in, tick, re-read homework). Worker
+     * thread. When PRONOTE cannot be reached the ticks stay pending and the
+     * next sync sends them.
+     */
+    fun pushPending(): SyncResult {
+        if (pending().isEmpty()) return SyncResult.SKIPPED
+        val account = account() ?: return SyncResult.SKIPPED
+        lock.lock()
+        try {
+            if (status().needsLogin || System.currentTimeMillis() < prefs.getLong("suspendedUntil", 0)) return SyncResult.SKIPPED
+            return try {
+                val logged = Pronote.loginToken(UrlConnectionHttp(), account.credentials)
+                saveAccount(logged)
+                prefs.edit().putLong("attempt", System.currentTimeMillis()).apply()
+                fetchAndStore(logged)
+                if (pending().isEmpty()) SyncResult.DONE else SyncResult.FAILED
+            } catch (e: PronoteException) {
+                val edit = prefs.edit().putString("error", explain(e))
+                if (e.needsNewLogin) edit.putBoolean("needsLogin", true)
+                edit.apply()
+                SyncResult.FAILED
+            } catch (e: Exception) {
+                SyncResult.FAILED
+            }
+        } finally {
+            lock.unlock()
+            Widgets.refreshAll(context)
+        }
+    }
+
+    /** Sends the pending ticks in [logged]'s session and returns the homework as PRONOTE now has it. */
+    private fun pushTicks(logged: LoggedIn, fetched: List<Homework>): List<Homework> {
+        val wanted = pending()
+        if (wanted.isEmpty()) return fetched
+        val byKey = fetched.associateBy { it.key }
+        val changes = LinkedHashMap<String, Boolean>()
+        val stale = mutableSetOf<String>()
+        for (entry in wanted) {
+            val h = byKey[entry.substring(1)]
+            if (h == null) { stale += entry; continue }      // gone from the cahier de textes
+            val done = entry[0] == '+'
+            if (h.done == done) stale += entry else changes[h.id] = done
+        }
+        var result = fetched
+        if (changes.isNotEmpty()) {
+            runCatching { Schoolwork.setHomeworkDone(logged, changes) }.onSuccess {
+                result = fetched.map { h -> changes[h.id]?.let { h.copy(done = it) } ?: h }
+                stale += wanted.filter { e -> byKey[e.substring(1)]?.id in changes.keys }
+            }
+        }
+        if (stale.isNotEmpty()) prefs.edit().putStringSet("pendingDone", wanted - stale).apply()
+        return result
     }
 
     fun status() = Status(
@@ -193,7 +263,8 @@ class Repo private constructor(private val context: Context) {
         vault.write(CACHE, JSONArray(lessons.map { it.toJson() }).toString())
         // Homework and grades are extras: when PRONOTE fails on them, the timetable still counts.
         runCatching { Schoolwork.homework(logged, today, today.plusDays(FETCH_DAYS)) }.onSuccess { list ->
-            vault.write(HOMEWORK, JSONArray(list.map { it.toJson() }).toString())
+            val synced = pushTicks(logged, list)
+            vault.write(HOMEWORK, JSONArray(synced.map { it.toJson() }).toString())
         }
         runCatching { Schoolwork.report(logged) }.onSuccess { report ->
             val first = vault.read(GRADES) == null

@@ -121,6 +121,8 @@ class MainActivity : Activity() {
 
     override fun onPause() {
         if (tab == Tab.GRADES) repo.markGradesSeen()
+        // Leaving the app: send the ticks now rather than in 1.5 s.
+        if (pushScheduled) { handler.removeCallbacks(pushNow); pushNow.run() }
         super.onPause()
     }
 
@@ -188,6 +190,30 @@ class MainActivity : Activity() {
         render()
     }
 
+    fun showGrade(g: fr.sallio.pronote.Grade) {
+        GradeSheet.show(this, g, repo.report(), bottomInset)
+    }
+
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pushScheduled = false
+    private val pushNow = Runnable {
+        pushScheduled = false
+        worker.execute {
+            val result = repo.pushPending()
+            runOnUiThread {
+                if (result == Repo.SyncResult.FAILED) Motion.failure(root)
+                if (!isFinishing) render()
+            }
+        }
+    }
+
+    /** Ticks are sent a moment after the last one, so a few quick ticks go in one login. */
+    fun schedulePush() {
+        handler.removeCallbacks(pushNow)
+        pushScheduled = true
+        handler.postDelayed(pushNow, 1500)
+    }
+
     fun openPronote() {
         val url = repo.account()?.credentials?.url ?: return
         runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$url/eleve.html"))) }
@@ -245,7 +271,7 @@ class MainActivity : Activity() {
                 layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER).apply { bottomMargin = if (selected) dp(2) else 0 }
             })
             if (t == Tab.GRADES && s.unseenGrades.isNotEmpty() && !selected) pill.addView(View(this).apply {
-                background = UI.rounded(0xFFFF6B5B.toInt(), dp(5).toFloat())
+                background = UI.rounded(0xFFD9705A.toInt(), dp(5).toFloat())
             }, FrameLayout.LayoutParams(dp(10), dp(10), Gravity.TOP or Gravity.END).apply { topMargin = dp(2); marginEnd = dp(12) })
             item.addView(pill, LinearLayout.LayoutParams(dp(58), dp(34)))
             item.addView(UI.text(this, t.label, 12f, if (selected) R.color.text else R.color.text3, 800).apply {
@@ -687,7 +713,7 @@ class MainActivity : Activity() {
             "Tu te connectes sur la vraie page de ton ENT. L'app ne voit jamais ton mot de passe, seulement le jeton que Pronote donne à ce téléphone.",
             "Le jeton, ton emploi du temps, tes devoirs et tes notes sont chiffrés sur le téléphone et exclus des sauvegardes.",
             "Aucune pub, aucun traqueur, aucune statistique.",
-            "Les devoirs que tu coches restent sur le téléphone : Pronote n'est jamais modifié.",
+            "Cocher un devoir le coche aussi sur Pronote : c'est la seule chose que l'app y modifie.",
         )
 
         /** PRONOTE writes "NOM Prénom": show "Prénom Nom". */

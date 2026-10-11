@@ -33,6 +33,9 @@ class Snapshot(
 class Tabs(private val activity: MainActivity, private val repo: Repo) {
 
     private val ctx = activity
+
+    /** Coral of the "new" badges and alert dots, taken from the subject palette. */
+    private val NEW_BADGE = 0xFFD9705A.toInt()
     private val fr = Locale.FRANCE
     private fun color(res: Int) = ctx.getColor(res)
 
@@ -77,7 +80,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             root.addView(sectionWithLink("Dernières notes", "Tout voir") { activity.openTab(MainActivity.Tab.GRADES) })
             val tiles = UI.row(ctx).apply { gravity = Gravity.TOP }
             grades.forEachIndexed { i, g ->
-                tiles.addView(gradeTile(g, g.id in s.unseenGrades), UI.weight().apply { if (i > 0) marginStart = ctx.dp(10) })
+                tiles.addView(gradeTile(g, g.key in s.unseenGrades), UI.weight().apply { if (i > 0) marginStart = ctx.dp(10) })
             }
             root.addView(tiles, UI.matchWidth())
         }
@@ -98,37 +101,38 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             return card
         }
         val style = Subjects.style(focus.subject)
+        val ink = Subjects.onSolid(style.family)
         val frame = FrameLayout(ctx).apply {
             background = UI.sticker(ctx, Subjects.solid(style.family), Subjects.edge(ctx, style.family), 26, 5)
             clipToOutline = true
         }
         // Big subject icon in the corner, like a watermark.
-        frame.addView(UI.icon(ctx, style.icon, 0x40FFFFFF, 118, tintIsColor = true).apply {
+        frame.addView(UI.icon(ctx, style.icon, (ink and 0x00FFFFFF) or 0x38000000, 118, tintIsColor = true).apply {
             layoutParams = FrameLayout.LayoutParams(dp(118), dp(118), Gravity.BOTTOM or Gravity.END).apply { rightMargin = dp(4); bottomMargin = dp(10) }
         })
         val col = UI.column(ctx).apply { setPadding(dp(18), dp(16), dp(18), dp(16 + 5)) }
         val tag = UI.row(ctx).apply {
-            background = UI.rounded(0x47FFFFFF, dp(99).toFloat())
+            background = UI.rounded((ink and 0x00FFFFFF) or 0x24000000, dp(99).toFloat())
             setPadding(dp(10), dp(4), dp(12), dp(5))
-            addView(UI.icon(ctx, R.drawable.ic_clock, Color.WHITE, 14, tintIsColor = true))
+            addView(UI.icon(ctx, R.drawable.ic_clock, ink, 14, tintIsColor = true))
             addView(UI.hgap(ctx, 5))
-            addView(UI.text(ctx, Agenda.when_(focus, s.now), 12f, R.color.on_accent, 800).apply { setTextColor(Color.WHITE) })
+            addView(UI.text(ctx, Agenda.when_(focus, s.now), 12f, R.color.on_accent, 800).apply { setTextColor(ink) })
         }
         col.addView(tag, UI.wrap())
         val hasRoom = focus.rooms.isNotEmpty()
         val big = UI.oneLine(UI.title(ctx, if (hasRoom) Agenda.room(focus) else Agenda.pretty(focus.subject), if (hasRoom) 56f else 34f)).apply {
             setPadding(0, dp(10), 0, dp(4))
-            setTextColor(Color.WHITE)
+            setTextColor(ink)
         }
         if (focus.canceled) big.paintFlags = big.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
         col.addView(big)
         val teacher = focus.teachers.firstOrNull()?.let { Agenda.prettyName(it) }
         val subtitle = if (hasRoom) listOfNotNull(Agenda.pretty(focus.subject), teacher).joinToString(" · ") else teacher.orEmpty()
-        if (subtitle.isNotEmpty()) col.addView(UI.oneLine(UI.text(ctx, subtitle, 16f, weight = 800)).apply { setTextColor(Color.WHITE) })
-        col.addView(UI.text(ctx, "${Agenda.time(focus.start)} – ${Agenda.time(focus.end)}", 13f).apply { setTextColor(Color.WHITE); alpha = 0.9f })
+        if (subtitle.isNotEmpty()) col.addView(UI.oneLine(UI.text(ctx, subtitle, 16f, weight = 800)).apply { setTextColor(ink) })
+        col.addView(UI.text(ctx, "${Agenda.time(focus.start)} – ${Agenda.time(focus.end)}", 13f).apply { setTextColor(ink); alpha = 0.85f })
         Agenda.alert(focus)?.let {
             col.addView(UI.gap(ctx, 10))
-            col.addView(UI.chip(ctx, it, Color.WHITE, if (focus.canceled) 0xFFB3261E.toInt() else 0xFF9A5B00.toInt(), 13f), UI.wrap())
+            col.addView(UI.chip(ctx, it, Color.WHITE, if (focus.canceled) 0xFFB3423A.toInt() else 0xFF9A6212.toInt(), 13f), UI.wrap())
         }
         frame.addView(col, FrameLayout.LayoutParams(-1, -2))
         return frame
@@ -168,7 +172,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             gravity = Gravity.CENTER_HORIZONTAL
             background = UI.sticker(ctx, color(R.color.surface), color(R.color.edge), 20, 4, pressable = true)
             UI.stickerPadding(this, 6, 10)
-            setOnClickListener { activity.openTab(MainActivity.Tab.GRADES) }
+            setOnClickListener { activity.showGrade(g) }
             Motion.pressable(this)
         }
         val value = UI.row(ctx).apply { gravity = Gravity.BOTTOM }
@@ -176,7 +180,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         if (g.points != null && g.outOf != null) value.addView(UI.text(ctx, "/${UI.number(g.outOf)}", 12f, R.color.text2).apply { setPadding(0, 0, 0, dp(1)) })
         tile.addView(value, UI.wrap())
         tile.addView(UI.oneLine(UI.text(ctx, Agenda.pretty(g.subject), 11f, R.color.text2, 800)).apply { gravity = Gravity.CENTER; setPadding(dp(2), dp(2), dp(2), 0) }, UI.matchWidth())
-        if (isNew) tile.addView(UI.chip(ctx, "NOUVEAU", 0xFFFF6B5B.toInt(), Color.WHITE, 9f), UI.wrap().apply { topMargin = ctx.dp(5) })
+        if (isNew) tile.addView(UI.chip(ctx, "NOUVEAU", NEW_BADGE, Color.WHITE, 9f), UI.wrap().apply { topMargin = ctx.dp(5) })
         return tile
     }
 
@@ -256,7 +260,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         chip.addView(UI.title(ctx, d.dayOfMonth.toString(), 21f, if (selected) R.color.on_accent else R.color.text).apply { gravity = Gravity.CENTER; setPadding(0, dp(2), 0, 0) }, UI.matchWidth())
         val hasAlert = s.lessons.any { it.start.toLocalDate() == d && Agenda.alert(it) != null }
         chip.addView(View(ctx).apply {
-            background = UI.rounded(if (selected) Color.WHITE else 0xFFFF6B5B.toInt(), dp(3).toFloat())
+            background = UI.rounded(if (selected) color(R.color.on_accent) else NEW_BADGE, dp(3).toFloat())
             visibility = if (hasAlert) View.VISIBLE else View.INVISIBLE
         }, LinearLayout.LayoutParams(ctx.dp(6), ctx.dp(6)).apply { topMargin = ctx.dp(4) })
         chip.layoutParams = LinearLayout.LayoutParams(ctx.dp(52), LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = ctx.dp(8) }
@@ -309,7 +313,10 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             }
             root.addView(card, UI.matchWidth())
         }
-        root.addView(UI.text(ctx, "Cocher un devoir ici ne change rien sur Pronote.", 12f, R.color.text3).apply {
+        val waiting = repo.pendingCount()
+        val note = if (waiting == 0) "Ce que tu coches ici est aussi coché sur Pronote."
+        else "$waiting coche${if (waiting > 1) "s" else ""} en attente d'envoi à Pronote…"
+        root.addView(UI.text(ctx, note, 12f, if (waiting == 0) R.color.text3 else R.color.warn, 800).apply {
             gravity = Gravity.CENTER
             setPadding(0, dp(22), 0, 0)
         }, UI.matchWidth())
@@ -346,6 +353,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
                 Motion.bounce(this) {
                     repo.setDone(h, !done)
                     activity.render()
+                    activity.schedulePush()
                 }
             }
         }
@@ -417,7 +425,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         if (!bySubject) {
             report.grades.forEachIndexed { i, g ->
                 if (i > 0) card.addView(UI.divider(ctx))
-                card.addView(gradeRow(g, g.id in s.unseenGrades), UI.matchWidth())
+                card.addView(gradeRow(g, g.key in s.unseenGrades), UI.matchWidth())
             }
         } else {
             report.subjects.forEachIndexed { i, sub ->
@@ -430,13 +438,17 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
     }
 
     private fun gradeRow(g: Grade, isNew: Boolean): View {
-        val row = UI.row(ctx).apply { setPadding(0, dp(10), 0, dp(10)) }
+        val row = UI.row(ctx).apply {
+            setPadding(0, dp(10), 0, dp(10))
+            foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, dp(14).toFloat()))
+            setOnClickListener { activity.showGrade(g) }
+        }
         row.addView(UI.subjectTile(ctx, g.subject))
         row.addView(UI.hgap(ctx, 12))
         val col = UI.column(ctx)
         val top = UI.row(ctx)
         top.addView(UI.oneLine(UI.title(ctx, Agenda.pretty(g.subject), 16f)), LinearLayout.LayoutParams(0, -2, 1f))
-        if (isNew) top.addView(UI.chip(ctx, "NOUVEAU", 0xFFFF6B5B.toInt(), Color.WHITE, 9f), UI.wrap().apply { marginStart = ctx.dp(6) })
+        if (isNew) top.addView(UI.chip(ctx, "NOUVEAU", NEW_BADGE, Color.WHITE, 9f), UI.wrap().apply { marginStart = ctx.dp(6) })
         col.addView(top, UI.matchWidth())
         val details = buildList {
             add("${g.date.dayOfMonth} ${g.date.month.getDisplayName(TextStyle.SHORT, fr)}")

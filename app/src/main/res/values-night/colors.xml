@@ -1,31 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Pastel stickers, dark. "edge" colours draw the sticker outline and its offset shadow. -->
+<!-- Creme, dark. A neutral interface (cream and ink): the subjects bring the colour.
+     "edge" colours draw the sticker outline and its offset shadow. -->
 <resources>
-    <color name="bg">#151126</color>
-    <color name="surface">#211B38</color>
-    <color name="surface2">#2A2347</color>
-    <color name="edge">#0B0817</color>
-    <color name="line">#2C2548</color>
-    <color name="text">#F3EFFF</color>
-    <color name="text2">#B3AACF</color>
-    <color name="text3">#7D7499</color>
-    <color name="accent">#7B5CFF</color>
-    <color name="accent_edge">#0B0817</color>
-    <color name="on_accent">#FFFFFF</color>
-    <color name="accent_container">#2E2556</color>
-    <color name="accent_container_edge">#0B0817</color>
-    <color name="box_edge">#4A3F75</color>
-    <color name="on_accent_container">#C7B8FF</color>
-    <color name="alert">#FFB3A8</color>
-    <color name="alert_bg">#3A1F2A</color>
-    <color name="alert_edge">#0B0817</color>
-    <color name="warn">#FFCC80</color>
-    <color name="warn_bg">#3B2C10</color>
-    <color name="warn_edge">#0B0817</color>
-    <color name="success">#8BE0AC</color>
-    <color name="success_bg">#17392A</color>
-    <color name="success_edge">#0B0817</color>
+    <color name="bg">#1A1820</color>
+    <color name="surface">#24212C</color>
+    <color name="surface2">#2D2A36</color>
+    <color name="edge">#0E0D12</color>
+    <color name="line">#2F2B38</color>
+    <color name="text">#F4EFE6</color>
+    <color name="text2">#B0A79A</color>
+    <color name="text3">#7E776D</color>
+    <color name="accent">#F4EFE6</color>
+    <color name="accent_edge">#0E0D12</color>
+    <color name="on_accent">#1A1820</color>
+    <color name="accent_container">#34303E</color>
+    <color name="accent_container_edge">#0E0D12</color>
+    <color name="on_accent_container">#F4EFE6</color>
+    <color name="box_edge">#4A4553</color>
+    <color name="alert">#FFB2A6</color>
+    <color name="alert_bg">#41262A</color>
+    <color name="alert_edge">#0E0D12</color>
+    <color name="warn">#F5C77E</color>
+    <color name="warn_bg">#3D2F17</color>
+    <color name="warn_edge">#0E0D12</color>
+    <color name="success">#9FD8A3</color>
+    <color name="success_bg">#24382A</color>
+    <color name="success_edge">#0E0D12</color>
     <color name="sun">#FFD66B</color>
-    <color name="sun_edge">#0B0817</color>
+    <color name="sun_edge">#0E0D12</color>
     <color name="on_sun">#6B4500</color>
 </resources>

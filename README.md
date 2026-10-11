@@ -15,10 +15,13 @@ Quatre onglets, pour l'essentiel de Pronote au quotidien sans le charger :
   et les dernières notes.
 - **Cours** : deux semaines d'emploi du temps, jour par jour ; un point rouge
   signale les jours avec un prof absent ou un cours modifié.
-- **Devoirs** : le cahier de textes des deux prochaines semaines, à cocher
-  (les coches restent sur le téléphone, Pronote n'est jamais modifié).
+- **Devoirs** : le cahier de textes des deux prochaines semaines. Cocher un
+  devoir le coche aussi sur Pronote (`SaisieTAFFaitEleve`, comme l'app
+  officielle) ; sans réseau, la coche attend et part à la synchro suivante.
 - **Notes** : moyenne générale et de classe, dernières notes, moyennes par
-  matière ; les notes arrivées depuis la dernière visite sont signalées.
+  matière ; les notes arrivées depuis la dernière visite sont signalées. Une
+  note touchée ouvre sa fiche : barème, coefficient, commentaire, et sa place
+  dans la classe (note la plus basse, moyenne, plus haute).
 
 Pour tout le reste (messagerie, vie scolaire, bulletins), « Ouvrir Pronote ».
 

@@ -9,7 +9,7 @@ Sallio n'a **aucun serveur**. Personne d'autre que l'élève et son
 | --- | --- | --- |
 | Jeton d'appareil Pronote, identifiant Pronote, adresse du Pronote | téléphone, stockage privé de l'app | chiffré (AES-256-GCM, clé dans le Keystore Android, qui ne sort jamais du téléphone) |
 | Emploi du temps et devoirs des deux prochaines semaines, notes de la période | téléphone, stockage privé de l'app | chiffré, même clé |
-| Devoirs cochés, notes déjà vues (identifiants seulement) | téléphone | aucun contenu, jamais envoyés à Pronote |
+| Devoirs cochés en attente d'envoi, notes déjà vues | téléphone | clés techniques (date, matière, empreinte de la consigne) |
 | Heure de la dernière mise à jour, dernier message d'erreur | téléphone | aucune donnée personnelle |
 
 Le **mot de passe** de l'élève n'est jamais vu par l'app : il est tapé dans la

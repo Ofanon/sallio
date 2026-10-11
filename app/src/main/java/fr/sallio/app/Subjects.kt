@@ -16,14 +16,15 @@ object Subjects {
         val darkTint: Long, val darkInk: Long,
     )
 
-    val CORAL = Family(0xFFFFE5E1, 0xFFC2402F, 0xFFFF7A6B, 0xFFE0574A, 0xFF3D2026, 0xFFFFAA9E)
-    val SKY = Family(0xFFDFF1FF, 0xFF1A7FC1, 0xFF4CB3F4, 0xFF2B8FD0, 0xFF173A52, 0xFF7FCBFF)
-    val GREEN = Family(0xFFE6F8EF, 0xFF1C7A43, 0xFF3CC48D, 0xFF24A06E, 0xFF17392A, 0xFF8BE0AC)
-    val VIOLET = Family(0xFFEFE9FF, 0xFF6A4CDC, 0xFF9B7BFF, 0xFF7A59E6, 0xFF2E2556, 0xFFC7B8FF)
-    val AMBER = Family(0xFFFFF0D6, 0xFFA8640A, 0xFFFFB547, 0xFFE0951F, 0xFF3B2C10, 0xFFFFCC80)
-    val PINK = Family(0xFFFFE6F2, 0xFFC23B7D, 0xFFFF7EB6, 0xFFE0568F, 0xFF3D1D30, 0xFFFF9FCB)
-    val ORANGE = Family(0xFFFFEEDD, 0xFFC9650C, 0xFFFF9F43, 0xFFE07B17, 0xFF3B2512, 0xFFFFB877)
-    val TEAL = Family(0xFFDDF6F6, 0xFF11807F, 0xFF2EC4C1, 0xFF18A09D, 0xFF123636, 0xFF7FE0DD)
+    // Same softness for every family, so no two subjects clash side by side.
+    val CORAL = Family(0xFFFDE6DF, 0xFFB2503C, 0xFFF28B74, 0xFFD9705A, 0xFF432B28, 0xFFFFB2A1)
+    val SKY = Family(0xFFE1F0FA, 0xFF2F73A3, 0xFF6FB3E0, 0xFF4F95C4, 0xFF1F3646, 0xFF9BD0F2)
+    val GREEN = Family(0xFFE2F3E9, 0xFF2F7A52, 0xFF7CC49A, 0xFF5BA67C, 0xFF20382B, 0xFF9FDBB7)
+    val VIOLET = Family(0xFFECE6FB, 0xFF6A52C2, 0xFFA993E6, 0xFF8B73CC, 0xFF2E2846, 0xFFC9BBF5)
+    val AMBER = Family(0xFFFDEEDD, 0xFFA8681A, 0xFFF2B65E, 0xFFD49A40, 0xFF3B2E1A, 0xFFF5CB8A)
+    val PINK = Family(0xFFFCE6EF, 0xFFB0406F, 0xFFEE8FB7, 0xFFD06F99, 0xFF3F2433, 0xFFF7B1CE)
+    val ORANGE = Family(0xFFFDEBDC, 0xFFB0601E, 0xFFF5A15C, 0xFFD7843F, 0xFF3D2A1A, 0xFFF8BE8A)
+    val TEAL = Family(0xFFDFF3F2, 0xFF2A7C7A, 0xFF6CC3C1, 0xFF4DA5A3, 0xFF1C3837, 0xFF94DCDA)
     private val ALL = listOf(CORAL, SKY, GREEN, VIOLET, AMBER, PINK, ORANGE, TEAL)
 
     class Style(val family: Family, val icon: Int)
@@ -74,6 +75,14 @@ object Subjects {
     fun ink(context: Context, f: Family): Int = (if (isDark(context)) f.darkInk else f.ink).toInt()
 
     fun solid(f: Family): Int = f.solid.toInt()
+
+    /** Text on [solid]: white on the deeper colours, ink on the light ones (amber, teal...). */
+    fun onSolid(f: Family): Int {
+        val c = f.solid.toInt()
+        fun lin(v: Int): Double = (v / 255.0).let { if (it <= 0.03928) it / 12.92 else Math.pow((it + 0.055) / 1.055, 2.4) }
+        val l = 0.2126 * lin((c shr 16) and 0xFF) + 0.7152 * lin((c shr 8) and 0xFF) + 0.0722 * lin(c and 0xFF)
+        return if (l > 0.42) 0xFF2E2A3A.toInt() else 0xFFFFFFFF.toInt()
+    }
 
     /** Sticker edge of a solid card: the darker shade by day, the night outline by night. */
     fun edge(context: Context, f: Family): Int = if (isDark(context)) context.getColor(R.color.edge) else f.edge.toInt()

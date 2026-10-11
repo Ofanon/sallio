@@ -18,6 +18,12 @@ data class Homework(
     val color: String?,
     val attachments: Int,
 ) {
+    /**
+     * PRONOTE re-encrypts every id ("147#...") for each session, so [id] is
+     * only valid in the session that fetched it. This key survives logins.
+     */
+    val key: String get() = "$due|$subject|${description.hashCode()}"
+
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("sub", subject).put("d", description).put("due", due.toString())
         .put("done", done).put("col", color ?: JSONObject.NULL).put("att", attachments)
@@ -47,9 +53,16 @@ data class Grade(
     val classAverage: Double?,
     val coefficient: Double?,
     val comment: String?,
+    /** Lowest and highest mark of the class, when the school publishes them. */
+    val min: Double? = null,
+    val max: Double? = null,
 ) {
+    /** Stable across sessions, unlike [id] (see [Homework.key]). */
+    val key: String get() = "$date|$subject|$value|$outOf|$coefficient|$comment"
+
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("sub", subject).put("date", date.toString()).put("v", value)
+        .put("min", min ?: JSONObject.NULL).put("max", max ?: JSONObject.NULL)
         .put("p", points ?: JSONObject.NULL).put("o", outOf ?: JSONObject.NULL)
         .put("avg", classAverage ?: JSONObject.NULL).put("coef", coefficient ?: JSONObject.NULL)
         .put("c", comment ?: JSONObject.NULL)
@@ -67,6 +80,8 @@ data class Grade(
             classAverage = o.double("avg"),
             coefficient = o.double("coef"),
             comment = if (o.isNull("c")) null else o.optString("c"),
+            min = o.double("min"),
+            max = o.double("max"),
         )
     }
 }
@@ -140,6 +155,26 @@ object Schoolwork {
         }.filter { it.due in from..to }.sortedWith(compareBy({ it.due }, { it.subject }))
     }
 
+    /**
+     * Ticks or unticks homework on PRONOTE (`SaisieTAFFaitEleve`), the same
+     * request as the official app. [changes] maps ids of this session to
+     * their new state.
+     */
+    fun setHomeworkDone(logged: LoggedIn, changes: Map<String, Boolean>) {
+        if (changes.isEmpty()) return
+        val session = logged.session
+        val p = session.properties
+        val list = org.json.JSONArray()
+        // E = 2: the entity is modified (EntityState.MODIFICATION).
+        for ((id, done) in changes) list.put(JSONObject().put("E", 2).put("TAFFait", done).put("N", id))
+        session.call(
+            "SaisieTAFFaitEleve",
+            JSONObject()
+                .put(p.signature, JSONObject().put("onglet", 88))
+                .put(p.data, JSONObject().put("listeTAF", list)),
+        )
+    }
+
     /** `DernieresNotes` (onglet 198) for the period PRONOTE shows by default. */
     fun report(logged: LoggedIn): Report {
         val session = logged.session
@@ -172,6 +207,8 @@ object Schoolwork {
                 classAverage = gradePoints(g.optJSONObject("moyenne")?.opt("V")),
                 coefficient = g.opt("coefficient")?.toString()?.replace(",", ".")?.toDoubleOrNull(),
                 comment = g.optString("commentaire").trim().ifEmpty { null },
+                min = gradePoints(g.optJSONObject("noteMin")?.opt("V")),
+                max = gradePoints(g.optJSONObject("noteMax")?.opt("V")),
             )
         }.sortedByDescending { it.date }
 

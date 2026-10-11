@@ -4,8 +4,11 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.graphics.drawable.LayerDrawable
+import android.media.AudioAttributes
 import android.os.Build
-import android.view.HapticFeedbackConstants
+import android.os.VibrationAttributes
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -16,8 +19,8 @@ import android.widget.TextView
 
 /**
  * Small, quick motion and haptics. Everything respects the system: no
- * animation when "Remove animations" is on, no vibration when touch
- * feedback is off (performHapticFeedback already honours it).
+ * animation when "Remove animations" is on, and vibrations go through the
+ * touch usage, which Android mutes or scales with the haptics settings.
  */
 internal object Motion {
 
@@ -25,27 +28,61 @@ internal object Motion {
 
     // ---- Haptics -------------------------------------------------------------------
 
-    /** Light tick: switching tab or day. */
-    fun tick(view: View) {
-        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+    /**
+     * Real vibrations (the system "touch feedback" ticks are too faint to be
+     * felt on most phones). Played with the touch usage, so Android still
+     * applies the user's haptic intensity setting and silences them when it is off.
+     */
+    private fun vibrate(view: View, effect: () -> VibrationEffect?) {
+        val vibrator = view.context.getSystemService(Vibrator::class.java) ?: return
+        if (!vibrator.hasVibrator()) return
+        val e = runCatching { effect() }.getOrNull() ?: return
+        if (Build.VERSION.SDK_INT >= 33) {
+            vibrator.vibrate(e, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_TOUCH))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(e, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION).build())
+        }
+    }
+
+    /** Rich "primitives" when the motor supports them, a predefined effect otherwise. */
+    private fun primitives(view: View, vararg steps: Pair<Int, Float>, fallback: Int): VibrationEffect {
+        val vibrator = view.context.getSystemService(Vibrator::class.java)
+        if (Build.VERSION.SDK_INT >= 30 && vibrator != null && vibrator.areAllPrimitivesSupported(*steps.map { it.first }.toIntArray())) {
+            val composition = VibrationEffect.startComposition()
+            steps.forEachIndexed { i, (primitive, scale) -> composition.addPrimitive(primitive, scale, if (i == 0) 0 else 70) }
+            return composition.compose()
+        }
+        return VibrationEffect.createPredefined(fallback)
+    }
+
+    /** Switching tab or day. */
+    fun tick(view: View) = vibrate(view) {
+        primitives(view, VibrationEffect.Composition.PRIMITIVE_TICK to 1f, fallback = VibrationEffect.EFFECT_TICK)
     }
 
     /** Pressing a button. */
-    fun tap(view: View) {
-        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+    fun tap(view: View) = vibrate(view) {
+        primitives(view, VibrationEffect.Composition.PRIMITIVE_CLICK to 0.8f, fallback = VibrationEffect.EFFECT_CLICK)
     }
 
     /** Something done: homework ticked, refresh succeeded. */
-    fun success(view: View) {
-        view.performHapticFeedback(
-            if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY
+    fun success(view: View) = vibrate(view) {
+        primitives(
+            view,
+            VibrationEffect.Composition.PRIMITIVE_CLICK to 0.7f,
+            VibrationEffect.Composition.PRIMITIVE_CLICK to 1f,
+            fallback = VibrationEffect.EFFECT_DOUBLE_CLICK,
         )
     }
 
     /** Something failed: Pronote down, wrong address. */
-    fun failure(view: View) {
-        view.performHapticFeedback(
-            if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS
+    fun failure(view: View) = vibrate(view) {
+        primitives(
+            view,
+            VibrationEffect.Composition.PRIMITIVE_THUD to 1f,
+            VibrationEffect.Composition.PRIMITIVE_THUD to 0.8f,
+            fallback = VibrationEffect.EFFECT_HEAVY_CLICK,
         )
     }
 
