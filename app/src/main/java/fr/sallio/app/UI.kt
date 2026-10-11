@@ -142,6 +142,7 @@ internal object UI {
             setTextColor(context.getColor(R.color.on_accent))
         })
         setOnClickListener { onClick() }
+        Motion.pressable(this)
     }
 
     fun ghostButton(context: Context, label: String, onClick: () -> Unit): View = TextView(context).apply {
@@ -153,6 +154,7 @@ internal object UI {
         background = sticker(context, context.getColor(R.color.surface), context.getColor(R.color.edge), 18, 4, pressable = true)
         stickerPadding(this, 16, 12)
         setOnClickListener { onClick() }
+        Motion.pressable(this)
     }
 
     fun card(context: Context, fill: Int = R.color.surface, edge: Int = R.color.edge, padding: Int = 16) = LinearLayout(context).apply {
@@ -208,6 +210,7 @@ internal object UI {
         addView(content, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         layoutParams = LinearLayout.LayoutParams(dp(46), dp(49))
         setOnClickListener { onClick() }
+        Motion.pressable(this, 3)
     }
 
     // ---- Layout --------------------------------------------------------------------

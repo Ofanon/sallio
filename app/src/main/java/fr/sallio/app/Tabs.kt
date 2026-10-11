@@ -169,6 +169,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             background = UI.sticker(ctx, color(R.color.surface), color(R.color.edge), 20, 4, pressable = true)
             UI.stickerPadding(this, 6, 10)
             setOnClickListener { activity.openTab(MainActivity.Tab.GRADES) }
+            Motion.pressable(this)
         }
         val value = UI.row(ctx).apply { gravity = Gravity.BOTTOM }
         value.addView(UI.title(ctx, g.value.replace('.', ','), 24f))
@@ -190,6 +191,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             addView(UI.hgap(ctx, 8))
             addView(UI.title(ctx, "Ouvrir Pronote", 15f, R.color.accent))
             setOnClickListener { activity.openPronote() }
+            Motion.pressable(this, 3)
         }, UI.wrap())
         return col
     }
@@ -246,7 +248,9 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             background = if (selected) UI.sticker(ctx, color(R.color.accent), color(R.color.accent_edge), 16, 4, true)
             else UI.sticker(ctx, color(R.color.surface), color(R.color.edge), 16, 4, true)
             setPadding(0, dp(8), 0, dp(7 + 4))
-            setOnClickListener { onSelect(d) }
+            setOnClickListener { Motion.tick(this); onSelect(d) }
+            Motion.pressable(this)
+            if (selected && activity.entering != MainActivity.Enter.NONE) post { Motion.pop(this, 0.9f) }
         }
         chip.addView(UI.text(ctx, d.dayOfWeek.getDisplayName(TextStyle.SHORT, fr).trimEnd('.').uppercase(fr), 11f, if (selected) R.color.on_accent else R.color.text2, 800).apply { gravity = Gravity.CENTER }, UI.matchWidth())
         chip.addView(UI.title(ctx, d.dayOfMonth.toString(), 21f, if (selected) R.color.on_accent else R.color.text).apply { gravity = Gravity.CENTER; setPadding(0, dp(2), 0, 0) }, UI.matchWidth())
@@ -338,8 +342,11 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
                 layoutParams = FrameLayout.LayoutParams(dp(16), dp(16), Gravity.CENTER).apply { bottomMargin = dp(2) }
             })
             setOnClickListener {
-                repo.setDone(h, !done)
-                activity.render()
+                if (!done) Motion.success(this) else Motion.tick(this)
+                Motion.bounce(this) {
+                    repo.setDone(h, !done)
+                    activity.render()
+                }
             }
         }
         row.addView(box, LinearLayout.LayoutParams(ctx.dp(28), ctx.dp(28)).apply { topMargin = ctx.dp(2) })
@@ -381,7 +388,9 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val overview = UI.card(ctx, R.color.accent, R.color.accent_edge, padding = 18)
         overview.addView(UI.text(ctx, "MOYENNE GÉNÉRALE", 12f, R.color.on_accent, 800).apply { alpha = 0.85f; letterSpacing = 0.04f })
         val line = UI.row(ctx).apply { gravity = Gravity.BOTTOM }
-        line.addView(UI.title(ctx, UI.number(report.overall), 52f, R.color.on_accent).apply { setPadding(0, dp(6), 0, 0) })
+        val average = UI.title(ctx, UI.number(report.overall), 52f, R.color.on_accent).apply { setPadding(0, dp(6), 0, 0) }
+        line.addView(average)
+        if (activity.entering != MainActivity.Enter.NONE) report.overall?.let { target -> Motion.countUp(average, target) { UI.number(it) } }
         line.addView(UI.title(ctx, " /20", 18f, R.color.on_accent).apply { alpha = 0.8f; setPadding(0, 0, 0, dp(6)) })
         overview.addView(line)
         report.classOverall?.let { overview.addView(UI.text(ctx, "Classe : ${UI.number(it)}", 13f, R.color.on_accent, 800).apply { alpha = 0.85f; setPadding(0, dp(6), 0, 0) }) }
@@ -399,7 +408,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
                     background = UI.sticker(ctx, color(R.color.surface), color(R.color.edge), 12, 2)
                     setPadding(0, dp(8), 0, dp(10))
                 } else setPadding(0, dp(8), 0, dp(8))
-                setOnClickListener { onMode(mode) }
+                setOnClickListener { if (!on) { Motion.tick(this); onMode(mode) } }
             }, UI.weight())
         }
         root.addView(seg, UI.matchWidth().apply { topMargin = ctx.dp(16); bottomMargin = ctx.dp(12) })
@@ -473,7 +482,16 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val fraction = ((sub.student ?: 0.0) / 20.0).coerceIn(0.0, 1.0)
         val fill = View(ctx).apply { background = UI.rounded(Subjects.solid(family), dp(5).toFloat()) }
         track.addView(fill, FrameLayout.LayoutParams(0, ctx.dp(10)))
-        track.post { fill.layoutParams = FrameLayout.LayoutParams((track.width * fraction).toInt(), ctx.dp(10)); fill.requestLayout() }
+        val grow = activity.entering != MainActivity.Enter.NONE
+        track.post {
+            fill.layoutParams = FrameLayout.LayoutParams((track.width * fraction).toInt(), ctx.dp(10))
+            fill.requestLayout()
+            if (grow && android.animation.ValueAnimator.areAnimatorsEnabled()) {
+                fill.pivotX = 0f
+                fill.scaleX = 0f
+                fill.animate().scaleX(1f).setStartDelay(150).setDuration(600).setInterpolator(android.view.animation.DecelerateInterpolator(2f)).start()
+            }
+        }
         col.addView(track, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ctx.dp(10)).apply { topMargin = ctx.dp(6) })
         sub.classAverage?.let { col.addView(UI.text(ctx, "Classe : ${UI.number(it)}", 12f, R.color.text2).apply { setPadding(0, dp(4), 0, 0) }) }
         row.addView(col, UI.weight())

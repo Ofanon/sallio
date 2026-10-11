@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sallio · palettes</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #e9e7e2; padding: 28px 16px 48px; font-family: Nunito, sans-serif; }
+  h1 { font: 700 22px Fredoka; text-align: center; color: #241c3d; }
+  .sub { text-align: center; color: #6b6480; margin: 4px 0 26px; }
+  .group { margin-bottom: 34px; }
+  .gt { font: 600 18px Fredoka; text-align: center; color: #241c3d; }
+  .gs { text-align: center; color: #6b6480; font-size: 14px; margin: 2px 0 14px; }
+  .row { display: flex; gap: 22px; justify-content: center; flex-wrap: wrap; }
+  .sw { display: flex; gap: 6px; justify-content: center; margin-bottom: 14px; }
+  .sw span { width: 26px; height: 26px; border-radius: 8px; border: 2px solid rgba(0,0,0,.08); }
+
+  .phone { width: 300px; height: 620px; border-radius: 40px; border: 8px solid #111; overflow: hidden; }
+  .s { height: 100%; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); }
+  .b { flex: 1; overflow: hidden; padding: 16px 14px 0; }
+  .hi { display: flex; justify-content: space-between; align-items: center; }
+  .hi h2 { font: 600 23px Fredoka; }
+  .hi p { font-weight: 700; color: var(--soft); font-size: 12px; }
+  .av { width: 40px; height: 40px; border-radius: 14px; display: grid; place-items: center; font: 600 17px Fredoka; background: var(--av); color: var(--avInk); border: 2px solid var(--avEdge); box-shadow: 0 3px 0 var(--avEdge); }
+  .card { background: var(--card); border: 2px solid var(--edge); box-shadow: 0 4px 0 var(--edge); border-radius: 20px; }
+  .hero { margin-top: 12px; padding: 14px 16px; border-radius: 24px; color: #fff; position: relative; overflow: hidden; }
+  .hero .tag { display: inline-flex; gap: 5px; align-items: center; background: rgba(255,255,255,.28); border-radius: 99px; padding: 3px 10px; font-weight: 800; font-size: 11px; }
+  .hero .room { font: 700 50px/1 Fredoka; margin: 8px 0 2px; }
+  .hero .what { font-weight: 800; font-size: 14px; }
+  .hero .ghost { position: absolute; right: 2px; bottom: 6px; font-size: 96px; opacity: .22; }
+  h3 { font: 600 16px Fredoka; margin: 14px 2px 8px; }
+  .list { padding: 2px 12px; }
+  .list > div { display: flex; gap: 10px; align-items: center; padding: 9px 0; }
+  .list > div + div { border-top: 2px solid var(--line); }
+  .tile { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: 18px; flex: none; }
+  .box { width: 24px; height: 24px; border-radius: 8px; border: 2.5px solid var(--boxEdge); flex: none; }
+  .box.on { background: var(--accent); border-color: var(--accentEdge); color: var(--onAccent); display: grid; place-items: center; font-size: 14px; }
+  .chip { font-weight: 800; font-size: 10px; padding: 2px 7px; border-radius: 7px; }
+  .list p { font-weight: 700; font-size: 13px; }
+  .avg { margin-top: 12px; padding: 14px 16px; background: var(--accent); border-color: var(--accentEdge); box-shadow: 0 5px 0 var(--accentEdge); color: var(--onAccent); }
+  .avg small { font-weight: 800; font-size: 11px; opacity: .85; }
+  .avg .big { font: 700 44px/1.05 Fredoka; }
+  .gr { display: flex; gap: 10px; align-items: center; padding: 9px 0; }
+  .gr + .gr { border-top: 2px solid var(--line); }
+  .gr .m { flex: 1; }
+  .gr .m b { font: 600 14px Fredoka; display: block; }
+  .gr .m span { font-weight: 700; font-size: 11px; color: var(--soft); }
+  .note { font: 700 16px Fredoka; padding: 3px 9px; border-radius: 11px; }
+  .note.good { background: var(--goodBg); color: var(--goodInk); border: 2px solid var(--goodEdge); box-shadow: 0 2px 0 var(--goodEdge); }
+  .note.mid { background: var(--card2); color: var(--ink); border: 2px solid var(--edge); box-shadow: 0 2px 0 var(--edge); }
+  .nav { display: flex; justify-content: space-around; padding: 9px 6px 14px; background: var(--card); border-top: 2px solid var(--edge); color: var(--soft); font-weight: 800; font-size: 10px; }
+  .nav div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .nav i { font-size: 20px; padding: 3px 12px; border-radius: 12px; border: 2px solid transparent; }
+  .nav .on { color: var(--ink); }
+  .nav .on i { background: var(--navBg); border-color: var(--navEdge); color: var(--navInk); box-shadow: 0 2px 0 var(--navEdge); }
+
+  /* Palette 1 : Crème — fond neutre chaud, l'encre sombre pour l'interface, les matières portent la couleur */
+  .p1 { --bg:#fbf7f0; --card:#fff; --card2:#f4eee4; --edge:#ebe2d3; --line:#f3ede3; --ink:#2e2a3a; --soft:#857d70;
+        --accent:#2e2a3a; --accentEdge:#14111c; --onAccent:#fff; --boxEdge:#d9cfbf;
+        --av:#ffd66b; --avEdge:#e0a92c; --avInk:#6b4500;
+        --navBg:#f4eee4; --navEdge:#ebe2d3; --navInk:#2e2a3a;
+        --goodBg:#e4f3e2; --goodEdge:#c3e2bf; --goodInk:#2f6b33; }
+  .p1.dark { --bg:#1a1820; --card:#24212c; --card2:#2d2a36; --edge:#0e0d12; --line:#2f2b38; --ink:#f4efe6; --soft:#a49b8e;
+        --accent:#f4efe6; --accentEdge:#0e0d12; --onAccent:#1a1820; --boxEdge:#4a4553;
+        --avEdge:#0e0d12; --navBg:#34303e; --navEdge:#0e0d12; --navInk:#f4efe6;
+        --goodBg:#24382a; --goodEdge:#0e0d12; --goodInk:#9fd8a3; }
+
+  /* Palette 2 : Lavande — on garde le violet, les matières restent dans une famille fraîche (bleu → rose) */
+  .p2 { --bg:#f6f3ff; --card:#fff; --card2:#f1edfc; --edge:#e4ddf7; --line:#efeafb; --ink:#26213d; --soft:#776f93;
+        --accent:#6d5bf0; --accentEdge:#4f3fcf; --onAccent:#fff; --boxEdge:#cdc4f2;
+        --av:#ffd4e6; --avEdge:#f0a3c5; --avInk:#8a2457;
+        --navBg:#ece7ff; --navEdge:#d4cafa; --navInk:#4f3fcf;
+        --goodBg:#e3f0ff; --goodEdge:#bcd8fb; --goodInk:#2758a8; }
+  .p2.dark { --bg:#15132a; --card:#201d3a; --card2:#29254a; --edge:#0b0918; --line:#2b2750; --ink:#f1eeff; --soft:#a69ec8;
+        --accent:#7c6cf5; --accentEdge:#0b0918; --onAccent:#fff; --boxEdge:#4b4480;
+        --avEdge:#0b0918; --navBg:#2f2a5c; --navEdge:#0b0918; --navInk:#cfc6ff;
+        --goodBg:#1d2e52; --goodEdge:#0b0918; --goodInk:#9cc4ff; }
+</style>
+</head>
+<body>
+<h1>Sallio · deux palettes harmonisées</h1>
+<p class="sub">Même mise en page « pastel stickers », seules les couleurs changent.</p>
+
+<div class="group">
+  <div class="gt">1 · Crème</div>
+  <div class="gs">Interface neutre (crème et encre), ce sont les matières qui apportent la couleur. Les matières gardent toutes la même douceur.</div>
+  <div class="sw">
+    <span style="background:#fbf7f0"></span><span style="background:#2e2a3a"></span><span style="background:#ffd66b"></span>
+    <span style="background:#f28b74"></span><span style="background:#6fb3e0"></span><span style="background:#7cc49a"></span><span style="background:#a993e6"></span><span style="background:#f2b65e"></span><span style="background:#ee8fb7"></span>
+  </div>
+  <div class="row">
+    <div class="phone"><div class="s p1">
+      <div class="b">
+        <div class="hi"><div><h2>Salut Oscar 👋</h2><p>Lundi 12 oct. · à jour</p></div><div class="av">O</div></div>
+        <div class="card hero" style="background:#f28b74;border-color:#d9705a;box-shadow:0 5px 0 #d9705a"><span class="tag"><i class="ti ti-clock"></i> Dans 3 min · 10h05</span><div class="room">B204</div><div class="what">Mathématiques · M. Gallet</div><i class="ti ti-math-function ghost"></i></div>
+        <h3>Pour demain</h3>
+        <div class="card list">
+          <div><span class="box"></span><p style="flex:1">Exercices 7 à 10 p. 84</p><span class="chip" style="background:#fde6df;color:#b2503c">Maths</span></div>
+          <div><span class="box on"><i class="ti ti-check"></i></span><p style="flex:1;opacity:.45;text-decoration:line-through">Feuille chap. 2</p><span class="chip" style="background:#e1f0fa;color:#2f73a3">Physique</span></div>
+          <div><span class="box"></span><p style="flex:1">Finir le TP Python</p><span class="chip" style="background:#e2f3e9;color:#2f7a52">NSI</span></div>
+        </div>
+      </div>
+      <div class="nav"><div class="on"><i class="ti ti-home"></i>Accueil</div><div><i class="ti ti-calendar"></i>Cours</div><div><i class="ti ti-checklist"></i>Devoirs</div><div><i class="ti ti-star"></i>Notes</div></div>
+    </div></div>
+    <div class="phone"><div class="s p1">
+      <div class="b">
+        <div class="hi"><div><h2>Notes</h2><p>Trimestre 1</p></div><div class="av">O</div></div>
+        <div class="card avg"><small>MOYENNE GÉNÉRALE</small><div class="big">15,4 <span style="font-size:16px;opacity:.7">/20</span></div><small>Classe : 13,2</small></div>
+        <div class="card list" style="margin-top:14px">
+          <div class="gr"><div class="tile" style="background:#e2f3e9;color:#2f7a52"><i class="ti ti-code"></i></div><div class="m"><b>NSI</b><span>9 oct. · classe 12,4</span></div><div class="note good">16,5</div></div>
+          <div class="gr"><div class="tile" style="background:#ece6fb;color:#6a52c2"><i class="ti ti-book"></i></div><div class="m"><b>Français</b><span>9 oct. · classe 13,9</span></div><div class="note good">14,5</div></div>
+          <div class="gr"><div class="tile" style="background:#fde6df;color:#b2503c"><i class="ti ti-math-function"></i></div><div class="m"><b>Mathématiques</b><span>25 sept. · classe 10,5</span></div><div class="note mid">9</div></div>
+          <div class="gr"><div class="tile" style="background:#fdeedd;color:#a8681a"><i class="ti ti-world"></i></div><div class="m"><b>Histoire-géo</b><span>22 sept. · classe 12,1</span></div><div class="note good">15</div></div>
+        </div>
+      </div>
+      <div class="nav"><div><i class="ti ti-home"></i>Accueil</div><div><i class="ti ti-calendar"></i>Cours</div><div><i class="ti ti-checklist"></i>Devoirs</div><div class="on"><i class="ti ti-star"></i>Notes</div></div>
+    </div></div>
+    <div class="phone"><div class="s p1 dark">
+      <div class="b">
+        <div class="hi"><div><h2>Salut Oscar 👋</h2><p>Lundi 12 oct. · à jour</p></div><div class="av">O</div></div>
+        <div class="card hero" style="background:#f28b74;border-color:#0e0d12;box-shadow:0 5px 0 #0e0d12"><span class="tag"><i class="ti ti-clock"></i> Dans 3 min · 10h05</span><div class="room">B204</div><div class="what">Mathématiques · M. Gallet</div><i class="ti ti-math-function ghost"></i></div>
+        <h3>Pour demain</h3>
+        <div class="card list">
+          <div><span class="box"></span><p style="flex:1">Exercices 7 à 10 p. 84</p><span class="chip" style="background:#432b28;color:#ffb2a1">Maths</span></div>
+          <div><span class="box on"><i class="ti ti-check"></i></span><p style="flex:1;opacity:.45;text-decoration:line-through">Feuille chap. 2</p><span class="chip" style="background:#1f3646;color:#9bd0f2">Physique</span></div>
+          <div><span class="box"></span><p style="flex:1">Finir le TP Python</p><span class="chip" style="background:#20382b;color:#9fdbb7">NSI</span></div>
+        </div>
+      </div>
+      <div class="nav"><div class="on"><i class="ti ti-home"></i>Accueil</div><div><i class="ti ti-calendar"></i>Cours</div><div><i class="ti ti-checklist"></i>Devoirs</div><div><i class="ti ti-star"></i>Notes</div></div>
+    </div></div>
+  </div>
+</div>
+
+<div class="group">
+  <div class="gt">2 · Lavande</div>
+  <div class="gs">On garde le violet, et toutes les couleurs restent dans la même famille fraîche : bleu, indigo, violet, magenta, rose, corail. Plus de vert ni de jaune.</div>
+  <div class="sw">
+    <span style="background:#f6f3ff"></span><span style="background:#6d5bf0"></span><span style="background:#ffd4e6"></span>
+    <span style="background:#f2849a"></span><span style="background:#5aa7ef"></span><span style="background:#4fb8c9"></span><span style="background:#9a7cf2"></span><span style="background:#d97ee0"></span><span style="background:#7d8cf0"></span>
+  </div>
+  <div class="row">
+    <div class="phone"><div class="s p2">
+      <div class="b">
+        <div class="hi"><div><h2>Salut Oscar 👋</h2><p>Lundi 12 oct. · à jour</p></div><div class="av">O</div></div>
+        <div class="card hero" style="background:#f2849a;border-color:#d4637b;box-shadow:0 5px 0 #d4637b"><span class="tag"><i class="ti ti-clock"></i> Dans 3 min · 10h05</span><div class="room">B204</div><div class="what">Mathématiques · M. Gallet</div><i class="ti ti-math-function ghost"></i></div>
+        <h3>Pour demain</h3>
+        <div class="card list">
+          <div><span class="box"></span><p style="flex:1">Exercices 7 à 10 p. 84</p><span class="chip" style="background:#fde2e8;color:#b13a56">Maths</span></div>
+          <div><span class="box on"><i class="ti ti-check"></i></span><p style="flex:1;opacity:.45;text-decoration:line-through">Feuille chap. 2</p><span class="chip" style="background:#e1eefc;color:#2a68ad">Physique</span></div>
+          <div><span class="box"></span><p style="flex:1">Finir le TP Python</p><span class="chip" style="background:#ddf2f5;color:#1f7d8c">NSI</span></div>
+        </div>
+      </div>
+      <div class="nav"><div class="on"><i class="ti ti-home"></i>Accueil</div><div><i class="ti ti-calendar"></i>Cours</div><div><i class="ti ti-checklist"></i>Devoirs</div><div><i class="ti ti-star"></i>Notes</div></div>
+    </div></div>
+    <div class="phone"><div class="s p2">
+      <div class="b">
+        <div class="hi"><div><h2>Notes</h2><p>Trimestre 1</p></div><div class="av">O</div></div>
+        <div class="card avg"><small>MOYENNE GÉNÉRALE</small><div class="big">15,4 <span style="font-size:16px;opacity:.7">/20</span></div><small>Classe : 13,2</small></div>
+        <div class="card list" style="margin-top:14px">
+          <div class="gr"><div class="tile" style="background:#ddf2f5;color:#1f7d8c"><i class="ti ti-code"></i></div><div class="m"><b>NSI</b><span>9 oct. · classe 12,4</span></div><div class="note good">16,5</div></div>
+          <div class="gr"><div class="tile" style="background:#ece6fd;color:#6447d4"><i class="ti ti-book"></i></div><div class="m"><b>Français</b><span>9 oct. · classe 13,9</span></div><div class="note good">14,5</div></div>
+          <div class="gr"><div class="tile" style="background:#fde2e8;color:#b13a56"><i class="ti ti-math-function"></i></div><div class="m"><b>Mathématiques</b><span>25 sept. · classe 10,5</span></div><div class="note mid">9</div></div>
+          <div class="gr"><div class="tile" style="background:#f8e4fa;color:#9a3aa3"><i class="ti ti-world"></i></div><div class="m"><b>Histoire-géo</b><span>22 sept. · classe 12,1</span></div><div class="note good">15</div></div>
+        </div>
+      </div>
+      <div class="nav"><div><i class="ti ti-home"></i>Accueil</div><div><i class="ti ti-calendar"></i>Cours</div><div><i class="ti ti-checklist"></i>Devoirs</div><div class="on"><i class="ti ti-star"></i>Notes</div></div>
+    </div></div>
+    <div class="phone"><div class="s p2 dark">
+      <div class="b">
+        <div class="hi"><div><h2>Salut Oscar 👋</h2><p>Lundi 12 oct. · à jour</p></div><div class="av">O</div></div>
+        <div class="card hero" style="background:#f2849a;border-color:#0b0918;box-shadow:0 5px 0 #0b0918"><span class="tag"><i class="ti ti-clock"></i> Dans 3 min · 10h05</span><div class="room">B204</div><div class="what">Mathématiques · M. Gallet</div><i class="ti ti-math-function ghost"></i></div>
+        <h3>Pour demain</h3>
+        <div class="card list">
+          <div><span class="box"></span><p style="flex:1">Exercices 7 à 10 p. 84</p><span class="chip" style="background:#45223a;color:#ffadc0">Maths</span></div>
+          <div><span class="box on"><i class="ti ti-check"></i></span><p style="flex:1;opacity:.45;text-decoration:line-through">Feuille chap. 2</p><span class="chip" style="background:#1d3157;color:#a7caff">Physique</span></div>
+          <div><span class="box"></span><p style="flex:1">Finir le TP Python</p><span class="chip" style="background:#173b45;color:#93dbe6">NSI</span></div>
+        </div>
+      </div>
+      <div class="nav"><div class="on"><i class="ti ti-home"></i>Accueil</div><div><i class="ti ti-calendar"></i>Cours</div><div><i class="ti ti-checklist"></i>Devoirs</div><div><i class="ti ti-star"></i>Notes</div></div>
+    </div></div>
+  </div>
+</div>
+</body>
+</html>

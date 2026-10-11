@@ -56,6 +56,12 @@ class MainActivity : Activity() {
     internal val expanded = mutableSetOf<String>()
     private var scroll: ScrollView? = null
     private var syncing = false
+
+    /** What animates on the next render: everything (screen opened), the tab body, or nothing. */
+    enum class Enter { ALL, TAB, NONE }
+    internal var entering = Enter.ALL
+    private var switched = false
+    private var spinner: android.animation.ObjectAnimator? = null
     private var update: Updater.Update? = null
     private var topInset = 0
     private var bottomInset = 0
@@ -142,15 +148,18 @@ class MainActivity : Activity() {
         update?.let { content.addView(updateCard(it), UI.matchWidth().apply { topMargin = dp(14) }) }
         if (s.status.needsLogin) content.addView(reconnectCard(s), UI.matchWidth().apply { topMargin = dp(14) })
         content.addView(UI.gap(this, 14))
-        content.addView(
-            when (tab) {
-                Tab.HOME -> tabs.home(s)
-                Tab.TIMETABLE -> tabs.timetable(s, selectedDay) { selectedDay = it; render() }
-                Tab.HOMEWORK -> tabs.homework(s)
-                Tab.GRADES -> tabs.grades(s, gradesBySubject) { gradesBySubject = it; render() }
-            },
-            UI.matchWidth(),
-        )
+        val body = when (tab) {
+            Tab.HOME -> tabs.home(s)
+            Tab.TIMETABLE -> tabs.timetable(s, selectedDay) { selectedDay = it; entering = Enter.TAB; render() }
+            Tab.HOMEWORK -> tabs.homework(s)
+            Tab.GRADES -> tabs.grades(s, gradesBySubject) { gradesBySubject = it; entering = Enter.TAB; render() }
+        }
+        content.addView(body, UI.matchWidth())
+        when (entering) {
+            Enter.ALL -> { Motion.cascade(content); (body as? ViewGroup)?.let { Motion.cascade(it, 120) } }
+            Enter.TAB -> (body as? ViewGroup)?.let { Motion.cascade(it) }
+            Enter.NONE -> Unit
+        }
 
         val sv = ScrollView(this).apply {
             isFillViewport = true
@@ -162,12 +171,18 @@ class MainActivity : Activity() {
         root.addView(column, FrameLayout.LayoutParams(-1, -1))
         // Opaque strip under the status bar, so scrolled content never runs beneath the clock.
         root.addView(View(this).apply { setBackgroundColor(getColor(R.color.bg)) }, FrameLayout.LayoutParams(-1, topInset))
-        sv.post { sv.scrollTo(0, keepScroll) }
+        if (entering == Enter.NONE) sv.post { sv.scrollTo(0, keepScroll) }
+        entering = Enter.NONE
     }
 
     fun openTab(target: Tab) {
         if (tab == Tab.GRADES && target != Tab.GRADES) repo.markGradesSeen()
-        if (tab != target) scroll?.scrollTo(0, 0)
+        if (tab != target) {
+            scroll?.scrollTo(0, 0)
+            entering = Enter.ALL
+            switched = true
+            root.let { Motion.tick(it) }
+        }
         tab = target
         scroll = null
         render()
@@ -201,8 +216,9 @@ class MainActivity : Activity() {
         }
         col.addView(UI.oneLine(UI.text(this, listOf(subtitle, status).filter { it.isNotEmpty() }.joinToString(" · "), 13f, color)).apply { setPadding(0, dp(4), 0, 0) })
         row.addView(col, UI.weight())
-        val refresh: View = if (syncing) ProgressBar(this).apply { layoutParams = FrameLayout.LayoutParams(dp(22), dp(22)) }
-        else UI.icon(this, R.drawable.ic_refresh, R.color.text2, 22)
+        val refresh = UI.icon(this, R.drawable.ic_refresh, if (syncing) R.color.accent else R.color.text2, 22)
+        spinner?.cancel()
+        spinner = if (syncing) Motion.spin(refresh) else null
         row.addView(UI.squareButton(this, R.color.surface, R.color.edge, refresh) { refresh(manual = true) })
         row.addView(UI.hgap(this, 8))
         val letter = UI.title(this, first.take(1).uppercase().ifEmpty { "?" }, 19f, R.color.on_sun)
@@ -224,6 +240,7 @@ class MainActivity : Activity() {
             val pill = FrameLayout(this).apply {
                 if (selected) background = UI.sticker(context, getColor(R.color.accent_container), getColor(R.color.accent_container_edge), 13, 2)
             }
+            if (selected && switched) { switched = false; pill.post { Motion.pop(pill) } }
             pill.addView(UI.icon(this, t.icon, if (selected) R.color.on_accent_container else R.color.text3, 22).apply {
                 layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER).apply { bottomMargin = if (selected) dp(2) else 0 }
             })
@@ -438,6 +455,7 @@ class MainActivity : Activity() {
                             .putExtra(LoginActivity.EXTRA_SCHOOL, knownName ?: info.name)
                     )
                 }.onFailure { e ->
+                    Motion.failure(root)
                     showSchoolMessage(
                         if (e is PronoteException.Unreachable) "Impossible de joindre cette adresse. Vérifie ta connexion et l'adresse."
                         else "Pas de Pronote à cette adresse."
@@ -604,9 +622,14 @@ class MainActivity : Activity() {
         syncing = true
         if (manual) render()
         worker.execute {
-            repo.sync(manual)
+            val result = repo.sync(manual)
             runOnUiThread {
                 syncing = false
+                if (manual) when (result) {
+                    Repo.SyncResult.DONE -> Motion.success(root)
+                    Repo.SyncResult.FAILED -> Motion.failure(root)
+                    Repo.SyncResult.SKIPPED -> Unit
+                }
                 render()
             }
         }
