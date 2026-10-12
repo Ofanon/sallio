@@ -107,8 +107,8 @@ object GradesSheets {
             if (curve.size >= 2) {
                 sheet.addView(UI.section(ctx, "Évolution"))
                 val card = UI.card(ctx, padding = 14)
-                card.addView(LineChart(ctx, curve, report.classOverall, ctx.getColor(R.color.accent)), LinearLayout.LayoutParams(-1, ctx.dp(170)))
-                card.addView(legend(ctx, ctx.getColor(R.color.accent), curve.any { it.classValue != null }), UI.matchWidth().apply { topMargin = ctx.dp(8) })
+                card.addView(LineChart(ctx, curve, report.classOverall, ctx.getColor(R.color.accent_ink)), LinearLayout.LayoutParams(-1, ctx.dp(170)))
+                card.addView(legend(ctx, ctx.getColor(R.color.accent_ink), curve.any { it.classValue != null }), UI.matchWidth().apply { topMargin = ctx.dp(8) })
                 card.addView(UI.text(ctx, "Touche ou glisse sur la courbe pour voir les deux moyennes à chaque note.", 12f, R.color.text2).apply { setPadding(0, ctx.dp(6), 0, 0) })
                 sheet.addView(card, UI.matchWidth())
             }
@@ -118,7 +118,7 @@ object GradesSheets {
                 sheet.addView(UI.section(ctx, "Répartition de tes notes"))
                 val card = UI.card(ctx, padding = 14)
                 val buckets = listOf("< 8" to (0.0..7.99), "8-10" to (8.0..9.99), "10-12" to (10.0..11.99), "12-14" to (12.0..13.99), "14-16" to (14.0..15.99), "16+" to (16.0..20.0))
-                card.addView(BarChart(ctx, buckets.map { (label, range) -> label to numbers.count { it in range } }, ctx.getColor(R.color.accent)), LinearLayout.LayoutParams(-1, ctx.dp(130)))
+                card.addView(BarChart(ctx, buckets.map { (label, range) -> label to numbers.count { it in range } }, ctx.getColor(R.color.accent_ink)), LinearLayout.LayoutParams(-1, ctx.dp(130)))
                 sheet.addView(card, UI.matchWidth())
             }
 

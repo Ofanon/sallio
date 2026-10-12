@@ -95,7 +95,7 @@ object Attachments {
                 foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, ctx.dp(16).toFloat()))
                 addView(FrameLayout(ctx).apply {
                     background = UI.rounded(ctx.getColor(R.color.accent_container), ctx.dp(12).toFloat())
-                    addView(UI.icon(ctx, if (f.link != null) R.drawable.ic_open else R.drawable.ic_attach, R.color.accent, 20).apply {
+                    addView(UI.icon(ctx, if (f.link != null) R.drawable.ic_open else R.drawable.ic_attach, R.color.on_accent_container, 20).apply {
                         layoutParams = FrameLayout.LayoutParams(ctx.dp(20), ctx.dp(20), Gravity.CENTER)
                     })
                 }, LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(40)))

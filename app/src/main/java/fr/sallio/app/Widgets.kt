@@ -162,7 +162,7 @@ object Widgets {
 
         val focus = view.focus
         if (!loggedIn || focus == null) {
-            paintNext(context, rv, accent, accentEdge, Color.WHITE, R.drawable.ic_school)
+            paintNext(context, rv, accent, accentEdge, context.getColor(R.color.on_accent), R.drawable.ic_school)
             rv.setOnClickPendingIntent(R.id.root, openApp(context))
             rv.setTextViewText(R.id.label, if (!loggedIn) "Sallio" else "Rien de prévu")
             rv.setTextViewText(R.id.room, if (!loggedIn) "Connexion" else "Repos")
@@ -228,7 +228,7 @@ object Widgets {
         val style = Subjects.style(lesson.subject)
         val past = lesson.end <= now
         row.setTextViewText(R.id.time, Agenda.time(lesson.start))
-        if (highlight) row.setTextColor(R.id.time, context.getColor(R.color.accent))
+        if (highlight) row.setTextColor(R.id.time, context.getColor(R.color.accent_ink))
         row.setInt(R.id.tile, "setColorFilter", Subjects.solid(style.family))
         row.setImageViewResource(R.id.icon, style.icon)
         row.setInt(R.id.icon, "setColorFilter", Subjects.deep(style.family))

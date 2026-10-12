@@ -339,7 +339,7 @@ class MainActivity : Activity() {
         }
         col.addView(UI.oneLine(UI.text(this, listOf(subtitle, status).filter { it.isNotEmpty() }.joinToString(" · "), 13f, color)).apply { setPadding(0, dp(4), 0, 0) })
         row.addView(col, UI.weight())
-        val refresh = UI.icon(this, R.drawable.ic_refresh, if (syncing) R.color.accent else R.color.text2, 22)
+        val refresh = UI.icon(this, R.drawable.ic_refresh, if (syncing) R.color.accent_ink else R.color.text2, 22)
         spinner?.cancel()
         spinner = if (syncing) Motion.spin(refresh) else null
         row.addView(UI.squareButton(this, R.color.surface, R.color.edge, refresh) { refresh(manual = true) })
@@ -373,7 +373,7 @@ class MainActivity : Activity() {
                 if (selected) background = UI.sticker(context, getColor(R.color.accent_container), getColor(R.color.accent_container_edge), 13, 2)
             }
             if (selected && switched) { switched = false; pill.post { Motion.pop(pill) } }
-            pill.addView(UI.icon(this, t.icon, if (selected) R.color.accent else R.color.text3, 22).apply {
+            pill.addView(UI.icon(this, t.icon, if (selected) R.color.on_accent_container else R.color.text3, 22).apply {
                 layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER).apply { bottomMargin = if (selected) dp(2) else 0 }
             })
             val dot = (t == Tab.GRADES && s.unseenGrades.isNotEmpty()) || (t == Tab.INBOX && repo.unreadInbox() > 0)
@@ -877,7 +877,7 @@ class MainActivity : Activity() {
             if (i > 0) list.addView(UI.divider(this))
             list.addView(UI.row(this).apply {
                 setPadding(dp(2), dp(11), dp(2), dp(11))
-                addView(UI.icon(context, R.drawable.ic_school, R.color.accent, 20))
+                addView(UI.icon(context, R.drawable.ic_school, R.color.accent_ink, 20))
                 addView(UI.hgap(context, 12))
                 val col = UI.column(context)
                 col.addView(UI.oneLine(UI.text(context, Schools.prettySchool(school.name), 15f, weight = 800)))

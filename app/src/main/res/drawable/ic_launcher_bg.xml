@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher background: the logo's yellow. Made by tools/make_logo.py. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="#2450B8" />
+    <solid android:color="#FFD66B" />
 </shape>

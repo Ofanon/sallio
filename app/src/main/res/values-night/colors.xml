@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Creme, dark. Cream and ink, with blue as the one dominant colour; the subjects bring the rest.
+<!-- Creme, dark. Cream and ink, with the logo's yellow as the one dominant colour; the subjects bring the rest.
      "edge" colours draw the sticker outline and its offset shadow. -->
 <resources>
     <color name="bg">#1A1820</color>
@@ -10,13 +10,14 @@
     <color name="text">#F4EFE6</color>
     <color name="text2">#B0A79A</color>
     <color name="text3">#7E776D</color>
-    <color name="accent">#4D7EF0</color>
-    <color name="accent_edge">#2C4A99</color>
-    <color name="on_accent">#FFFFFF</color>
-    <color name="accent_container">#23304F</color>
-    <color name="accent_container_edge">#151D31</color>
-    <color name="on_accent_container">#BCD0FF</color>
-    <color name="box_edge">#46506A</color>
+    <color name="accent">#FFC83D</color>
+    <color name="accent_edge">#A8801F</color>
+    <color name="on_accent">#3B2A00</color>
+    <color name="accent_ink">#FFD66B</color>
+    <color name="accent_container">#3A3018</color>
+    <color name="accent_container_edge">#241D0D</color>
+    <color name="on_accent_container">#FFDF8A</color>
+    <color name="box_edge">#5A5136</color>
     <color name="alert">#FFB2A6</color>
     <color name="alert_bg">#41262A</color>
     <color name="alert_edge">#2A181B</color>

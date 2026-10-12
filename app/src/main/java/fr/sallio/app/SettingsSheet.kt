@@ -73,7 +73,7 @@ object SettingsSheet {
         val danger = item is Item.Action && item.danger
         val tile = FrameLayout(ctx).apply {
             background = UI.rounded(ctx.getColor(if (danger) R.color.alert_bg else R.color.accent_container), ctx.dp(12).toFloat())
-            addView(UI.icon(ctx, item.icon, if (danger) R.color.alert else R.color.accent, 20).apply {
+            addView(UI.icon(ctx, item.icon, if (danger) R.color.alert else R.color.on_accent_container, 20).apply {
                 layoutParams = FrameLayout.LayoutParams(ctx.dp(20), ctx.dp(20), Gravity.CENTER)
             })
         }

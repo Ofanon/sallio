@@ -269,7 +269,7 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
 
     private fun tile(icon: Int, accent: Boolean) = FrameLayout(ctx).apply {
         background = UI.rounded(ctx.getColor(if (accent) R.color.accent_container else R.color.surface2), ctx.dp(12).toFloat())
-        addView(UI.icon(ctx, icon, if (accent) R.color.accent else R.color.text2, 20).apply {
+        addView(UI.icon(ctx, icon, if (accent) R.color.on_accent_container else R.color.text2, 20).apply {
             layoutParams = FrameLayout.LayoutParams(ctx.dp(20), ctx.dp(20), Gravity.CENTER)
         })
     }
@@ -287,7 +287,7 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
         val col = UI.column(ctx)
         val top = UI.row(ctx)
         top.addView(UI.oneLine(UI.title(ctx, n.title, 16f, if (read) R.color.text2 else R.color.text)), UI.weight())
-        if (!read) top.addView(View(ctx).apply { background = UI.rounded(ctx.getColor(R.color.accent), ctx.dp(5).toFloat()) },
+        if (!read) top.addView(View(ctx).apply { background = UI.rounded(ctx.getColor(R.color.accent_ink), ctx.dp(5).toFloat()) },
             LinearLayout.LayoutParams(ctx.dp(10), ctx.dp(10)).apply { marginStart = ctx.dp(8) })
         col.addView(top, UI.matchWidth())
         val meta = listOf(category(n), n.author, shortDate(n.date)).filter { it.isNotEmpty() }.joinToString(" · ")
@@ -321,14 +321,14 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
                 setPadding(0, ctx.dp(4), 0, 0)
             })
         }
-        if (d.unread > 0) col.addView(UI.chip(ctx, "${d.unread} non lu${if (d.unread > 1) "s" else ""}", ctx.getColor(R.color.accent), Color.WHITE, 10f), UI.wrap().apply { topMargin = ctx.dp(6) })
+        if (d.unread > 0) col.addView(UI.chip(ctx, "${d.unread} non lu${if (d.unread > 1) "s" else ""}", ctx.getColor(R.color.accent), ctx.getColor(R.color.on_accent), 10f), UI.wrap().apply { topMargin = ctx.dp(6) })
         addView(col, UI.weight())
         setOnClickListener { Motion.tap(this); showDiscussion(d) }
     }
 
     private fun empty(icon: Int, text: String) = UI.card(ctx, padding = 18).apply {
         gravity = Gravity.CENTER_HORIZONTAL
-        addView(UI.icon(ctx, icon, R.color.accent, 28))
+        addView(UI.icon(ctx, icon, R.color.accent_ink, 28))
         addView(UI.text(ctx, text, 15f, R.color.text2, 800).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(8), 0, 0) }, UI.matchWidth())
     }
 

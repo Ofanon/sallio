@@ -81,7 +81,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             }
             if (due.size > shown) {
                 // Unfolds the rest right here: the student stays on the day they were looking at.
-                val more = UI.text(ctx, "+ ${due.size - 4} autre${if (due.size > 5) "s" else ""}  ▾", 14f, R.color.accent, 800).apply {
+                val more = UI.text(ctx, "+ ${due.size - 4} autre${if (due.size > 5) "s" else ""}  ▾", 14f, R.color.accent_ink, 800).apply {
                     gravity = Gravity.CENTER
                     setPadding(0, dp(12), 0, dp(4))
                     contentDescription = "Voir les ${due.size - 4} autres devoirs"
@@ -225,9 +225,9 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         col.addView(UI.row(ctx).apply {
             background = UI.sticker(ctx, color(R.color.surface), color(R.color.edge), 16, 3, pressable = true)
             setPadding(dp(16), dp(10), dp(16), dp(13))
-            addView(UI.icon(ctx, R.drawable.ic_open, R.color.accent, 18))
+            addView(UI.icon(ctx, R.drawable.ic_open, R.color.accent_ink, 18))
             addView(UI.hgap(ctx, 8))
-            addView(UI.title(ctx, "Ouvrir Pronote", 15f, R.color.accent))
+            addView(UI.title(ctx, "Ouvrir Pronote", 15f, R.color.accent_ink))
             setOnClickListener { activity.openPronote() }
             Motion.pressable(this, 3)
         }, UI.wrap())
@@ -586,14 +586,14 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
 
     private fun emptyCard(icon: Int, text: String) = UI.card(ctx, padding = 18).apply {
         gravity = Gravity.CENTER_HORIZONTAL
-        addView(UI.icon(ctx, icon, R.color.accent, 28))
+        addView(UI.icon(ctx, icon, R.color.accent_ink, 28))
         addView(UI.text(ctx, text, 15f, R.color.text2, 800).apply { gravity = Gravity.CENTER; setPadding(0, dp(8), 0, 0) }, UI.matchWidth())
     }
 
     private fun sectionWithLink(title: String, link: String, onClick: () -> Unit): View {
         val row = UI.row(ctx).apply { gravity = Gravity.BOTTOM }
         row.addView(UI.section(ctx, title), UI.weight())
-        row.addView(UI.text(ctx, link, 13f, R.color.accent, 800).apply {
+        row.addView(UI.text(ctx, link, 13f, R.color.accent_ink, 800).apply {
             setPadding(dp(8), dp(22), dp(4), dp(12))
             setOnClickListener { onClick() }
         })

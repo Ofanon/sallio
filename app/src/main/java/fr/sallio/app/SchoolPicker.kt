@@ -143,7 +143,7 @@ object SchoolPicker {
         foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, ctx.dp(16).toFloat()))
         val tile = FrameLayout(ctx).apply {
             background = UI.rounded(ctx.getColor(if (kind == Kind.LYCEE) R.color.accent_container else R.color.surface2), ctx.dp(12).toFloat())
-            addView(UI.icon(ctx, kind.icon, if (kind == Kind.LYCEE) R.color.accent else R.color.text2, 20).apply {
+            addView(UI.icon(ctx, kind.icon, if (kind == Kind.LYCEE) R.color.on_accent_container else R.color.text2, 20).apply {
                 layoutParams = FrameLayout.LayoutParams(ctx.dp(20), ctx.dp(20), Gravity.CENTER)
             })
         }
