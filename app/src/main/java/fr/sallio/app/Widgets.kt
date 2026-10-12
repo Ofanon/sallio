@@ -214,24 +214,11 @@ object Widgets {
         status: Repo.Status,
         now: LocalDateTime,
     ): RemoteViews {
-        val rv = RemoteViews(context.packageName, R.layout.widget_day)
-        rv.setOnClickPendingIntent(R.id.root, openApp(context, MainActivity.Tab.TIMETABLE))
-        rv.setOnClickPendingIntent(R.id.refresh, broadcast(context, ACTION_REFRESH, 1))
-        rv.removeAllViews(R.id.list)
-
         val date = view.dayDate
-        if (!loggedIn || date == null) {
-            rv.setTextViewText(R.id.title, "Ma journée")
-            rv.setTextViewText(R.id.footer, if (loggedIn) footer(status, now) else "")
-            rv.setTextViewText(R.id.empty, if (!loggedIn) "Touche ici pour relier ton compte Pronote" else "Aucun cours à venir")
-            rv.setViewVisibility(R.id.empty, View.VISIBLE)
-            return rv
-        }
-        rv.setViewVisibility(R.id.empty, View.GONE)
-        rv.setTextViewText(R.id.title, Agenda.dayTitle(date, now.toLocalDate()))
-        rv.setTextViewText(R.id.footer, footer(status, now))
-
-        for (lesson in view.day.take(MAX_ROWS)) rv.addView(R.id.list, lessonRow(context, lesson, now, highlight = lesson === view.focus))
+        if (!loggedIn || date == null) return listCard(context, "Ma journée", MainActivity.Tab.TIMETABLE, if (loggedIn) footer(status, now) else "",
+            if (!loggedIn) "Touche ici pour relier ton compte Pronote" else "Aucun cours à venir")
+        val rv = listCard(context, Agenda.dayTitle(date, now.toLocalDate()), MainActivity.Tab.TIMETABLE, footer(status, now), null)
+        fill(context, rv, view.day.map { Row(lessonRow(context, it, now, highlight = it === view.focus)) }, openTemplate(context, MainActivity.Tab.TIMETABLE, 3))
         return rv
     }
 
@@ -265,18 +252,60 @@ object Widgets {
         return row
     }
 
+    /** Android 12+ widgets hold a real list, which scrolls; older ones get the fixed list. */
+    private val scrolls get() = android.os.Build.VERSION.SDK_INT >= 31
+
+    /**
+     * A line of a list widget. [click] is the view that reacts and [fillIn]
+     * what it adds to the list's template (Android 12+); [direct] is the
+     * same click as its own PendingIntent, for the fixed list.
+     */
+    private class Row(val views: RemoteViews, val click: Int = R.id.row, val fillIn: Intent = Intent(), val direct: PendingIntent? = null)
+
     /** The card shared by the list widgets: title, footer, refresh, and the empty text when there is nothing. */
     private fun listCard(context: Context, title: String, tab: MainActivity.Tab, footer: String, empty: String?): RemoteViews {
-        val rv = RemoteViews(context.packageName, R.layout.widget_day)
+        val rv = RemoteViews(context.packageName, if (scrolls) R.layout.widget_list else R.layout.widget_day)
         rv.setOnClickPendingIntent(R.id.root, openApp(context, tab))
         rv.setOnClickPendingIntent(R.id.refresh, broadcast(context, ACTION_REFRESH, 1))
-        rv.removeAllViews(R.id.list)
+        if (!scrolls) rv.removeAllViews(R.id.list)
         rv.setTextViewText(R.id.title, title)
         rv.setTextViewText(R.id.footer, footer)
         rv.setViewVisibility(R.id.empty, if (empty != null) View.VISIBLE else View.GONE)
+        if (scrolls) rv.setViewVisibility(R.id.items, if (empty != null) View.GONE else View.VISIBLE)
         empty?.let { rv.setTextViewText(R.id.empty, it) }
         return rv
     }
+
+    /**
+     * Puts [rows] in the card: the whole list, scrolling, on Android 12+
+     * (clicks go through [template]); the first [MAX_ROWS] otherwise.
+     */
+    private fun fill(context: Context, rv: RemoteViews, rows: List<Row>, template: PendingIntent) {
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            val items = RemoteViews.RemoteCollectionItems.Builder().setViewTypeCount(2)
+            rows.forEachIndexed { i, row ->
+                row.views.setOnClickFillInIntent(row.click, row.fillIn)
+                items.addItem(i.toLong(), row.views)
+            }
+            rv.setRemoteAdapter(R.id.items, items.build())
+            rv.setPendingIntentTemplate(R.id.items, template)
+        } else {
+            for (row in rows.take(MAX_ROWS)) {
+                row.direct?.let { row.views.setOnClickPendingIntent(row.click, it) }
+                rv.addView(R.id.list, row.views)
+            }
+        }
+    }
+
+    /** Template for lines that open the app on [tab]; mutable, as a template must be. */
+    private fun openTemplate(context: Context, tab: MainActivity.Tab, code: Int): PendingIntent =
+        PendingIntent.getActivity(
+            context, 60 + code,
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .putExtra(MainActivity.EXTRA_TAB, tab.name),
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
 
     /** The next day with lessons after today (the widgets look ahead, not at today). */
     private fun nextSchoolDay(lessons: List<Lesson>, now: LocalDateTime): java.time.LocalDate? =
@@ -287,9 +316,8 @@ object Widgets {
         if (date == null) return listCard(context, "Demain", MainActivity.Tab.TIMETABLE, if (loggedIn) footer(status, now) else "",
             if (!loggedIn) "Touche ici pour relier ton compte Pronote" else "Aucun cours à venir")
         val rv = listCard(context, Agenda.dayTitle(date, now.toLocalDate()), MainActivity.Tab.TIMETABLE, footer(status, now), null)
-        for (lesson in lessons.filter { it.start.toLocalDate() == date }.sortedBy { it.start }.take(MAX_ROWS)) {
-            rv.addView(R.id.list, lessonRow(context, lesson, now))
-        }
+        val day = lessons.filter { it.start.toLocalDate() == date }.sortedBy { it.start }
+        fill(context, rv, day.map { Row(lessonRow(context, it, now)) }, openTemplate(context, MainActivity.Tab.TIMETABLE, 4))
         return rv
     }
 
@@ -303,9 +331,8 @@ object Widgets {
             else -> null
         }
         val rv = listCard(context, "À savoir", MainActivity.Tab.HOME, if (loggedIn) footer(status, now) else "", empty)
-        for (lesson in alerts.take(MAX_ROWS)) {
-            rv.addView(R.id.list, lessonRow(context, lesson, now, prefix = Agenda.dayTitle(lesson.start.toLocalDate(), today)))
-        }
+        fill(context, rv, alerts.map { Row(lessonRow(context, it, now, prefix = Agenda.dayTitle(it.start.toLocalDate(), today))) },
+            openTemplate(context, MainActivity.Tab.HOME, 5))
         return rv
     }
 
@@ -326,8 +353,8 @@ object Widgets {
             else -> null
         }
         val rv = listCard(context, title, MainActivity.Tab.HOMEWORK, footer, empty)
-        // Not done first, then done; the rest is in the app.
-        due.sortedBy { repo.isDone(it) }.take(MAX_HOMEWORK).forEachIndexed { i, h ->
+        // Not done first, then done.
+        val rows = due.sortedBy { repo.isDone(it) }.take(if (scrolls) Int.MAX_VALUE else MAX_HOMEWORK).mapIndexed { i, h ->
             val done = repo.isDone(h)
             val row = RemoteViews(context.packageName, R.layout.widget_hw_row)
             val style = Subjects.style(h.subject)
@@ -340,16 +367,22 @@ object Widgets {
             if (done) text.setSpan(android.text.style.StrikethroughSpan(), 0, text.length, 0)
             row.setTextViewText(R.id.text, text)
             row.setTextColor(R.id.text, context.getColor(if (done) R.color.text3 else R.color.text))
-            // One PendingIntent per row: the data URI keeps them apart.
-            row.setOnClickPendingIntent(R.id.box, PendingIntent.getBroadcast(
+            // The box ticks; the data URI keeps the rows' intents apart.
+            val tick = Intent().setData(android.net.Uri.parse("sallio://homework/$i")).putExtra(EXTRA_KEY, h.key)
+            Row(row, R.id.box, tick, PendingIntent.getBroadcast(
                 context, 100 + i,
                 Intent(context, WidgetEvents::class.java).setAction(ACTION_TICK_HOMEWORK)
                     .setData(android.net.Uri.parse("sallio://homework/$i"))
                     .putExtra(EXTRA_KEY, h.key),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             ))
-            rv.addView(R.id.list, row)
         }
+        val template = PendingIntent.getBroadcast(
+            context, 99,
+            Intent(context, WidgetEvents::class.java).setAction(ACTION_TICK_HOMEWORK),
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        fill(context, rv, rows, template)
         return rv
     }
 
