@@ -44,6 +44,9 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
     /** The snapshot the current views were built from, for their click handlers. */
     private var lastSnapshot: Snapshot? = null
 
+    /** The day whose homework the student unfolded on the home tab: it stays open across redraws. */
+    private var unfoldedDay: java.time.LocalDate? = null
+
     fun home(s: Snapshot): View {
         lastSnapshot = s
         val root = UI.column(ctx)
@@ -71,11 +74,12 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             root.addView(emptyCard(R.drawable.ic_sparkles, "Rien à rendre. Profites-en !"), UI.matchWidth())
         } else {
             val card = UI.card(ctx, padding = 14)
-            due.take(4).forEachIndexed { i, h ->
+            val shown = if (unfoldedDay == nextDay) due.size else 4
+            due.take(shown).forEachIndexed { i, h ->
                 if (i > 0) card.addView(UI.divider(ctx))
                 card.addView(homeworkRow(h, compact = true), UI.matchWidth())
             }
-            if (due.size > 4) {
+            if (due.size > shown) {
                 // Unfolds the rest right here: the student stays on the day they were looking at.
                 val more = UI.text(ctx, "+ ${due.size - 4} autre${if (due.size > 5) "s" else ""}  ▾", 14f, R.color.accent, 800).apply {
                     gravity = Gravity.CENTER
@@ -84,6 +88,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
                 }
                 more.setOnClickListener {
                     Motion.tap(more)
+                    unfoldedDay = nextDay
                     val at = card.indexOfChild(more)
                     card.removeView(more)
                     due.drop(4).forEachIndexed { i, h ->
