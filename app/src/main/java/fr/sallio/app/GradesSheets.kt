@@ -151,7 +151,9 @@ object GradesSheets {
     fun showSubject(activity: MainActivity, sub: SubjectAverage, report: Report, bottomInset: Int) {
         val ctx = activity
         val style = Subjects.style(sub.subject)
-        val grades = report.grades.filter { fold(it.subject) == fold(sub.subject) }.sortedByDescending { it.date }
+        // Grades of sub-services ("Allemand LV2 > ecrit", "> oral") count for their subject.
+        val grades = report.grades.filter { fold(it.subject) == fold(sub.subject) || fold(it.subject.substringBefore(" > ")) == fold(sub.subject) }
+            .sortedByDescending { it.date }
         Sheet.open(activity, bottomInset) { sheet, _ ->
             val head = UI.row(ctx)
             head.addView(UI.subjectTile(ctx, sub.subject, 48))
@@ -275,9 +277,11 @@ object GradesSheets {
         init {
             if (android.animation.ValueAnimator.areAnimatorsEnabled()) {
                 android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
-                    duration = 700
+                    // Drawn by sweeping a clip from left to right: every grade is on the
+                    // curve, the pen just travels at an even pace to the last one.
+                    duration = 380L + 45L * values.size.coerceAtMost(20)
                     startDelay = 150
-                    interpolator = android.view.animation.DecelerateInterpolator(2f)
+                    interpolator = android.view.animation.AccelerateDecelerateInterpolator()
                     addUpdateListener { progress = it.animatedValue as Float; invalidate() }
                     start()
                 }
@@ -299,10 +303,9 @@ object GradesSheets {
             canvas.drawText(UI.number(lo).substringBefore(','), 0f, bottom, label)
             reference?.let { r -> canvas.drawLine(left, y(r), right, y(r), ref) }
 
-            val visible = (values.size * progress).toInt().coerceIn(1, values.size)
             val path = Path()
             val area = Path()
-            for (i in 0 until visible) {
+            for (i in values.indices) {
                 val px = x(i)
                 val py = y(values[i])
                 if (i == 0) { path.moveTo(px, py); area.moveTo(px, bottom); area.lineTo(px, py) }
@@ -312,12 +315,20 @@ object GradesSheets {
                     area.cubicTo(cx, y(values[i - 1]), cx, py, px, py)
                 }
             }
-            area.lineTo(x(visible - 1), bottom)
+            area.lineTo(x(values.size - 1), bottom)
             area.close()
+            // The pen's position; a little margin so the last dot is whole at the end.
+            val pen = left + (right - left + 8 * d) * progress
+            canvas.save()
+            canvas.clipRect(0f, 0f, pen, height.toFloat())
             canvas.drawPath(area, fill)
             canvas.drawPath(path, line)
-            for (i in 0 until visible) {
-                val r = if (i == selected) 7.5f else 4.5f
+            canvas.restore()
+            for (i in values.indices) {
+                // Each dot pops as the pen reaches it.
+                val grow = ((pen - x(i)) / (10 * d) + 0.5f).coerceIn(0f, 1f)
+                if (grow <= 0f) continue
+                val r = (if (i == selected) 7.5f else 4.5f) * grow
                 canvas.drawCircle(x(i), y(values[i]), r * d, dot)
                 canvas.drawCircle(x(i), y(values[i]), r * 0.45f * d, dotIn)
             }

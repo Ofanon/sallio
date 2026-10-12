@@ -28,6 +28,13 @@ sealed class PronoteException(message: String) : Exception(message) {
 
     class Server(message: String) : PronoteException(message)
 
+    /**
+     * PRONOTE 2026.2.7 answers a bare {"Erreur": true} to the identification
+     * when it no longer accepts the saved device token. A real outage looks
+     * the same once, so the app only asks for a new login when it repeats.
+     */
+    class TokenRefused : PronoteException("Connexion enregistrée refusée")
+
     /** PRONOTE wants a double authentication step before giving the token. */
     class SecurityRequired(val challenge: SecurityChallenge) :
         PronoteException("Double authentification demandée")

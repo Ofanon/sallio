@@ -125,7 +125,7 @@ object Welcome {
     // ---- Celebration ---------------------------------------------------------------
 
     /** Full screen "it's ready" moment after the very first login. */
-    fun celebrate(activity: MainActivity, s: Snapshot, root: FrameLayout, topInset: Int, bottomInset: Int, onDone: () -> Unit): View {
+    fun celebrate(activity: MainActivity, s: Snapshot, root: FrameLayout, topInset: Int, bottomInset: Int, onGone: () -> Unit, onDone: () -> Unit): View {
         val ctx = activity
         val overlay = FrameLayout(ctx).apply {
             setBackgroundColor(ctx.getColor(R.color.bg))
@@ -169,10 +169,15 @@ object Welcome {
         val widget = UI.ghostButton(ctx, "Poser le widget sur l'accueil") { activity.pinWidget() }
         col.addView(widget, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
         val go = UI.button(ctx, "C'est parti") {
-            overlay.animate().alpha(0f).setDuration(260).withEndAction {
-                (overlay.parent as? ViewGroup)?.removeView(overlay)
+            if (overlay.tag == null) {
+                overlay.tag = "leaving"
                 onDone()
-            }.start()
+                overlay.animate().alpha(0f).setDuration(320).withEndAction {
+                    confetti.stop()
+                    (overlay.parent as? ViewGroup)?.removeView(overlay)
+                    onGone()
+                }.start()
+            }
         }
         col.addView(go, UI.matchWidth())
         overlay.addView(col, FrameLayout.LayoutParams(-1, -1))
@@ -257,9 +262,8 @@ object Welcome {
             }
         }
 
-        override fun onDetachedFromWindow() {
+        fun stop() {
             animator?.cancel()
-            super.onDetachedFromWindow()
         }
     }
 }

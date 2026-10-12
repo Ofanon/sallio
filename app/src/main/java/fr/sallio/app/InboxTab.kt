@@ -6,6 +6,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import fr.sallio.pronote.Discussion
+import fr.sallio.pronote.Inbox
 import fr.sallio.pronote.News
 import java.time.LocalDateTime
 import java.time.format.TextStyle
@@ -162,7 +163,7 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
                 val card = UI.card(ctx, padding = 16)
                 card.addView(UI.text(ctx, n.content.ifEmpty { "Contenu pas encore chargé : il arrive à la prochaine mise à jour." }, 16f, weight = 600).apply {
                     setLineSpacing(0f, 1.15f)
-                    setTextIsSelectable(true)
+                    UI.linkify(this)
                 })
                 sheet.addView(card, UI.matchWidth().apply { topMargin = ctx.dp(8) })
             } else {
@@ -171,7 +172,7 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
                     sheet.addView(UI.section(ctx, "Question ${i + 1}${if (q.answered) " · répondu" else ""}"))
                     val card = UI.card(ctx, padding = 16)
                     if (q.title.isNotEmpty()) card.addView(UI.title(ctx, q.title, 16f))
-                    if (q.text.isNotEmpty() && q.text != q.title) card.addView(UI.text(ctx, q.text, 15f).apply { setPadding(0, ctx.dp(4), 0, 0) })
+                    if (q.text.isNotEmpty() && q.text != q.title) card.addView(UI.text(ctx, q.text, 15f).apply { setPadding(0, ctx.dp(4), 0, 0); UI.linkify(this) })
                     q.choices.forEach { c ->
                         card.addView(UI.row(ctx).apply {
                             setPadding(0, ctx.dp(8), 0, 0)
@@ -182,8 +183,13 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
                     }
                     sheet.addView(card, UI.matchWidth())
                 }
-                sheet.addView(UI.button(ctx, "Répondre sur Pronote", R.drawable.ic_open) { activity.openPronote() }, UI.matchWidth().apply { topMargin = ctx.dp(16) })
             }
+            val files = n.files.orEmpty()
+            if (files.isNotEmpty()) {
+                sheet.addView(UI.section(ctx, if (files.size > 1) "Pièces jointes et liens" else if (files[0].link != null) "Lien" else "Pièce jointe"))
+                sheet.addView(Attachments.card(activity, files, "news|${n.key}") { logged, name -> Inbox.newsFileUrl(logged, n.key, name) }, UI.matchWidth())
+            }
+            if (n.survey) sheet.addView(UI.button(ctx, "Répondre sur Pronote", R.drawable.ic_open) { activity.openPronote() }, UI.matchWidth().apply { topMargin = ctx.dp(16) })
         }
     }
 
@@ -200,11 +206,18 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
                 }
                 bubble.addView(UI.text(ctx, listOf(if (m.mine) "Toi" else m.author, m.date?.let { "${it.dayOfMonth}/${it.monthValue} ${Agenda.time(it)}" }.orEmpty())
                     .filter { it.isNotEmpty() }.joinToString(" · "), 12f, R.color.text2, 800))
-                bubble.addView(UI.text(ctx, m.text, 15f).apply { setPadding(0, ctx.dp(4), 0, 0); setTextIsSelectable(true) })
+                bubble.addView(UI.text(ctx, m.text, 15f).apply { setPadding(0, ctx.dp(4), 0, 0); UI.linkify(this) })
                 sheet.addView(bubble, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, -2).apply {
                     topMargin = ctx.dp(8)
                     if (m.mine) marginStart = ctx.dp(36) else marginEnd = ctx.dp(36)
                 })
+                m.files?.takeIf { it.isNotEmpty() }?.let { files ->
+                    sheet.addView(Attachments.card(activity, files, "msg|${d.key}") { logged, name -> Inbox.messageFileUrl(logged, d.key, name) },
+                        LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, -2).apply {
+                            topMargin = ctx.dp(6)
+                            if (m.mine) marginStart = ctx.dp(36) else marginEnd = ctx.dp(36)
+                        })
+                }
             }
             sheet.addView(UI.ghostButton(ctx, "Répondre sur Pronote") { activity.openPronote() }, UI.matchWidth().apply { topMargin = ctx.dp(16) })
         }

@@ -7,6 +7,7 @@ import android.view.Gravity
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import fr.sallio.pronote.Homework
+import fr.sallio.pronote.Schoolwork
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -46,58 +47,17 @@ object HomeworkSheet {
             text.addView(UI.text(ctx, h.description.ifEmpty { "Pas de consigne écrite." }, 16f).apply {
                 setTextColor(Subjects.ink(ctx, style.family))
                 setLineSpacing(0f, 1.15f)
-                setTextIsSelectable(true)
+                UI.linkify(this)
             })
             sheet.addView(text, UI.matchWidth())
 
-            // Documents.
+            // Documents. Old caches only know how many files there are, not their names.
             if (h.files.isNotEmpty() || h.attachments > 0) {
-                sheet.addView(UI.section(ctx, if (h.files.size > 1) "Pièces jointes" else "Pièce jointe"))
-                val card = UI.card(ctx, padding = 6)
+                sheet.addView(UI.section(ctx, if (maxOf(h.files.size, h.attachments) > 1) "Pièces jointes" else "Pièce jointe"))
                 val files = h.files.ifEmpty { List(h.attachments) { Homework.Attachment("Document ${it + 1}", null) } }
-                files.forEachIndexed { i, f ->
-                    if (i > 0) card.addView(UI.divider(ctx).apply { (layoutParams as LinearLayout.LayoutParams).apply { marginStart = ctx.dp(62); marginEnd = ctx.dp(12) } })
-                    card.addView(UI.row(ctx).apply {
-                        setPadding(ctx.dp(10), ctx.dp(12), ctx.dp(12), ctx.dp(12))
-                        foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, ctx.dp(16).toFloat()))
-                        addView(FrameLayout(ctx).apply {
-                            background = UI.rounded(ctx.getColor(R.color.accent_container), ctx.dp(12).toFloat())
-                            addView(UI.icon(ctx, if (f.link != null) R.drawable.ic_open else R.drawable.ic_attach, R.color.accent, 20).apply {
-                                layoutParams = FrameLayout.LayoutParams(ctx.dp(20), ctx.dp(20), Gravity.CENTER)
-                            })
-                        }, LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(40)))
-                        addView(UI.hgap(ctx, 12))
-                        val col = UI.column(ctx)
-                        col.addView(UI.oneLine(UI.title(ctx, f.name, 15f)))
-                        // Old caches only know how many files there are, not their names.
-                        val known = h.files.isNotEmpty()
-                        val hint = when {
-                            f.link != null -> "Lien · s'ouvre dans le navigateur"
-                            !known -> "Fichier · s'ouvre dans Pronote"
-                            Attachments.file(ctx, h, f.name).isFile -> "Fichier · déjà sur ton téléphone"
-                            else -> "Fichier · ${f.name.substringAfterLast('.', "").uppercase().ifEmpty { "document" }}"
-                        }
-                        val sub = UI.oneLine(UI.text(ctx, hint, 12f, R.color.text2))
-                        col.addView(sub)
-                        addView(col, UI.weight())
-                        setOnClickListener {
-                            Motion.tap(this)
-                            if (f.link != null) runCatching {
-                                val url = if (f.link.startsWith("http")) f.link else "https://${f.link}"
-                                activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                            } else if (!known) activity.openPronote()
-                            else if (sub.tag == null) {
-                                sub.tag = "busy"
-                                sub.text = "Téléchargement…"
-                                Attachments.open(activity, activity.repo, h, f.name) {
-                                    sub.tag = null
-                                    sub.text = if (Attachments.file(ctx, h, f.name).isFile) "Fichier · déjà sur ton téléphone" else hint
-                                }
-                            }
-                        }
-                    }, UI.matchWidth())
-                }
-                sheet.addView(card, UI.matchWidth())
+                sheet.addView(Attachments.card(activity, files, "hw|${h.key}", known = h.files.isNotEmpty()) { logged, name ->
+                    Schoolwork.attachmentUrl(logged, h, name)
+                }, UI.matchWidth())
             }
 
             // Facts.

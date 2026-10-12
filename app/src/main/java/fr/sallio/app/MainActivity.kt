@@ -153,7 +153,7 @@ class MainActivity : Activity() {
 
     fun render() {
         val keepScroll = scroll?.scrollY ?: 0
-        root.removeAllViews()
+        for (i in root.childCount - 1 downTo 0) if (root.getChildAt(i) !== celebration) root.removeViewAt(i)
         val account = repo.account()
         if (account == null) {
             renderSetup()
@@ -206,15 +206,12 @@ class MainActivity : Activity() {
         // Opaque strip under the status bar, so scrolled content never runs beneath the clock.
         root.addView(View(this).apply { setBackgroundColor(getColor(R.color.bg)) }, FrameLayout.LayoutParams(-1, topInset))
         val ui = getSharedPreferences("ui", MODE_PRIVATE)
-        celebration?.let { overlay ->
-            (overlay.parent as? ViewGroup)?.removeView(overlay)
-            root.addView(overlay, FrameLayout.LayoutParams(-1, -1))
-        }
+        celebration?.bringToFront()
         if (celebration == null && ui.getBoolean("welcomePending", false)) {
             ui.edit().putBoolean("welcomePending", false).apply()
-            celebration = Welcome.celebrate(this, s, root, topInset, bottomInset) {
-                celebration = null
-                // Then the home tab rises in for the first time.
+            celebration = Welcome.celebrate(this, s, root, topInset, bottomInset, onGone = { celebration = null }) {
+                // The home tab is built under the celebration, which then fades
+                // away over it: the page rises in without a flash of its final state.
                 tab = Tab.HOME
                 entering = Enter.ALL
                 homeIntroPlayed = false

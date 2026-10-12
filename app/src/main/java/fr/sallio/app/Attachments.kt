@@ -11,8 +11,14 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
+import android.graphics.Color
+import android.view.Gravity
+import android.view.View
+import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.Toast
 import fr.sallio.pronote.Homework
+import fr.sallio.pronote.LoggedIn
 import java.io.File
 import java.security.MessageDigest
 
@@ -35,9 +41,9 @@ object Attachments {
 
     private fun root(context: Context) = File(context.cacheDir, DIR)
 
-    /** Where [name] of [h] lives once downloaded: one folder per homework and file. */
-    fun file(context: Context, h: Homework, name: String): File {
-        val digest = MessageDigest.getInstance("SHA-256").digest("${h.key}|$name".toByteArray())
+    /** Where [name] of the item [key] lives once downloaded: one folder per item and file. */
+    fun file(context: Context, key: String, name: String): File {
+        val digest = MessageDigest.getInstance("SHA-256").digest("$key|$name".toByteArray())
         val folder = digest.take(8).joinToString("") { "%02x".format(it) }
         val safe = name.replace(Regex("[\\\\/:*?\"<>|\\x00-\\x1F]"), "_").take(120).ifEmpty { "document" }
         return File(File(root(context), folder), safe)
@@ -59,9 +65,9 @@ object Attachments {
         MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase()) ?: "application/octet-stream"
 
     /** Downloads (worker thread) then opens (main thread) the file, with a word when it cannot. */
-    fun open(activity: Activity, repo: Repo, h: Homework, name: String, onDone: () -> Unit) {
+    fun open(activity: Activity, repo: Repo, key: String, name: String, resolve: (LoggedIn, String) -> String?, onDone: () -> Unit) {
         Thread {
-            val result = repo.attachment(h, name)
+            val result = repo.attachment(key, name, resolve)
             activity.runOnUiThread {
                 onDone()
                 when (result) {
@@ -71,6 +77,66 @@ object Attachments {
                 }
             }
         }.start()
+    }
+
+    /**
+     * The rows of a list of documents: links open in the browser, files are
+     * downloaded once with [resolve] (their PRONOTE address in a fresh session)
+     * then opened in the student's viewer. When the names are not [known] yet,
+     * a tap opens PRONOTE instead.
+     */
+    fun card(activity: MainActivity, files: List<Homework.Attachment>, key: String, known: Boolean = true, resolve: (LoggedIn, String) -> String?): View {
+        val ctx = activity
+        val card = UI.card(ctx, padding = 6)
+        files.forEachIndexed { i, f ->
+            if (i > 0) card.addView(UI.divider(ctx).apply { (layoutParams as LinearLayout.LayoutParams).apply { marginStart = ctx.dp(62); marginEnd = ctx.dp(12) } })
+            card.addView(UI.row(ctx).apply {
+                setPadding(ctx.dp(10), ctx.dp(12), ctx.dp(12), ctx.dp(12))
+                foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, ctx.dp(16).toFloat()))
+                addView(FrameLayout(ctx).apply {
+                    background = UI.rounded(ctx.getColor(R.color.accent_container), ctx.dp(12).toFloat())
+                    addView(UI.icon(ctx, if (f.link != null) R.drawable.ic_open else R.drawable.ic_attach, R.color.accent, 20).apply {
+                        layoutParams = FrameLayout.LayoutParams(ctx.dp(20), ctx.dp(20), Gravity.CENTER)
+                    })
+                }, LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(40)))
+                addView(UI.hgap(ctx, 12))
+                val col = UI.column(ctx)
+                col.addView(UI.oneLine(UI.title(ctx, f.name, 15f)))
+                fun hint() = when {
+                    f.link != null -> "Lien · ${Uri.parse(link(f.link)).host?.removePrefix("www.") ?: "s'ouvre dans le navigateur"}"
+                    !known -> "Fichier · s'ouvre dans Pronote"
+                    file(ctx, key, f.name).isFile -> "Fichier · déjà sur ton téléphone"
+                    else -> "Fichier · ${f.name.substringAfterLast('.', "").uppercase().ifEmpty { "document" }}"
+                }
+                val sub = UI.oneLine(UI.text(ctx, hint(), 12f, R.color.text2))
+                col.addView(sub)
+                addView(col, UI.weight())
+                setOnClickListener {
+                    Motion.tap(this)
+                    if (f.link != null) openLink(activity, f.link)
+                    else if (!known) activity.openPronote()
+                    else if (sub.tag == null) {
+                        sub.tag = "busy"
+                        sub.text = "Téléchargement…"
+                        open(activity, activity.repo, key, f.name, resolve) {
+                            sub.tag = null
+                            sub.text = hint()
+                        }
+                    }
+                }
+            }, UI.matchWidth())
+        }
+        return card
+    }
+
+    private fun link(raw: String) = if (raw.startsWith("http://") || raw.startsWith("https://")) raw else "https://$raw"
+
+    fun openLink(activity: Activity, raw: String) {
+        try {
+            activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link(raw))))
+        } catch (e: android.content.ActivityNotFoundException) {
+            toast(activity, "Aucun navigateur pour ouvrir ce lien.")
+        }
     }
 
     private fun minutes(ms: Long): String {

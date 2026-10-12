@@ -198,8 +198,8 @@ class Repo private constructor(private val context: Context) {
      * A homework file, from the phone when it was already opened, else from
      * PRONOTE with the session of a recent sync or a new login. Worker thread.
      */
-    fun attachment(h: Homework, name: String): Attachments.Result {
-        val file = Attachments.file(context, h, name)
+    fun attachment(key: String, name: String, resolve: (LoggedIn, String) -> String?): Attachments.Result {
+        val file = Attachments.file(context, key, name)
         if (file.isFile && file.length() > 0) return Attachments.Result.Ready(file)
         account() ?: return Attachments.Result.Failed("Connecte-toi d'abord à Pronote.")
         lock.lock()
@@ -210,7 +210,7 @@ class Repo private constructor(private val context: Context) {
                 if (wait > 0) return Attachments.Result.Wait(wait)
                 login()
             }
-            val url = Schoolwork.attachmentUrl(logged, h, name)
+            val url = resolve(logged, name)
                 ?: return Attachments.Result.Failed("Ce fichier n'est plus sur Pronote.")
             onSuccess()
             val (bytes, _) = UrlConnectionHttp(readTimeoutMs = 60_000).download(url, MAX_FILE_BYTES)
@@ -280,7 +280,7 @@ class Repo private constructor(private val context: Context) {
         live = null
         val now = System.currentTimeMillis()
         val edit = prefs.edit().putString("error", explain(e)).putInt("fails", prefs.getInt("fails", 0) + 1)
-        if (e.needsNewLogin) edit.putBoolean("needsLogin", true)
+        if (e.needsNewLogin || (e is PronoteException.TokenRefused && prefs.getInt("fails", 0) >= 1)) edit.putBoolean("needsLogin", true)
         if (e is PronoteException.SuspendedIp || e is PronoteException.RateLimited) {
             val until = now + SUSPENSION_COOLDOWN_MS
             edit.putLong("suspendedUntil", until)
@@ -334,7 +334,7 @@ class Repo private constructor(private val context: Context) {
             vault.delete(PHOTO)
             cachedPhoto = null
             saveAccount(logged)
-            prefs.edit().putBoolean("needsLogin", false).remove("error").putInt("fails", 0).remove("suspendedUntil")
+            prefs.edit().putBoolean("needsLogin", false).remove("error").putInt("fails", 0).remove("suspendedUntil").remove("photoTried")
                 .putLong("attempt", System.currentTimeMillis()).putLong("lastLogin", System.currentTimeMillis()).apply()
             live = logged
             liveSince = System.currentTimeMillis()
@@ -471,6 +471,7 @@ class Repo private constructor(private val context: Context) {
             is PronoteException.AccessDenied -> "Accès refusé par Pronote : reconnecte-toi"
             is PronoteException.AccountDisabled -> "Compte Pronote désactivé"
             is PronoteException.SecurityRequired -> "Pronote demande une vérification : reconnecte-toi"
+            is PronoteException.TokenRefused -> "Pronote refuse la connexion enregistrée, nouvel essai plus tard"
             is PronoteException.Server -> "Pronote : ${e.message}"
             is PronoteException.Protocol -> "Réponse de Pronote inattendue"
         }

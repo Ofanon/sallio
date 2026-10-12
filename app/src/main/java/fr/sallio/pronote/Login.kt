@@ -101,15 +101,19 @@ object Pronote {
         val session = Session.open(http, base, credentials.accountKind, credentialsMode = false)
         session.instance = instanceParameters(session, credentials.navigatorIdentifier)
 
-        val identity = identify(
-            session,
-            username = credentials.username,
-            deviceUuid = credentials.deviceUuid,
-            loginTokenSav = credentials.token,
-            requestFirstMobile = false,
-            reuseMobile = true,
-            fromQr = false,
-        )
+        val identity = try {
+            identify(
+                session,
+                username = credentials.username,
+                deviceUuid = credentials.deviceUuid,
+                loginTokenSav = credentials.token,
+                requestFirstMobile = false,
+                reuseMobile = true,
+                fromQr = false,
+            )
+        } catch (e: PronoteException.Server) {
+            throw PronoteException.TokenRefused()
+        }
 
         var username = credentials.username
         var token = credentials.token

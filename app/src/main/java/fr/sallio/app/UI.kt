@@ -114,6 +114,13 @@ internal object UI {
             includeFontPadding = false
         }
 
+    /** Web addresses and e-mails of a text become tappable, in the accent colour. */
+    fun linkify(view: TextView) {
+        android.text.util.Linkify.addLinks(view, android.text.util.Linkify.WEB_URLS or android.text.util.Linkify.EMAIL_ADDRESSES)
+        view.setLinkTextColor(view.context.getColor(R.color.accent))
+        view.movementMethod = android.text.method.LinkMovementMethod.getInstance()
+    }
+
     fun oneLine(view: TextView) = view.apply {
         maxLines = 1
         ellipsize = TextUtils.TruncateAt.END

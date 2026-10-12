@@ -175,14 +175,9 @@ object Schoolwork {
                 given = item.optJSONObject("DonneLe")?.optString("V")?.let { PronoteDates.parse(it)?.toLocalDate() },
                 teachers = item.optJSONObject("listeProfesseurs")?.optJSONArray("V")?.objects().orEmpty().map { it.optString("L") }.filter { it.isNotEmpty() },
                 minutes = item.optInt("duree", 0).takeIf { it > 0 },
-                // G = 0 is a web link (its address in "url" or the label), G = 1 a file.
-                files = item.optJSONObject("ListePieceJointe")?.optJSONArray("V")?.objects().orEmpty().map { a ->
-                    val isLink = a.optInt("G", 1) == 0
-                    Homework.Attachment(
-                        a.optString("L").ifEmpty { "Document" },
-                        if (isLink) a.optString("url").ifEmpty { a.optString("L") } else null,
-                        if (isLink) null else a.optString("N").ifEmpty { null },
-                    )
+                files = attachments(item.optJSONObject("ListePieceJointe")).let { attached ->
+                    val known = attached.mapNotNull { it.link }.toSet()
+                    attached + htmlLinks(item.optJSONObject("descriptif")?.optString("V").orEmpty()).filter { it.link !in known }
                 },
             )
         }.filter { it.due in from..to }.sortedWith(compareBy({ it.due }, { it.subject }))
@@ -310,6 +305,31 @@ object Schoolwork {
     }
 
     /** Teachers write homework in a rich text editor; a widget-sized summary needs plain text. */
+    /** A PRONOTE list of documents: G = 0 is a web link (address in "url" or the label), G = 1 a file. */
+    internal fun attachments(list: JSONObject?): List<Homework.Attachment> =
+        list?.optJSONArray("V")?.objects().orEmpty().map { a ->
+            val isLink = a.optInt("G", 1) == 0
+            Homework.Attachment(
+                a.optString("L").ifEmpty { "Document" },
+                if (isLink) a.optString("url").ifEmpty { a.optString("L") } else null,
+                if (isLink) null else a.optString("N").ifEmpty { null },
+            )
+        }
+
+    /**
+     * Links of a rich text whose address hides behind words ("<a href=...>le
+     * site</a>"): the text alone would lose them. Bare addresses stay in the
+     * text, where they are made clickable.
+     */
+    internal fun htmlLinks(html: String): List<Homework.Attachment> =
+        Regex("(?is)<a\\s[^>]*href\\s*=\\s*[\"']([^\"']+)[\"'][^>]*>(.*?)</a>").findAll(html).mapNotNull { m ->
+            val href = m.groupValues[1].replace("&amp;", "&").trim()
+            if (!href.startsWith("http://") && !href.startsWith("https://")) return@mapNotNull null
+            val label = htmlToText(m.groupValues[2]).replace("\n", " ").trim()
+            if (label.isEmpty() || label == href || href.endsWith(label.removePrefix("www."))) null
+            else Homework.Attachment(label.take(80), href)
+        }.distinctBy { it.link }.toList()
+
     internal fun htmlToText(html: String): String =
         html.replace(Regex("(?i)<br\\s*/?>|</p>|</div>|</li>"), "\n")
             .replace(Regex("(?i)<li[^>]*>"), "• ")
