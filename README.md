@@ -36,6 +36,22 @@ Accès le plus rapide possible, sans même ouvrir l'app :
   menu du profil, Android 13+).
 - **Raccourcis** sur l'icône (appui long) : Cours, Devoirs, Notes.
 
+Et quand quelque chose change, une **alerte** dès la synchro suivante (réglage
+« Alertes de changement », activé par défaut si Android autorise les
+notifications) :
+
+- emploi du temps des 7 prochains jours : prof absent, cours annulé, déplacé,
+  ajouté ou retiré, salle changée, cours finalement maintenu ;
+- nouvelle note (la valeur n'apparaît pas sur l'écran verrouillé) ;
+- nouveau message ou nouvelle actualité.
+
+Sallio compare la copie du téléphone avec ce que Pronote vient d'envoyer
+(`Changes.kt`, testé dans `ChangesTest.kt`) : aucune requête de plus. Chaque
+type a son canal Android, donc on peut couper les notes et garder l'emploi du
+temps. Au tout premier téléchargement rien n'est « nouveau ». Dans une version
+de debug, « Tester les alertes » (réglages) invente des changements sur les
+données du téléphone, sans rien demander à Pronote.
+
 ## Comment ça marche
 
 - **L'emploi du temps est téléchargé à l'avance**, environ toutes les heures
@@ -147,6 +163,7 @@ retirée de cette version : Google interdit qu'une app se mette à jour seule.
   double authentification), `Timetable`, `Schools` (trouver l'adresse Pronote).
 - `app/` : `LoginActivity` (WebView), `Repo` (état, synchronisation), `Vault`
   (fichiers chiffrés), `SyncJob`, `Widgets`, `Agenda` (quel cours afficher),
+  `Changes` et `Alerts` (ce qui a changé, et les notifications),
   `Updater` (mises à jour depuis GitHub).
 
 ## Licence

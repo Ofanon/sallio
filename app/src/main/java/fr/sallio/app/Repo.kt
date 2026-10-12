@@ -117,10 +117,13 @@ class Repo private constructor(private val context: Context) {
         }.getOrNull()?.also { cachedPhoto = it }
     }
 
-    private fun <T> readList(name: String, decode: (JSONObject) -> T): List<T> =
+    /** The stored list, or null when the phone has none yet. */
+    private fun <T> storedList(name: String, decode: (JSONObject) -> T): List<T>? =
         vault.read(name)?.let { text ->
             runCatching { JSONArray(text).let { a -> (0 until a.length()).map { decode(a.getJSONObject(it)) } } }.getOrNull()
-        }.orEmpty()
+        }
+
+    private fun <T> readList(name: String, decode: (JSONObject) -> T): List<T> = storedList(name, decode).orEmpty()
 
     fun news(): List<News> = readList(NEWS) { News.fromJson(it) }
 
@@ -388,7 +391,10 @@ class Repo private constructor(private val context: Context) {
 
     private fun fetchAndStore(logged: LoggedIn) {
         val today = LocalDate.now()
+        val now = java.time.LocalDateTime.now()
+        val changes = mutableListOf<Changes.Item>()
         val lessons = Timetable.fetch(logged, today, today.plusDays(FETCH_DAYS))
+        runCatching { changes += Changes.lessons(lessons(), lessons, now) }
         vault.write(CACHE, JSONArray(lessons.map { it.toJson() }).toString())
         // Homework and grades are extras: when PRONOTE fails on them, the timetable still counts.
         runCatching { Schoolwork.homework(logged, today, today.plusDays(FETCH_DAYS)) }.onSuccess { list ->
@@ -397,18 +403,25 @@ class Repo private constructor(private val context: Context) {
         }
         runCatching { Attachments.prune(context) }
         // Actualités and Messagerie: read-only, contents cached so a sync only asks for new ones.
-        runCatching { Inbox.news(logged, news().associateBy { it.key }) }.onSuccess { list ->
+        val newsBefore = storedList(NEWS) { News.fromJson(it) }
+        runCatching { Inbox.news(logged, newsBefore.orEmpty().associateBy { it.key }) }.onSuccess { list ->
             vault.write(NEWS, JSONArray(list.map { it.toJson() }).toString())
+            runCatching { changes += Changes.news(newsBefore, list) }
         }
-        runCatching { Inbox.discussions(logged, discussions().associateBy { it.key }) }.onSuccess { list ->
+        val discussionsBefore = storedList(DISCUSSIONS) { Discussion.fromJson(it) }
+        runCatching { Inbox.discussions(logged, discussionsBefore.orEmpty().associateBy { it.key }) }.onSuccess { list ->
             vault.write(DISCUSSIONS, JSONArray(list.map { it.toJson() }).toString())
+            runCatching { changes += Changes.messages(discussionsBefore, list) }
         }
         runCatching { Schoolwork.report(logged) }.onSuccess { report ->
-            val first = vault.read(GRADES) == null
+            val before = report()
             vault.write(GRADES, report.toJson().toString())
             // On the very first download nothing is "new": everything was already on PRONOTE.
-            if (first) markGradesSeen()
+            if (before == null) markGradesSeen()
+            // A new trimestre starts empty: its grades are compared with nothing, not with the last one's.
+            runCatching { changes += Changes.grades(before?.takeIf { it.periodName == report.periodName }?.grades, report.grades) }
         }
+        runCatching { Alerts.post(context, changes, now) }
         prefs.edit()
             .putLong("success", System.currentTimeMillis())
             .remove("error")

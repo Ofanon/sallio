@@ -479,13 +479,11 @@ class MainActivity : Activity() {
             })
             add(SettingsSheet.Item.Toggle(R.drawable.ic_clock, "Rappel avant chaque cours",
                 "Une notification 5 min avant : la salle, le prof, ou s'il est annulé.", { Reminders.isEnabled(this@MainActivity) && notificationsAllowed() }) { on, done ->
-                if (on && !notificationsAllowed()) {
-                    afterNotificationPermission = done
-                    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFICATIONS)
-                } else {
-                    Reminders.setEnabled(this@MainActivity, on)
-                    done()
-                }
+                withNotifications(on, { Reminders.setEnabled(this@MainActivity, it) }, done)
+            })
+            add(SettingsSheet.Item.Toggle(R.drawable.ic_warning, "Alertes de changement",
+                "Prof absent, cours annulé, salle changée, nouvelle note ou nouveau message : prévenu dès la synchro.", { Alerts.isEnabled(this@MainActivity) && notificationsAllowed() }) { on, done ->
+                withNotifications(on, { Alerts.setEnabled(this@MainActivity, it) }, done)
             })
         }
         val preferences = listOf(
@@ -502,7 +500,11 @@ class MainActivity : Activity() {
             SettingsSheet.Item.Action(R.drawable.ic_shield, "Tes données", "Ce que Sallio garde, et où.") { privacyDialog() },
             SettingsSheet.Item.Action(R.drawable.ic_refresh, "Rechercher une mise à jour", "Version installée : ${BuildConfig.VERSION_NAME}") { checkUpdateNow() },
             SettingsSheet.Item.Action(R.drawable.ic_logout, "Se déconnecter et tout effacer", danger = true) { confirmLogout() },
-        )
+        ) + if (BuildConfig.DEBUG) listOf(
+            SettingsSheet.Item.Action(R.drawable.ic_warning, "Tester les alertes (debug)", "Invente des changements sur les données du téléphone, sans Pronote.") {
+                worker.execute { Alerts.demo(applicationContext) }
+            },
+        ) else emptyList()
         SettingsSheet.show(
             this, who,
             listOf(
@@ -516,7 +518,22 @@ class MainActivity : Activity() {
         )
     }
 
-    private var afterNotificationPermission: (() -> Unit)? = null
+    /** Called with whether notifications may be shown, once Android answered. */
+    private var afterNotificationPermission: ((Boolean) -> Unit)? = null
+
+    /** Applies [on] through [set], asking Android for notifications first when needed. */
+    private fun withNotifications(on: Boolean, set: (Boolean) -> Unit, done: () -> Unit) {
+        if (on && !notificationsAllowed()) {
+            afterNotificationPermission = { granted ->
+                if (granted) set(true)
+                done()
+            }
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFICATIONS)
+        } else {
+            set(on)
+            done()
+        }
+    }
 
     /** Shows the lock screen picture before replacing the student's own. */
     private fun previewWallpaper(done: () -> Unit) {
@@ -792,11 +809,9 @@ class MainActivity : Activity() {
     @Deprecated("Activity API")
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         if (requestCode == REQ_NOTIFICATIONS) {
-            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-                Reminders.setEnabled(this, true)
-                Motion.success(root)
-            }
-            afterNotificationPermission?.invoke()
+            val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+            if (granted) Motion.success(root)
+            afterNotificationPermission?.invoke(granted)
             afterNotificationPermission = null
             return
         }
