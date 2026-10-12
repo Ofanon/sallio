@@ -157,7 +157,10 @@ class Repo private constructor(private val context: Context) {
     /** Unread actualités and messages, for the badge on the tab. */
     fun unreadInbox(): Int = news().count { !isRead(it) } + discussions().sumOf { it.unread }
 
-    /** "J'ai vu" waiting to reach PRONOTE, as "+key" (seen) or "-key" (not seen), like [pending]. */
+    /**
+     * "J'ai vu" waiting to reach PRONOTE, as "+key", like [pending]. One way,
+     * as on PRONOTE itself: once an actualité is marked read, it stays read.
+     */
     private fun pendingReads(): Set<String> = prefs.getStringSet("pendingRead", emptySet())!!
 
     fun isRead(n: News): Boolean {
@@ -169,13 +172,10 @@ class Repo private constructor(private val context: Context) {
         }
     }
 
-    /** Records "J'ai vu" (or not) on the phone at once; [pushPending] then sends it to PRONOTE. */
-    fun setRead(n: News, read: Boolean) {
-        val set = pendingReads().toMutableSet()
-        set.remove("+" + n.key)
-        set.remove("-" + n.key)
-        if (read != n.read) set += (if (read) "+" else "-") + n.key
-        prefs.edit().putStringSet("pendingRead", set).apply()
+    /** Records "J'ai vu" on the phone at once; [pushPending] then sends it to PRONOTE. */
+    fun setRead(n: News) {
+        if (n.read) return
+        prefs.edit().putStringSet("pendingRead", pendingReads() + ("+" + n.key)).apply()
     }
 
     /**
@@ -189,7 +189,9 @@ class Repo private constructor(private val context: Context) {
      * [withSentReads] lays it over the lists read in that session.
      */
     private fun pushReads(logged: LoggedIn) {
-        val wanted = pendingReads()
+        // "-key" entries come from a build that let a tick be undone: PRONOTE does not undo it.
+        val wanted = pendingReads().filter { it.startsWith("+") }.toSet()
+        if (wanted.size != pendingReads().size) prefs.edit().putStringSet("pendingRead", wanted).apply()
         if (wanted.isEmpty()) return
         val asked = wanted.associate { it.substring(1) to (it[0] == '+') }
         val settled = runCatching { Inbox.setNewsRead(logged, asked) }

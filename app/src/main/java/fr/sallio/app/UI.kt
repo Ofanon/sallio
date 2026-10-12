@@ -290,10 +290,11 @@ internal object UI {
     }
 
     /**
-     * A sticker button with the checkbox inside ("J'ai vu"): neutral with an
-     * empty box, green with the box ticked and [onLabel]. Each tap flips it.
+     * A sticker button with the checkbox inside, for a one-way action ("J'ai
+     * vu", final on PRONOTE): neutral with an empty box, then green with the
+     * box ticked and [onLabel], and from then on it no longer reacts.
      */
-    fun checkButton(context: Context, label: String, onLabel: String, isOn: Boolean, onTap: (Boolean) -> Unit): View {
+    fun checkButton(context: Context, label: String, onLabel: String, isOn: Boolean, onTap: () -> Unit): View {
         val button = row(context).apply { gravity = Gravity.CENTER }
         val box = FrameLayout(context)
         val text = TextView(context).apply { textSize = 16f; typeface = display(context) }
@@ -313,17 +314,19 @@ internal object UI {
         button.addView(box, LinearLayout.LayoutParams(context.dp(24), context.dp(24)))
         button.addView(hgap(context, 10))
         button.addView(text)
-        var on = isOn
-        paint(on)
-        button.setOnClickListener {
-            on = !on
-            // A single click either way: the success pattern is two pulses, felt as a double tap here.
-            if (on) Motion.tap(box) else Motion.tick(box)
-            paint(on)
-            Motion.bounce(box) { onTap(on) }
+        paint(isOn)
+        if (!isOn) {
+            button.setOnClickListener {
+                button.setOnClickListener(null)
+                button.setOnTouchListener(null)
+                // A single click: the success pattern is two pulses, felt as a double tap here.
+                Motion.tap(box)
+                paint(true)
+                Motion.bounce(box) { onTap() }
+            }
+            // One vibration per tap: the one above, none on release.
+            Motion.pressable(button, haptic = false)
         }
-        // One vibration per tap: the tick or success above, none on release.
-        Motion.pressable(button, haptic = false)
         return button
     }
 
