@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Picker preview: what the widget looks like, with sample content. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_card"
+    android:orientation="vertical"
+    android:paddingStart="14dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="14dp">
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif"
+        android:textStyle="bold" android:text="À savoir" android:textColor="@color/text" android:textSize="18sp" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:gravity="center_vertical" android:orientation="horizontal">
+        <TextView android:layout_width="44dp" android:layout_height="wrap_content" android:fontFamily="sans-serif" android:textStyle="bold" android:text="10h40" android:textColor="@color/text" android:textSize="14sp" />
+        <FrameLayout android:layout_width="32dp" android:layout_height="32dp">
+            <ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_tile" android:tint="#EE8FB7" />
+            <ImageView android:layout_width="18dp" android:layout_height="18dp" android:layout_gravity="center" android:src="@drawable/ic_lang_de" android:tint="#642840" />
+        </FrameLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="10dp" android:layout_weight="1" android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif" android:textStyle="bold" android:text="A 210" android:textColor="@color/text" android:textSize="16sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Demain · Allemand LV2" android:textColor="@color/text2" android:textSize="11sp" />
+        </LinearLayout>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@drawable/pill_warn"
+            android:paddingStart="7dp" android:paddingEnd="7dp" android:paddingTop="2dp" android:paddingBottom="3dp"
+            android:text="Prof absent" android:textColor="@color/warn" android:textSize="11sp" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:gravity="center_vertical" android:orientation="horizontal">
+        <TextView android:layout_width="44dp" android:layout_height="wrap_content" android:fontFamily="sans-serif" android:textStyle="bold" android:text="14h30" android:textColor="@color/text" android:textSize="14sp" />
+        <FrameLayout android:layout_width="32dp" android:layout_height="32dp">
+            <ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_tile" android:tint="#6FB3E0" />
+            <ImageView android:layout_width="18dp" android:layout_height="18dp" android:layout_gravity="center" android:src="@drawable/ic_flask" android:tint="#244B66" />
+        </FrameLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="10dp" android:layout_weight="1" android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif" android:textStyle="bold" android:text="D 107" android:textColor="@color/text" android:textSize="16sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Demain · Physique-chimie" android:textColor="@color/text2" android:textSize="11sp" />
+        </LinearLayout>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@drawable/pill_warn"
+            android:paddingStart="7dp" android:paddingEnd="7dp" android:paddingTop="2dp" android:paddingBottom="3dp"
+            android:text="Salle changée" android:textColor="@color/warn" android:textSize="11sp" />
+    </LinearLayout>
+</LinearLayout>

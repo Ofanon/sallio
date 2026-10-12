@@ -467,24 +467,29 @@ class MainActivity : Activity() {
         val widgets = getSystemService(AppWidgetManager::class.java)
         fun placed(cls: Class<*>) = widgets.getAppWidgetIds(ComponentName(this, cls)).isNotEmpty()
 
+        val allWidgets = listOf(NextWidget::class.java, DayWidget::class.java, TomorrowWidget::class.java, AlertsWidget::class.java, HomeworkWidget::class.java)
+
         // Each page is built when it opens, so "Ajouté" and the switches show the state of that moment.
         val quick = SettingsSheet.Item.Page(R.drawable.ic_widgets, "Widgets et accès rapide",
             listOfNotNull(
-                listOf(NextWidget::class.java, DayWidget::class.java).count { placed(it) }.let { n -> if (n > 0) "$n widget${if (n > 1) "s" else ""} posé${if (n > 1) "s" else ""}" else "Aucun widget posé" },
+                allWidgets.count { placed(it) }.let { n -> if (n > 0) "$n widget${if (n > 1) "s" else ""} posé${if (n > 1) "s" else ""}" else "Aucun widget posé" },
                 if (Wallpaper.isEnabled(this)) "écran verrouillé" else null,
             ).joinToString(" · "),
             "Ta salle sans ouvrir l'app",
         ) {
             val homeScreen = buildList {
                 if (widgets.isRequestPinAppWidgetSupported) {
-                    add(SettingsSheet.Item.Action(R.drawable.ic_widgets, "Widget « Prochaine salle »", "Ta salle en grand sur l'écran d'accueil.",
-                        badge = if (placed(NextWidget::class.java)) "Ajouté" else null) {
-                        widgets.requestPinAppWidget(ComponentName(this@MainActivity, NextWidget::class.java), null, null)
-                    })
-                    add(SettingsSheet.Item.Action(R.drawable.ic_widgets, "Widget « Ma journée »", "Tous les cours du jour avec leur salle.",
-                        badge = if (placed(DayWidget::class.java)) "Ajouté" else null) {
-                        widgets.requestPinAppWidget(ComponentName(this@MainActivity, DayWidget::class.java), null, null)
-                    })
+                    for ((cls, icon, title, description) in listOf(
+                        Quad(NextWidget::class.java, R.drawable.ic_school, "Prochaine salle", "Ta salle en grand, avec l'alerte s'il y en a une."),
+                        Quad(DayWidget::class.java, R.drawable.ic_calendar, "Ma journée", "Tous les cours du jour avec leur salle."),
+                        Quad(TomorrowWidget::class.java, R.drawable.ic_calendar, "Demain", "Les cours du prochain jour, pour préparer ton sac la veille."),
+                        Quad(AlertsWidget::class.java, R.drawable.ic_warning, "À savoir", "Profs absents, cours annulés, salles changées : aujourd'hui et demain."),
+                        Quad(HomeworkWidget::class.java, R.drawable.ic_tasks, "Devoirs", "Les devoirs du prochain jour de cours, à cocher depuis l'écran d'accueil."),
+                    )) {
+                        add(SettingsSheet.Item.Action(icon, "Widget « $title »", description, badge = if (placed(cls)) "Ajouté" else null) {
+                            widgets.requestPinAppWidget(ComponentName(this@MainActivity, cls), null, null)
+                        })
+                    }
                 }
             }
             val elsewhere = buildList {
@@ -595,6 +600,8 @@ class MainActivity : Activity() {
     }
 
     /** Called with whether notifications may be shown, once Android answered. */
+    private data class Quad<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
+
     private var afterNotificationPermission: ((Boolean) -> Unit)? = null
 
     /** Applies [on] through [set], asking Android for notifications first when needed. */

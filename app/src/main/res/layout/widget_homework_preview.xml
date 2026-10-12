@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Picker preview: what the widget looks like, with sample content. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_card"
+    android:orientation="vertical"
+    android:paddingStart="14dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="14dp">
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif"
+        android:textStyle="bold" android:text="Pour demain" android:textColor="@color/text" android:textSize="18sp" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:orientation="horizontal">
+        <ImageView android:layout_width="26dp" android:layout_height="26dp" android:src="@drawable/widget_check_off" />
+        <FrameLayout android:layout_width="26dp" android:layout_height="26dp" android:layout_marginStart="9dp">
+            <ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_tile" android:tint="#EE8FB7" />
+            <ImageView android:layout_width="15dp" android:layout_height="15dp" android:layout_gravity="center" android:src="@drawable/ic_lang_de" android:tint="#642840" />
+        </FrameLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="9dp" android:layout_weight="1" android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:textStyle="bold" android:text="Allemand LV2" android:textColor="@color/text2" android:textSize="11sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Apprendre le vocabulaire p. 50" android:textColor="@color/text" android:textSize="13sp" />
+        </LinearLayout>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:orientation="horizontal">
+        <ImageView android:layout_width="26dp" android:layout_height="26dp" android:src="@drawable/widget_check_on" />
+        <FrameLayout android:layout_width="26dp" android:layout_height="26dp" android:layout_marginStart="9dp">
+            <ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_tile" android:tint="#F28B74" />
+            <ImageView android:layout_width="15dp" android:layout_height="15dp" android:layout_gravity="center" android:src="@drawable/ic_maths" android:tint="#66261A" />
+        </FrameLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="9dp" android:layout_weight="1" android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:textStyle="bold" android:text="Mathématiques" android:textColor="@color/text2" android:textSize="11sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Exercices 12 à 15 p. 84" android:textColor="@color/text" android:textSize="13sp" />
+        </LinearLayout>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:orientation="horizontal">
+        <ImageView android:layout_width="26dp" android:layout_height="26dp" android:src="@drawable/widget_check_off" />
+        <FrameLayout android:layout_width="26dp" android:layout_height="26dp" android:layout_marginStart="9dp">
+            <ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_tile" android:tint="#7CC49A" />
+            <ImageView android:layout_width="15dp" android:layout_height="15dp" android:layout_gravity="center" android:src="@drawable/ic_dna" android:tint="#244A33" />
+        </FrameLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="9dp" android:layout_weight="1" android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:textStyle="bold" android:text="SVT" android:textColor="@color/text2" android:textSize="11sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Relire le chapitre 3" android:textColor="@color/text" android:textSize="13sp" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

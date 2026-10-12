@@ -4,6 +4,12 @@
     <string name="widget_next_desc">La salle de ton prochain cours, et les profs absents</string>
     <string name="widget_day">Ma journée</string>
     <string name="widget_day_desc">Tous les cours de la journée avec leur salle</string>
+    <string name="widget_tomorrow">Demain</string>
+    <string name="widget_tomorrow_desc">Les cours du prochain jour, pour préparer ton sac la veille</string>
+    <string name="widget_alerts">À savoir</string>
+    <string name="widget_alerts_desc">Profs absents, cours annulés et salles changées, aujourd\'hui et demain</string>
+    <string name="widget_homework">Devoirs</string>
+    <string name="widget_homework_desc">Les devoirs du prochain jour de cours, à cocher d\'ici</string>
     <string name="shortcut_cours">Cours</string>
     <string name="shortcut_devoirs">Devoirs</string>
     <string name="shortcut_notes">Notes</string>

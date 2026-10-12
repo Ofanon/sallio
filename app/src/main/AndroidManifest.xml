@@ -79,6 +79,42 @@
         </receiver>
 
         <receiver
+            android:name=".TomorrowWidget"
+            android:exported="false"
+            android:label="@string/widget_tomorrow">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_tomorrow_info" />
+        </receiver>
+
+        <receiver
+            android:name=".AlertsWidget"
+            android:exported="false"
+            android:label="@string/widget_alerts">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_alerts_info" />
+        </receiver>
+
+        <receiver
+            android:name=".HomeworkWidget"
+            android:exported="false"
+            android:label="@string/widget_homework">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_homework_info" />
+        </receiver>
+
+        <receiver
             android:name=".WidgetEvents"
             android:exported="false" />
 

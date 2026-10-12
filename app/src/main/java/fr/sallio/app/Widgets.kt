@@ -27,10 +27,47 @@ class DayWidget : AppWidgetProvider() {
     override fun onEnabled(context: Context) = Widgets.refreshAll(context)
 }
 
-/** Clock tick (redraw at the next lesson boundary) and the refresh button. */
+/** "Demain": every lesson of the next school day, to pack the bag the evening before. */
+class TomorrowWidget : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = Widgets.refreshAll(context)
+    override fun onEnabled(context: Context) = Widgets.refreshAll(context)
+}
+
+/** "À savoir": today's and tomorrow's lessons with an absent teacher, a cancellation or a new room. */
+class AlertsWidget : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = Widgets.refreshAll(context)
+    override fun onEnabled(context: Context) = Widgets.refreshAll(context)
+}
+
+/** "Devoirs": the homework of the next school day, ticked right from the home screen. */
+class HomeworkWidget : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = Widgets.refreshAll(context)
+    override fun onEnabled(context: Context) = Widgets.refreshAll(context)
+}
+
+/** Clock tick (redraw at the next lesson boundary), the refresh button and homework ticks. */
 class WidgetEvents : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Widgets.ACTION_REFRESH) SyncJob.runNow(context)
+        if (intent.action == Widgets.ACTION_TICK_HOMEWORK) {
+            val key = intent.getStringExtra(Widgets.EXTRA_KEY) ?: return
+            val repo = Repo.get(context)
+            val h = repo.homework().firstOrNull { it.key == key } ?: return Widgets.refreshAll(context)
+            // Saved at once and drawn ticked; sent to PRONOTE in the background, like a tick in the app.
+            repo.setDone(h, !repo.isDone(h))
+            Widgets.refreshAll(context)
+            val done = goAsync()
+            Thread {
+                try {
+                    repo.pushPending()
+                    if (repo.pendingTotal() > 0) SyncJob.runLater(context, repo.waitBeforeLogin(manual = true))
+                    Widgets.refreshAll(context)
+                } finally {
+                    done.finish()
+                }
+            }.start()
+            return
+        }
         Widgets.refreshAll(context)
     }
 }
@@ -38,6 +75,9 @@ class WidgetEvents : BroadcastReceiver() {
 object Widgets {
     const val ACTION_TICK = "fr.sallio.app.TICK"
     const val ACTION_REFRESH = "fr.sallio.app.REFRESH"
+    const val ACTION_TICK_HOMEWORK = "fr.sallio.app.TICK_HOMEWORK"
+    const val EXTRA_KEY = "key"
+    private const val MAX_HOMEWORK = 6
     private const val MAX_ROWS = 9
 
     fun refreshAll(context: Context) {
@@ -45,9 +85,13 @@ object Widgets {
         runCatching { Wallpaper.update(context) }
         runCatching { Reminders.schedule(context) }
         val manager = AppWidgetManager.getInstance(context)
-        val nextIds = manager.getAppWidgetIds(ComponentName(context, NextWidget::class.java))
-        val dayIds = manager.getAppWidgetIds(ComponentName(context, DayWidget::class.java))
-        if (nextIds.isEmpty() && dayIds.isEmpty()) return
+        fun ids(cls: Class<*>) = manager.getAppWidgetIds(ComponentName(context, cls))
+        val nextIds = ids(NextWidget::class.java)
+        val dayIds = ids(DayWidget::class.java)
+        val tomorrowIds = ids(TomorrowWidget::class.java)
+        val alertIds = ids(AlertsWidget::class.java)
+        val homeworkIds = ids(HomeworkWidget::class.java)
+        if (listOf(nextIds, dayIds, tomorrowIds, alertIds, homeworkIds).all { it.isEmpty() }) return
 
         val repo = Repo.get(context)
         val loggedIn = repo.account() != null
@@ -58,6 +102,9 @@ object Widgets {
 
         if (nextIds.isNotEmpty()) manager.updateAppWidget(nextIds, renderNext(context, loggedIn, view, status, now))
         if (dayIds.isNotEmpty()) manager.updateAppWidget(dayIds, renderDay(context, loggedIn, view, status, now))
+        if (tomorrowIds.isNotEmpty()) manager.updateAppWidget(tomorrowIds, renderTomorrow(context, loggedIn, lessons, status, now))
+        if (alertIds.isNotEmpty()) manager.updateAppWidget(alertIds, renderAlerts(context, loggedIn, lessons, status, now))
+        if (homeworkIds.isNotEmpty()) manager.updateAppWidget(homeworkIds, renderHomework(context, loggedIn, repo, lessons, status, now))
         scheduleTick(context, Agenda.nextChange(lessons, now))
     }
 
@@ -184,32 +231,123 @@ object Widgets {
         rv.setTextViewText(R.id.title, Agenda.dayTitle(date, now.toLocalDate()))
         rv.setTextViewText(R.id.footer, footer(status, now))
 
-        val accent = context.getColor(R.color.accent)
-        for (lesson in view.day.take(MAX_ROWS)) {
-            val row = RemoteViews(context.packageName, R.layout.widget_day_row)
-            val style = Subjects.style(lesson.subject)
-            val past = lesson.end <= now
-            row.setTextViewText(R.id.time, Agenda.time(lesson.start))
-            if (lesson === view.focus) row.setTextColor(R.id.time, accent)
+        for (lesson in view.day.take(MAX_ROWS)) rv.addView(R.id.list, lessonRow(context, lesson, now, highlight = lesson === view.focus))
+        return rv
+    }
+
+    /** One lesson as on "Ma journée": time, subject tile, room, subject, alert pill. [prefix] goes before the subject. */
+    private fun lessonRow(context: Context, lesson: Lesson, now: LocalDateTime, highlight: Boolean = false, prefix: String? = null): RemoteViews {
+        val row = RemoteViews(context.packageName, R.layout.widget_day_row)
+        val style = Subjects.style(lesson.subject)
+        val past = lesson.end <= now
+        row.setTextViewText(R.id.time, Agenda.time(lesson.start))
+        if (highlight) row.setTextColor(R.id.time, context.getColor(R.color.accent))
+        row.setInt(R.id.tile, "setColorFilter", Subjects.solid(style.family))
+        row.setImageViewResource(R.id.icon, style.icon)
+        row.setInt(R.id.icon, "setColorFilter", Subjects.deep(style.family))
+        // Struck-through room when nobody will be there (spans survive RemoteViews, paint flags do not).
+        val hasRoom = lesson.rooms.isNotEmpty()
+        val room = android.text.SpannableString(if (hasRoom) Agenda.room(lesson) else Agenda.pretty(lesson.subject))
+        if (lesson.canceled) room.setSpan(android.text.style.StrikethroughSpan(), 0, room.length, 0)
+        row.setTextViewText(R.id.room, room)
+        // No room (sport, outing): the subject is already the title, show the teacher instead.
+        val subject = if (hasRoom) Agenda.pretty(lesson.subject) else lesson.teachers.firstOrNull()?.let { Agenda.prettyName(it) } ?: ""
+        row.setTextViewText(R.id.subject, listOfNotNull(prefix, subject.ifEmpty { null }).joinToString(" · "))
+        if (past) {
+            for (id in intArrayOf(R.id.time, R.id.room, R.id.subject)) row.setTextColor(id, context.getColor(R.color.text3))
+        }
+        Agenda.alert(lesson)?.let {
+            row.setTextViewText(R.id.status, it)
+            row.setViewVisibility(R.id.status, View.VISIBLE)
+            row.setInt(R.id.status, "setBackgroundResource", if (lesson.canceled) R.drawable.pill_alert else R.drawable.pill_warn)
+            row.setTextColor(R.id.status, context.getColor(if (lesson.canceled) R.color.alert else R.color.warn))
+        }
+        return row
+    }
+
+    /** The card shared by the list widgets: title, footer, refresh, and the empty text when there is nothing. */
+    private fun listCard(context: Context, title: String, tab: MainActivity.Tab, footer: String, empty: String?): RemoteViews {
+        val rv = RemoteViews(context.packageName, R.layout.widget_day)
+        rv.setOnClickPendingIntent(R.id.root, openApp(context, tab))
+        rv.setOnClickPendingIntent(R.id.refresh, broadcast(context, ACTION_REFRESH, 1))
+        rv.removeAllViews(R.id.list)
+        rv.setTextViewText(R.id.title, title)
+        rv.setTextViewText(R.id.footer, footer)
+        rv.setViewVisibility(R.id.empty, if (empty != null) View.VISIBLE else View.GONE)
+        empty?.let { rv.setTextViewText(R.id.empty, it) }
+        return rv
+    }
+
+    /** The next day with lessons after today (the widgets look ahead, not at today). */
+    private fun nextSchoolDay(lessons: List<Lesson>, now: LocalDateTime): java.time.LocalDate? =
+        lessons.map { it.start.toLocalDate() }.filter { it > now.toLocalDate() }.minOrNull()
+
+    private fun renderTomorrow(context: Context, loggedIn: Boolean, lessons: List<Lesson>, status: Repo.Status, now: LocalDateTime): RemoteViews {
+        val date = if (loggedIn) nextSchoolDay(lessons, now) else null
+        if (date == null) return listCard(context, "Demain", MainActivity.Tab.TIMETABLE, if (loggedIn) footer(status, now) else "",
+            if (!loggedIn) "Touche ici pour relier ton compte Pronote" else "Aucun cours à venir")
+        val rv = listCard(context, Agenda.dayTitle(date, now.toLocalDate()), MainActivity.Tab.TIMETABLE, footer(status, now), null)
+        for (lesson in lessons.filter { it.start.toLocalDate() == date }.sortedBy { it.start }.take(MAX_ROWS)) {
+            rv.addView(R.id.list, lessonRow(context, lesson, now))
+        }
+        return rv
+    }
+
+    private fun renderAlerts(context: Context, loggedIn: Boolean, lessons: List<Lesson>, status: Repo.Status, now: LocalDateTime): RemoteViews {
+        val today = now.toLocalDate()
+        // Same rule as "À savoir" on the home tab: what is still ahead today and tomorrow.
+        val alerts = lessons.filter { it.end > now && it.start.toLocalDate() <= today.plusDays(1) && Agenda.alert(it) != null }.sortedBy { it.start }
+        val empty = when {
+            !loggedIn -> "Touche ici pour relier ton compte Pronote"
+            alerts.isEmpty() -> "Rien à signaler aujourd'hui ni demain"
+            else -> null
+        }
+        val rv = listCard(context, "À savoir", MainActivity.Tab.HOME, if (loggedIn) footer(status, now) else "", empty)
+        for (lesson in alerts.take(MAX_ROWS)) {
+            rv.addView(R.id.list, lessonRow(context, lesson, now, prefix = Agenda.dayTitle(lesson.start.toLocalDate(), today)))
+        }
+        return rv
+    }
+
+    private fun renderHomework(context: Context, loggedIn: Boolean, repo: Repo, lessons: List<Lesson>, status: Repo.Status, now: LocalDateTime): RemoteViews {
+        val today = now.toLocalDate()
+        // Same day as "Pour demain" on the home tab.
+        val date = nextSchoolDay(lessons, now) ?: today.plusDays(1)
+        val due = if (loggedIn) repo.homework().filter { it.due == date } else emptyList()
+        val left = due.count { !repo.isDone(it) }
+        val title = "Pour " + Agenda.dayTitle(date, today).replaceFirstChar { it.lowercase() }
+        val footer = if (!loggedIn) "" else listOfNotNull(
+            if (due.isEmpty()) null else if (left == 0) "Tout est fait" else "$left à faire",
+            footer(status, now),
+        ).joinToString(" · ")
+        val empty = when {
+            !loggedIn -> "Touche ici pour relier ton compte Pronote"
+            due.isEmpty() -> "Rien à rendre. Profites-en !"
+            else -> null
+        }
+        val rv = listCard(context, title, MainActivity.Tab.HOMEWORK, footer, empty)
+        // Not done first, then done; the rest is in the app.
+        due.sortedBy { repo.isDone(it) }.take(MAX_HOMEWORK).forEachIndexed { i, h ->
+            val done = repo.isDone(h)
+            val row = RemoteViews(context.packageName, R.layout.widget_hw_row)
+            val style = Subjects.style(h.subject)
+            row.setImageViewResource(R.id.box, if (done) R.drawable.widget_check_on else R.drawable.widget_check_off)
             row.setInt(R.id.tile, "setColorFilter", Subjects.solid(style.family))
             row.setImageViewResource(R.id.icon, style.icon)
             row.setInt(R.id.icon, "setColorFilter", Subjects.deep(style.family))
-            // Struck-through room when nobody will be there (spans survive RemoteViews, paint flags do not).
-            val hasRoom = lesson.rooms.isNotEmpty()
-            val room = android.text.SpannableString(if (hasRoom) Agenda.room(lesson) else Agenda.pretty(lesson.subject))
-            if (lesson.canceled) room.setSpan(android.text.style.StrikethroughSpan(), 0, room.length, 0)
-            row.setTextViewText(R.id.room, room)
-            // No room (sport, outing): the subject is already the title, show the teacher instead.
-            row.setTextViewText(R.id.subject, if (hasRoom) Agenda.pretty(lesson.subject) else lesson.teachers.firstOrNull()?.let { Agenda.prettyName(it) } ?: "")
-            if (past) {
-                for (id in intArrayOf(R.id.time, R.id.room, R.id.subject)) row.setTextColor(id, context.getColor(R.color.text3))
-            }
-            Agenda.alert(lesson)?.let {
-                row.setTextViewText(R.id.status, it)
-                row.setViewVisibility(R.id.status, View.VISIBLE)
-                row.setInt(R.id.status, "setBackgroundResource", if (lesson.canceled) R.drawable.pill_alert else R.drawable.pill_warn)
-                row.setTextColor(R.id.status, context.getColor(if (lesson.canceled) R.color.alert else R.color.warn))
-            }
+            row.setTextViewText(R.id.subject, Agenda.pretty(h.subject))
+            val text = android.text.SpannableString(h.description.ifEmpty { "(pas de consigne)" }.replace(Regex("\\s+"), " "))
+            if (done) text.setSpan(android.text.style.StrikethroughSpan(), 0, text.length, 0)
+            row.setTextViewText(R.id.text, text)
+            row.setTextColor(R.id.text, context.getColor(if (done) R.color.text3 else R.color.text))
+            // One PendingIntent per row: the data URI keeps them apart.
+            row.setOnClickPendingIntent(R.id.box, PendingIntent.getBroadcast(
+                context, 100 + i,
+                Intent(context, WidgetEvents::class.java).setAction(ACTION_TICK_HOMEWORK)
+                    .setData(android.net.Uri.parse("sallio://homework/$i"))
+                    .putExtra(EXTRA_KEY, h.key),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            ))
             rv.addView(R.id.list, row)
         }
         return rv
