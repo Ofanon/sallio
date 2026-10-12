@@ -197,8 +197,9 @@ internal object UI {
     fun subjectTile(context: Context, subject: String, sizeDp: Int = 40): View {
         val style = Subjects.style(subject)
         return FrameLayout(context).apply {
-            background = rounded(Subjects.tint(context, style.family), dp(sizeDp * 13 / 40).toFloat())
-            addView(icon(context, style.icon, Subjects.ink(context, style.family), sizeDp / 2 + 2, tintIsColor = true).apply {
+            // The subject's main colour behind its icon, as on the widget and the lesson card.
+            background = rounded(Subjects.solid(style.family), dp(sizeDp * 13 / 40).toFloat())
+            addView(icon(context, style.icon, Subjects.onSolid(style.family), sizeDp / 2 + 2, tintIsColor = true).apply {
                 layoutParams = FrameLayout.LayoutParams(dp(sizeDp / 2 + 2), dp(sizeDp / 2 + 2), Gravity.CENTER)
             })
             layoutParams = LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp))

@@ -191,9 +191,9 @@ object Widgets {
             val past = lesson.end <= now
             row.setTextViewText(R.id.time, Agenda.time(lesson.start))
             if (lesson === view.focus) row.setTextColor(R.id.time, accent)
-            row.setInt(R.id.tile, "setColorFilter", Subjects.tint(context, style.family))
+            row.setInt(R.id.tile, "setColorFilter", Subjects.solid(style.family))
             row.setImageViewResource(R.id.icon, style.icon)
-            row.setInt(R.id.icon, "setColorFilter", Subjects.ink(context, style.family))
+            row.setInt(R.id.icon, "setColorFilter", Subjects.onSolid(style.family))
             // Struck-through room when nobody will be there (spans survive RemoteViews, paint flags do not).
             val hasRoom = lesson.rooms.isNotEmpty()
             val room = android.text.SpannableString(if (hasRoom) Agenda.room(lesson) else Agenda.pretty(lesson.subject))

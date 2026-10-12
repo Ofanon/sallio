@@ -211,8 +211,8 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
 
     /** Rounded tile in a family's colours (a news category, a person). */
     private fun familyTile(icon: Int, family: Subjects.Family) = FrameLayout(ctx).apply {
-        background = UI.rounded(Subjects.tint(ctx, family), ctx.dp(12).toFloat())
-        addView(UI.icon(ctx, icon, Subjects.ink(ctx, family), 20, tintIsColor = true).apply {
+        background = UI.rounded(Subjects.solid(family), ctx.dp(12).toFloat())
+        addView(UI.icon(ctx, icon, Subjects.onSolid(family), 20, tintIsColor = true).apply {
             layoutParams = FrameLayout.LayoutParams(ctx.dp(20), ctx.dp(20), Gravity.CENTER)
         })
     }
@@ -229,8 +229,8 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
             gravity = Gravity.CENTER
             textSize = 15f
             typeface = UI.display(ctx)
-            setTextColor(Subjects.ink(ctx, family))
-            background = UI.rounded(Subjects.tint(ctx, family), ctx.dp(20).toFloat())
+            setTextColor(Subjects.onSolid(family))
+            background = UI.rounded(Subjects.solid(family), ctx.dp(20).toFloat())
         }
     }
 
