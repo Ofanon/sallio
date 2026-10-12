@@ -205,9 +205,20 @@ internal object UI {
         }
     }
 
+    /** The subject's name on its colour, its icon in front: the same mark as everywhere else. */
     fun subjectChip(context: Context, subject: String): TextView {
-        val family = Subjects.style(subject).family
-        return chip(context, Agenda.pretty(subject), Subjects.tint(context, family), Subjects.ink(context, family), 11f)
+        val style = Subjects.style(subject)
+        val ink = Subjects.ink(context, style.family)
+        return chip(context, Agenda.pretty(subject), Subjects.tint(context, style.family), ink, 11f).apply {
+            context.getDrawable(style.icon)?.mutate()?.let { icon ->
+                icon.setTint(ink)
+                icon.setBounds(0, 0, context.dp(13), context.dp(13))
+                setCompoundDrawablesRelative(icon, null, null, null)
+                compoundDrawablePadding = context.dp(4)
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(6), dp(2), dp(8), dp(3))
+            }
+        }
     }
 
     /** [squareButton] with colours rather than colour resources (the avatar's own colour). */

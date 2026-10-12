@@ -191,5 +191,8 @@ retirée de cette version : Google interdit qu'une app se mette à jour seule.
 GPL-3.0, comme Pawnote dont le protocole est porté.
 
 Polices Nunito et Fredoka : SIL Open Font License 1.1 (textes dans
-`app/src/main/assets/fonts/`). Icônes : Tabler Icons, licence MIT.
+`app/src/main/assets/fonts/`). Icônes : Tabler Icons, licence MIT. Chaque
+langue a son badge (DE, EN, ES…), deux lettres de Fredoka converties en
+icône ; `tools/make_icons.py` refait ces icônes et celles de Tabler (dossier
+des SVG Tabler, police, dossier `drawable` en arguments).
 Maquettes de l'interface : `design/`.
