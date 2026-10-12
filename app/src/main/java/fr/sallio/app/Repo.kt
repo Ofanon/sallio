@@ -157,11 +157,7 @@ class Repo private constructor(private val context: Context) {
     /** Unread actualités and messages, for the badge on the tab. */
     fun unreadInbox(): Int = news().count { !isRead(it) } + discussions().sumOf { it.unread }
 
-    /**
-     * "J'ai vu" waiting to reach PRONOTE, as "+key", like [pending]. One way
-     * only: PRONOTE answers a request to mark an actualité unread without
-     * applying it (tried on a real school, 2026-10-12).
-     */
+    /** "J'ai vu" waiting to reach PRONOTE, as "+key" (seen) or "-key" (not seen), like [pending]. */
     private fun pendingReads(): Set<String> = prefs.getStringSet("pendingRead", emptySet())!!
 
     fun isRead(n: News): Boolean {
@@ -173,39 +169,50 @@ class Repo private constructor(private val context: Context) {
         }
     }
 
-    /** Records "J'ai vu" on the phone at once; [pushPending] then sends it to PRONOTE. */
-    fun setRead(n: News) {
-        val set = pendingReads().filterNot { it.startsWith("-") }.toMutableSet()
-        if (!n.read) set += "+" + n.key
-        // A new tap is a new request: forget that PRONOTE refused the last one.
-        prefs.edit().putStringSet("pendingRead", set)
-            .putStringSet("readRefused", prefs.getStringSet("readRefused", emptySet())!! - n.key).apply()
+    /** Records "J'ai vu" (or not) on the phone at once; [pushPending] then sends it to PRONOTE. */
+    fun setRead(n: News, read: Boolean) {
+        val set = pendingReads().toMutableSet()
+        set.remove("+" + n.key)
+        set.remove("-" + n.key)
+        if (read != n.read) set += (if (read) "+" else "-") + n.key
+        prefs.edit().putStringSet("pendingRead", set).apply()
     }
 
     /**
-     * Sends the waiting "J'ai vu" in [logged]'s session and returns what was
-     * asked (key to read), to be checked against the list read just after.
-     * When the request fails they stay waiting.
+     * Sends the waiting "J'ai vu" in [logged]'s session. When the request
+     * fails they stay waiting.
+     *
+     * PRONOTE applies them, but within the same session it keeps answering
+     * the list of actualités as it was at login (seen on a real school,
+     * 2026-10-12: an "unread" read back as read, then came back unread at the
+     * next login). So what was sent is remembered with its session, and
+     * [withSentReads] lays it over the lists read in that session.
      */
-    private fun pushReads(logged: LoggedIn): Map<String, Boolean> {
-        // Old "-key" entries (unread) are dropped: PRONOTE does not apply them.
-        val wanted = pendingReads().filter { it.startsWith("+") }.toSet()
-        if (wanted.size != pendingReads().size) prefs.edit().putStringSet("pendingRead", wanted).apply()
-        if (wanted.isEmpty()) return emptyMap()
+    private fun pushReads(logged: LoggedIn) {
+        val wanted = pendingReads()
+        if (wanted.isEmpty()) return
         val asked = wanted.associate { it.substring(1) to (it[0] == '+') }
         val settled = runCatching { Inbox.setNewsRead(logged, asked) }
             .onFailure { android.util.Log.w("Sallio", "SaisieActualites failed", it) }
-            .getOrNull() ?: return emptyMap()
-        prefs.edit().putStringSet("pendingRead", pendingReads().filterNot { it.substring(1) in settled }.toSet()).apply()
-        return asked.filterKeys { it in settled }
+            .getOrNull() ?: return
+        android.util.Log.i("Sallio", "J'ai vu sent to PRONOTE: ${asked.filterKeys { it in settled }}")
+        val sent = if (prefs.getLong("readSentSession", 0) == liveSince) prefs.getStringSet("readSent", emptySet())!! else emptySet()
+        prefs.edit()
+            .putStringSet("pendingRead", pendingReads().filterNot { it.substring(1) in settled }.toSet())
+            .putStringSet("readSent", sent.filterNot { it.substring(1) in settled }.toSet() + wanted.filter { it.substring(1) in settled })
+            .putLong("readSentSession", liveSince)
+            .apply()
     }
 
-    /**
-     * Actualités whose "J'ai vu" PRONOTE answered but did not apply: the list
-     * read right after still shows the old state. Shown in the sheet rather
-     * than silently flipping back.
-     */
-    fun readRefused(n: News): Boolean = n.key in prefs.getStringSet("readRefused", emptySet())!!
+    /** [list] with what this session sent laid over it; a later session's list is trusted as is. */
+    private fun withSentReads(list: List<News>): List<News> {
+        if (prefs.getLong("readSentSession", 0) != liveSince) {
+            prefs.edit().remove("readSent").remove("readSentSession").apply()
+            return list
+        }
+        val sent = prefs.getStringSet("readSent", emptySet())!!.associate { it.substring(1) to (it[0] == '+') }
+        return list.map { n -> sent[n.key]?.let { n.copy(read = it) } ?: n }
+    }
 
     /** Ticks and "J'ai vu" not yet on PRONOTE. */
     fun pendingTotal(): Int = pending().size + pendingReads().size
@@ -483,17 +490,10 @@ class Repo private constructor(private val context: Context) {
         }
         runCatching { Attachments.prune(context) }
         // Actualités and Messagerie: read-only, contents cached so a sync only asks for new ones.
-        // "J'ai vu" first, so the list read just after already says "read".
-        val asked = pushReads(logged)
+        pushReads(logged)
         val newsBefore = storedList(NEWS) { News.fromJson(it) }
-        runCatching { Inbox.news(logged, newsBefore.orEmpty().associateBy { it.key }) }.onSuccess { list ->
+        runCatching { Inbox.news(logged, newsBefore.orEmpty().associateBy { it.key }) }.map { withSentReads(it) }.onSuccess { list ->
             vault.write(NEWS, JSONArray(list.map { it.toJson() }).toString())
-            if (asked.isNotEmpty()) {
-                val byKey = list.associateBy { it.key }
-                val refused = asked.filter { (key, read) -> byKey[key]?.let { it.read != read } == true }.keys
-                if (refused.isNotEmpty()) android.util.Log.w("Sallio", "PRONOTE kept the read state of ${refused.size} actualité(s): ${asked.filterKeys { it in refused }}")
-                prefs.edit().putStringSet("readRefused", (prefs.getStringSet("readRefused", emptySet())!! - asked.keys + refused)).apply()
-            }
             runCatching { changes += Changes.news(newsBefore, list) }
         }
         val discussionsBefore = storedList(DISCUSSIONS) { Discussion.fromJson(it) }

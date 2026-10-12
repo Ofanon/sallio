@@ -290,11 +290,10 @@ internal object UI {
     }
 
     /**
-     * A sticker button with the checkbox inside, for a one-way action ("J'ai
-     * vu"): neutral with an empty box, then green with the box ticked and
-     * [onLabel]. Once on it no longer reacts: PRONOTE cannot undo it.
+     * A sticker button with the checkbox inside ("J'ai vu"): neutral with an
+     * empty box, green with the box ticked and [onLabel]. Each tap flips it.
      */
-    fun checkButton(context: Context, label: String, onLabel: String, isOn: Boolean, onTap: () -> Unit): View {
+    fun checkButton(context: Context, label: String, onLabel: String, isOn: Boolean, onTap: (Boolean) -> Unit): View {
         val button = row(context).apply { gravity = Gravity.CENTER }
         val box = FrameLayout(context)
         val text = TextView(context).apply { textSize = 16f; typeface = display(context) }
@@ -310,21 +309,19 @@ internal object UI {
             })
             text.text = if (on) onLabel else label
             text.setTextColor(context.getColor(if (on) R.color.success else R.color.text))
-            button.isClickable = !on
         }
         button.addView(box, LinearLayout.LayoutParams(context.dp(24), context.dp(24)))
         button.addView(hgap(context, 10))
         button.addView(text)
-        paint(isOn)
-        if (!isOn) {
-            button.setOnClickListener {
-                button.setOnClickListener(null)
-                Motion.success(box)
-                paint(true)
-                Motion.bounce(box) { onTap() }
-            }
-            Motion.pressable(button)
+        var on = isOn
+        paint(on)
+        button.setOnClickListener {
+            on = !on
+            if (on) Motion.success(box) else Motion.tick(box)
+            paint(on)
+            Motion.bounce(box) { onTap(on) }
         }
+        Motion.pressable(button)
         return button
     }
 

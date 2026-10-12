@@ -289,8 +289,8 @@ class MainActivity : Activity() {
     fun isHomeworkDone(h: fr.sallio.pronote.Homework) = repo.isDone(h)
 
     /** "J'ai vu" from an actualité: saved at once, sent to PRONOTE shortly after with any ticks. */
-    fun setNewsRead(n: fr.sallio.pronote.News) {
-        repo.setRead(n)
+    fun setNewsRead(n: fr.sallio.pronote.News, read: Boolean) {
+        repo.setRead(n, read)
         render()
         schedulePush()
     }
