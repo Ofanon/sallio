@@ -125,7 +125,7 @@ object Welcome {
     // ---- Celebration ---------------------------------------------------------------
 
     /** Full screen "it's ready" moment after the very first login. */
-    fun celebrate(activity: MainActivity, s: Snapshot, root: FrameLayout, topInset: Int, bottomInset: Int, onDone: () -> Unit) {
+    fun celebrate(activity: MainActivity, s: Snapshot, root: FrameLayout, topInset: Int, bottomInset: Int, onDone: () -> Unit): View {
         val ctx = activity
         val overlay = FrameLayout(ctx).apply {
             setBackgroundColor(ctx.getColor(R.color.bg))
@@ -170,7 +170,7 @@ object Welcome {
         col.addView(widget, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
         val go = UI.button(ctx, "C'est parti") {
             overlay.animate().alpha(0f).setDuration(260).withEndAction {
-                root.removeView(overlay)
+                (overlay.parent as? ViewGroup)?.removeView(overlay)
                 onDone()
             }.start()
         }
@@ -196,6 +196,7 @@ object Welcome {
             riseIn(listOf(widget, go), 900)
             confetti.post { confetti.burst() }
         }
+        return overlay
     }
 
     /** Pieces of paper in the subject colours, thrown from the top and falling with gravity. */

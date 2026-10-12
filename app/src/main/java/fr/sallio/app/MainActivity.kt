@@ -47,7 +47,7 @@ class MainActivity : Activity() {
 
     private lateinit var root: FrameLayout
     private val worker = Executors.newSingleThreadExecutor()
-    private val repo by lazy { Repo.get(applicationContext) }
+    val repo by lazy { Repo.get(applicationContext) }
     private val tabs by lazy { Tabs(this, repo) }
 
     // Screen state
@@ -144,6 +144,13 @@ class MainActivity : Activity() {
         super.onPause()
     }
 
+    /**
+     * The first-login celebration, while it is on screen. A sync finishing right
+     * after the login redraws the page: the celebration is put back on top
+     * instead of being wiped with the rest.
+     */
+    private var celebration: View? = null
+
     fun render() {
         val keepScroll = scroll?.scrollY ?: 0
         root.removeAllViews()
@@ -199,9 +206,14 @@ class MainActivity : Activity() {
         // Opaque strip under the status bar, so scrolled content never runs beneath the clock.
         root.addView(View(this).apply { setBackgroundColor(getColor(R.color.bg)) }, FrameLayout.LayoutParams(-1, topInset))
         val ui = getSharedPreferences("ui", MODE_PRIVATE)
-        if (ui.getBoolean("welcomePending", false)) {
+        celebration?.let { overlay ->
+            (overlay.parent as? ViewGroup)?.removeView(overlay)
+            root.addView(overlay, FrameLayout.LayoutParams(-1, -1))
+        }
+        if (celebration == null && ui.getBoolean("welcomePending", false)) {
             ui.edit().putBoolean("welcomePending", false).apply()
-            Welcome.celebrate(this, s, root, topInset, bottomInset) {
+            celebration = Welcome.celebrate(this, s, root, topInset, bottomInset) {
+                celebration = null
                 // Then the home tab rises in for the first time.
                 tab = Tab.HOME
                 entering = Enter.ALL

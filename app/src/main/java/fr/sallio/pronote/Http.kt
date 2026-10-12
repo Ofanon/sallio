@@ -11,6 +11,9 @@ interface Http {
 
     /** Raw bytes of an image or a file, null when the server answers anything else. */
     fun bytes(url: String, maxBytes: Int): ByteArray?
+
+    /** Any file, with its content type; null on an error or past [maxBytes]. */
+    fun download(url: String, maxBytes: Int): Pair<ByteArray, String?>? = null
 }
 
 /**
@@ -62,6 +65,22 @@ class UrlConnectionHttp(
         connection.setFixedLengthStreamingMode(bytes.size)
         connection.outputStream.use { it.write(bytes) }
         read(connection)
+    }
+
+    override fun download(url: String, maxBytes: Int): Pair<ByteArray, String?>? = try {
+        val connection = open(url)
+        try {
+            // PRONOTE answers a missing or expired file with an HTML error page.
+            if (connection.responseCode != 200 || connection.contentType?.startsWith("text/html") == true) null
+            else connection.inputStream.use { input ->
+                val data = input.readNBytesCompat(maxBytes + 1)
+                if (data.size > maxBytes) null else data to connection.contentType
+            }
+        } finally {
+            connection.disconnect()
+        }
+    } catch (e: IOException) {
+        null
     }
 
     override fun bytes(url: String, maxBytes: Int): ByteArray? = try {

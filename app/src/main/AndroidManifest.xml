@@ -24,6 +24,13 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- Homework files, lent read-only to the viewer the student opens them with. -->
+        <provider
+            android:name=".Attachments$Provider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
         <!-- The WebView must not report usage statistics to Google. -->
         <meta-data
             android:name="android.webkit.WebView.MetricsOptOut"

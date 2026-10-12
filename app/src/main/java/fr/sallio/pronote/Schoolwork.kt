@@ -25,7 +25,11 @@ data class Homework(
     /** Attached documents: name, and the address for web links (files have none). */
     val files: List<Attachment> = emptyList(),
 ) {
-    data class Attachment(val name: String, val link: String?)
+    /**
+     * [id] is the file's PRONOTE id, only valid in the session that read it,
+     * so it is never stored: see [Schoolwork.attachmentUrl].
+     */
+    data class Attachment(val name: String, val link: String?, val id: String? = null)
 
     /**
      * PRONOTE re-encrypts every id ("147#...") for each session, so [id] is
@@ -174,7 +178,11 @@ object Schoolwork {
                 // G = 0 is a web link (its address in "url" or the label), G = 1 a file.
                 files = item.optJSONObject("ListePieceJointe")?.optJSONArray("V")?.objects().orEmpty().map { a ->
                     val isLink = a.optInt("G", 1) == 0
-                    Homework.Attachment(a.optString("L").ifEmpty { "Document" }, if (isLink) a.optString("url").ifEmpty { a.optString("L") } else null)
+                    Homework.Attachment(
+                        a.optString("L").ifEmpty { "Document" },
+                        if (isLink) a.optString("url").ifEmpty { a.optString("L") } else null,
+                        if (isLink) null else a.optString("N").ifEmpty { null },
+                    )
                 },
             )
         }.filter { it.due in from..to }.sortedWith(compareBy({ it.due }, { it.subject }))
@@ -185,6 +193,28 @@ object Schoolwork {
      * request as the official app. [changes] maps ids of this session to
      * their new state.
      */
+    /**
+     * Address of the file [name] attached to [h], valid while [logged] lives.
+     * File ids change with every session, so the homework is read again first.
+     */
+    fun attachmentUrl(logged: LoggedIn, h: Homework, name: String): String? {
+        val fresh = homework(logged, h.due, h.due).firstOrNull { it.key == h.key } ?: return null
+        val id = fresh.files.firstOrNull { it.name == name }?.id ?: return null
+        return fileUrl(logged.session, id, name)
+    }
+
+    /**
+     * PRONOTE's own address for a file (composeUrlFichierExterne): the element
+     * {N, Actif} encrypted with the session key, then the file name. The demo
+     * server answers 404 to every such address; real schools serve the file.
+     */
+    internal fun fileUrl(session: Session, id: String, name: String): String {
+        val entity = "{\"N\":${JSONObject.quote(id)},\"Actif\":true}".toByteArray(Charsets.UTF_8)
+        val encrypted = Crypto.hex(Crypto.aesEncrypt(entity, session.aesKey, session.aesIv))
+        val file = java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")
+        return "${session.base}/FichiersExternes/$encrypted/$file?Session=${session.id}"
+    }
+
     fun setHomeworkDone(logged: LoggedIn, changes: Map<String, Boolean>) {
         if (changes.isEmpty()) return
         val session = logged.session

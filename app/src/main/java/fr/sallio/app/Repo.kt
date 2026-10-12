@@ -14,6 +14,7 @@ import fr.sallio.pronote.Pronote
 import fr.sallio.pronote.PronoteException
 import fr.sallio.pronote.Timetable
 import fr.sallio.pronote.UrlConnectionHttp
+import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
@@ -193,6 +194,42 @@ class Repo private constructor(private val context: Context) {
         }
     }
 
+    /**
+     * A homework file, from the phone when it was already opened, else from
+     * PRONOTE with the session of a recent sync or a new login. Worker thread.
+     */
+    fun attachment(h: Homework, name: String): Attachments.Result {
+        val file = Attachments.file(context, h, name)
+        if (file.isFile && file.length() > 0) return Attachments.Result.Ready(file)
+        account() ?: return Attachments.Result.Failed("Connecte-toi d'abord à Pronote.")
+        lock.lock()
+        try {
+            if (status().needsLogin) return Attachments.Result.Failed("Pronote demande de te reconnecter : va dans Réglages.")
+            val logged = liveSession() ?: run {
+                val wait = waitBeforeLogin(manual = true)
+                if (wait > 0) return Attachments.Result.Wait(wait)
+                login()
+            }
+            val url = Schoolwork.attachmentUrl(logged, h, name)
+                ?: return Attachments.Result.Failed("Ce fichier n'est plus sur Pronote.")
+            onSuccess()
+            val (bytes, _) = UrlConnectionHttp(readTimeoutMs = 60_000).download(url, MAX_FILE_BYTES)
+                ?: return Attachments.Result.Failed("Pronote n'a pas envoyé le fichier (trop gros ou indisponible).")
+            file.parentFile?.mkdirs()
+            val part = File(file.path + ".part")
+            part.writeBytes(bytes)
+            if (!part.renameTo(file)) return Attachments.Result.Failed("Impossible d'enregistrer le fichier.")
+            return Attachments.Result.Ready(file)
+        } catch (e: PronoteException) {
+            onFailure(e)
+            return Attachments.Result.Failed(explain(e))
+        } catch (e: Exception) {
+            return Attachments.Result.Failed("Le téléchargement n'a pas marché, réessaie.")
+        } finally {
+            lock.unlock()
+        }
+    }
+
     // ---- Being polite with PRONOTE ---------------------------------------------------
     //
     // PRONOTE suspends, for a while, IP addresses that log in too often. A whole
@@ -353,8 +390,17 @@ class Repo private constructor(private val context: Context) {
             val synced = pushTicks(logged, list)
             vault.write(HOMEWORK, JSONArray(synced.map { it.toJson() }).toString())
         }
-        // Profile photo: parked. PRONOTE 2026 answers 404 to the file address that
-        // Pawnote and pronotepy build; failing requests only add to the IP's count.
+        // The photo rarely changes: fetched once, then again after a new login.
+        // Not every school publishes photos: after a miss, try again only a week later.
+        val photoDue = System.currentTimeMillis() - prefs.getLong("photoTried", 0) > 7 * 24 * 3600_000L
+        if (vault.read(PHOTO) == null && photoDue) {
+            prefs.edit().putLong("photoTried", System.currentTimeMillis()).apply()
+            runCatching { logged.photo() }.getOrNull()?.let { bytes ->
+                vault.write(PHOTO, android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
+                cachedPhoto = null
+            }
+        }
+        runCatching { Attachments.prune(context) }
         // Actualités and Messagerie: read-only, contents cached so a sync only asks for new ones.
         runCatching { Inbox.news(logged, news().associateBy { it.key }) }.onSuccess { list ->
             vault.write(NEWS, JSONArray(list.map { it.toJson() }).toString())
@@ -380,6 +426,7 @@ class Repo private constructor(private val context: Context) {
         try {
             vault.wipe()
             cachedPhoto = null
+            runCatching { Attachments.clear(context) }
             runCatching { Reminders.cancel(context) }
             if (Wallpaper.isEnabled(context)) runCatching { Wallpaper.disable(context) }
             prefs.edit().clear().apply()
@@ -399,6 +446,7 @@ class Repo private constructor(private val context: Context) {
         private const val DISCUSSIONS = "discussions"
         private const val FETCH_DAYS = 13L
         private const val MANUAL_GAP_MS = 2 * 60_000L
+        private const val MAX_FILE_BYTES = 40 * 1024 * 1024
         private const val SESSION_REUSE_MS = 4 * 60_000L
         private const val OPEN_GAP_MS = 10 * 60_000L
         private const val MAX_BACKOFF_MS = 3 * 3600_000L

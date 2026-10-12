@@ -69,14 +69,31 @@ object HomeworkSheet {
                         addView(UI.hgap(ctx, 12))
                         val col = UI.column(ctx)
                         col.addView(UI.oneLine(UI.title(ctx, f.name, 15f)))
-                        col.addView(UI.oneLine(UI.text(ctx, if (f.link != null) "Lien · s'ouvre dans le navigateur" else "Fichier · s'ouvre dans Pronote", 12f, R.color.text2)))
+                        // Old caches only know how many files there are, not their names.
+                        val known = h.files.isNotEmpty()
+                        val hint = when {
+                            f.link != null -> "Lien · s'ouvre dans le navigateur"
+                            !known -> "Fichier · s'ouvre dans Pronote"
+                            Attachments.file(ctx, h, f.name).isFile -> "Fichier · déjà sur ton téléphone"
+                            else -> "Fichier · ${f.name.substringAfterLast('.', "").uppercase().ifEmpty { "document" }}"
+                        }
+                        val sub = UI.oneLine(UI.text(ctx, hint, 12f, R.color.text2))
+                        col.addView(sub)
                         addView(col, UI.weight())
                         setOnClickListener {
                             Motion.tap(this)
                             if (f.link != null) runCatching {
                                 val url = if (f.link.startsWith("http")) f.link else "https://${f.link}"
                                 activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                            } else activity.openPronote()
+                            } else if (!known) activity.openPronote()
+                            else if (sub.tag == null) {
+                                sub.tag = "busy"
+                                sub.text = "Téléchargement…"
+                                Attachments.open(activity, activity.repo, h, f.name) {
+                                    sub.tag = null
+                                    sub.text = if (Attachments.file(ctx, h, f.name).isFile) "Fichier · déjà sur ton téléphone" else hint
+                                }
+                            }
                         }
                     }, UI.matchWidth())
                 }
