@@ -140,14 +140,14 @@ object Inbox {
      * content comes from a second request per item; [known] (by [News.key])
      * avoids asking again for what is already on the phone.
      */
-    fun news(logged: LoggedIn, known: Map<String, News>, maxDetails: Int = 8): List<News> {
+    fun news(logged: LoggedIn, known: Map<String, News>, maxDetails: Int = 40): List<News> {
         val session = logged.session
         var budget = maxDetails
         return list(session).map { item ->
             val base = base(item)
             // Content embedded in the list (older PRONOTE), else cached, else a details request.
             val embedded = item.optJSONObject("listeQuestions")?.optJSONArray("V")?.objects().orEmpty()
-            val cached = known[base.key]?.takeIf { (it.content.isNotEmpty() || it.questions.isNotEmpty()) && it.files != null }
+            val cached = known[base.key]?.takeIf { it.files != null }
             val questions = when {
                 embedded.isNotEmpty() -> embedded
                 cached != null -> null
@@ -228,13 +228,13 @@ object Inbox {
     )
 
     /** The conversations, newest first; messages fetched for new or changed ones only. */
-    fun discussions(logged: LoggedIn, known: Map<String, Discussion>, maxDetails: Int = 6): List<Discussion> {
+    fun discussions(logged: LoggedIn, known: Map<String, Discussion>, maxDetails: Int = 20): List<Discussion> {
         val session = logged.session
         var budget = maxDetails
         return discussionItems(session).map { d ->
             val base = discussionBase(d)
             val cached = known[base.key]
-            val complete = cached != null && cached.messages.all { it.files != null }
+            val complete = cached != null && (cached.messages.isNotEmpty() || cached.count == 0) && cached.messages.all { it.files != null }
             if (cached != null && complete && cached.count == base.count) return@map cached.copy(unread = base.unread, dateLabel = base.dateLabel)
             if (budget-- <= 0) return@map cached?.copy(unread = base.unread, dateLabel = base.dateLabel, count = base.count) ?: base
             val messages = runCatching { rawMessages(session, d).map { message(it) }.sortedBy { it.date } }.getOrNull()

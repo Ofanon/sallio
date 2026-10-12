@@ -161,7 +161,8 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
                 .filter { it.isNotEmpty() }.joinToString(" · "), 13f, R.color.text2).apply { setPadding(0, ctx.dp(4), 0, ctx.dp(8)) })
             if (!n.survey) {
                 val card = UI.card(ctx, padding = 16)
-                card.addView(UI.text(ctx, n.content.ifEmpty { "Contenu pas encore chargé : il arrive à la prochaine mise à jour." }, 16f, weight = 600).apply {
+                val empty = if (n.files == null) "Contenu pas encore chargé : il arrive à la prochaine mise à jour." else "Pas de texte dans cette actualité."
+                card.addView(UI.text(ctx, n.content.ifEmpty { empty }, 16f, weight = 600).apply {
                     setLineSpacing(0f, 1.15f)
                     UI.linkify(this)
                 })
