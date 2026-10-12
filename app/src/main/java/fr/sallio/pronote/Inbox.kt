@@ -211,8 +211,9 @@ object Inbox {
             val key = base(item).key
             val read = wanted[key] ?: continue
             if (item.optBoolean("lue") != read) {
-                val audience = item.optJSONObject("public")?.optJSONObject("V")
-                    ?: JSONObject().put("N", session.userResource?.optString("N").orEmpty()).put("G", 4)
+                // The student, not the item's own audience (often the whole class): the
+                // read state is the student's, as in pronotepy's mark_as_read.
+                val audience = JSONObject().put("N", session.userResource?.optString("N").orEmpty()).put("G", 4)
                 session.call(
                     "SaisieActualites",
                     JSONObject()
@@ -221,7 +222,7 @@ object Inbox {
                             .put("listeActualites", JSONArray().put(JSONObject()
                                 .put("N", item.optString("N"))
                                 .put("L", item.optString("L"))
-                                .put("genrePublic", audience.optInt("G", 4))
+                                .put("genrePublic", 4)
                                 .put("public", audience)
                                 .put("validationDirecte", true)
                                 .put("listeQuestions", JSONArray())

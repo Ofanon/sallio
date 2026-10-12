@@ -175,16 +175,33 @@ class Repo private constructor(private val context: Context) {
         set.remove("+" + n.key)
         set.remove("-" + n.key)
         if (read != n.read) set += (if (read) "+" else "-") + n.key
-        prefs.edit().putStringSet("pendingRead", set).apply()
+        // A new tap is a new request: forget that PRONOTE refused the last one.
+        prefs.edit().putStringSet("pendingRead", set)
+            .putStringSet("readRefused", prefs.getStringSet("readRefused", emptySet())!! - n.key).apply()
     }
 
-    /** Sends the waiting "J'ai vu" in [logged]'s session; they stay waiting if PRONOTE refuses. */
-    private fun pushReads(logged: LoggedIn) {
+    /**
+     * Sends the waiting "J'ai vu" in [logged]'s session and returns what was
+     * asked (key to read), to be checked against the list read just after.
+     * When the request fails they stay waiting.
+     */
+    private fun pushReads(logged: LoggedIn): Map<String, Boolean> {
         val wanted = pendingReads()
-        if (wanted.isEmpty()) return
-        val settled = runCatching { Inbox.setNewsRead(logged, wanted.associate { it.substring(1) to (it[0] == '+') }) }.getOrNull() ?: return
+        if (wanted.isEmpty()) return emptyMap()
+        val asked = wanted.associate { it.substring(1) to (it[0] == '+') }
+        val settled = runCatching { Inbox.setNewsRead(logged, asked) }
+            .onFailure { android.util.Log.w("Sallio", "SaisieActualites failed", it) }
+            .getOrNull() ?: return emptyMap()
         prefs.edit().putStringSet("pendingRead", pendingReads().filterNot { it.substring(1) in settled }.toSet()).apply()
+        return asked.filterKeys { it in settled }
     }
+
+    /**
+     * Actualités whose "J'ai vu" PRONOTE answered but did not apply: the list
+     * read right after still shows the old state. Shown in the sheet rather
+     * than silently flipping back.
+     */
+    fun readRefused(n: News): Boolean = n.key in prefs.getStringSet("readRefused", emptySet())!!
 
     /** Ticks and "J'ai vu" not yet on PRONOTE. */
     fun pendingTotal(): Int = pending().size + pendingReads().size
@@ -463,10 +480,16 @@ class Repo private constructor(private val context: Context) {
         runCatching { Attachments.prune(context) }
         // Actualités and Messagerie: read-only, contents cached so a sync only asks for new ones.
         // "J'ai vu" first, so the list read just after already says "read".
-        pushReads(logged)
+        val asked = pushReads(logged)
         val newsBefore = storedList(NEWS) { News.fromJson(it) }
         runCatching { Inbox.news(logged, newsBefore.orEmpty().associateBy { it.key }) }.onSuccess { list ->
             vault.write(NEWS, JSONArray(list.map { it.toJson() }).toString())
+            if (asked.isNotEmpty()) {
+                val byKey = list.associateBy { it.key }
+                val refused = asked.filter { (key, read) -> byKey[key]?.let { it.read != read } == true }.keys
+                if (refused.isNotEmpty()) android.util.Log.w("Sallio", "PRONOTE kept the read state of ${refused.size} actualité(s): ${asked.filterKeys { it in refused }}")
+                prefs.edit().putStringSet("readRefused", (prefs.getStringSet("readRefused", emptySet())!! - asked.keys + refused)).apply()
+            }
             runCatching { changes += Changes.news(newsBefore, list) }
         }
         val discussionsBefore = storedList(DISCUSSIONS) { Discussion.fromJson(it) }

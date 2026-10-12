@@ -234,13 +234,20 @@ internal object UI {
      * A homework line with its sticker checkbox. [isDone] / [toggle] come from the
      * repository; the row redraws itself, so it works inside any sheet.
      */
-    fun homeworkCheck(context: Context, h: fr.sallio.pronote.Homework, isDone: () -> Boolean, onOpen: (() -> Unit)? = null, toggle: (Boolean) -> Unit): View {
+    fun homeworkCheck(context: Context, h: fr.sallio.pronote.Homework, isDone: () -> Boolean, onOpen: (() -> Unit)? = null, toggle: (Boolean) -> Unit): View =
+        check(context, h.description.ifEmpty { "(pas de consigne)" }, isDone, strike = true, onOpen = onOpen, toggle = toggle)
+
+    /**
+     * The sticker checkbox and its label: homework done, actualité seen.
+     * [strike] crosses the label out once ticked (homework).
+     */
+    fun check(context: Context, label: String, isOn: () -> Boolean, strike: Boolean = false, size: Float = 15f, onOpen: (() -> Unit)? = null, toggle: (Boolean) -> Unit): View {
         val row = row(context).apply {
             gravity = Gravity.TOP
             setPadding(0, dp(10), 0, dp(10))
         }
         val box = FrameLayout(context)
-        val text = text(context, h.description.ifEmpty { "(pas de consigne)" }, 15f).apply { setPadding(0, dp(2), 0, 0) }
+        val text = text(context, label, size).apply { setPadding(0, dp(2), 0, 0) }
         fun paint(done: Boolean) {
             box.removeAllViews()
             box.background = if (done) sticker(context, context.getColor(R.color.accent), context.getColor(R.color.accent_edge), 9, 2)
@@ -248,13 +255,14 @@ internal object UI {
             if (done) box.addView(icon(context, R.drawable.ic_check, R.color.on_accent, 16).apply {
                 layoutParams = FrameLayout.LayoutParams(context.dp(16), context.dp(16), Gravity.CENTER).apply { bottomMargin = context.dp(2) }
             })
+            if (!strike) return
             text.alpha = if (done) 0.45f else 1f
             text.paintFlags = if (done) text.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
             else text.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
         }
-        paint(isDone())
+        paint(isOn())
         val click = View.OnClickListener {
-            val done = !isDone()
+            val done = !isOn()
             if (done) Motion.success(box) else Motion.tick(box)
             Motion.bounce(box) {
                 toggle(done)
