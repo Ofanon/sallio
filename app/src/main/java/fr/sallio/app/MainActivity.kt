@@ -500,6 +500,7 @@ class MainActivity : Activity() {
         val account = listOf(
             SettingsSheet.Item.Action(R.drawable.ic_open, "Ouvrir Pronote", "Messagerie, vie scolaire, bulletins…") { openPronote() },
             SettingsSheet.Item.Action(R.drawable.ic_shield, "Tes données", "Ce que Sallio garde, et où.") { privacyDialog() },
+            SettingsSheet.Item.Action(R.drawable.ic_refresh, "Rechercher une mise à jour", "Version installée : ${BuildConfig.VERSION_NAME}") { checkUpdateNow() },
             SettingsSheet.Item.Action(R.drawable.ic_logout, "Se déconnecter et tout effacer", danger = true) { confirmLogout() },
         )
         SettingsSheet.show(
@@ -806,6 +807,20 @@ class MainActivity : Activity() {
     }
 
     // ---- Updates -----------------------------------------------------------------
+
+    /** Asks GitHub right away, whatever the last check said. */
+    private fun checkUpdateNow() {
+        android.widget.Toast.makeText(this, "Recherche d'une mise à jour…", android.widget.Toast.LENGTH_SHORT).show()
+        worker.execute {
+            val found = Updater.check(applicationContext, force = true)
+            runOnUiThread {
+                update = found
+                render()
+                val text = if (found != null) "Sallio ${found.versionName} est disponible : regarde en haut de l'accueil." else "Tu as déjà la dernière version."
+                android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     private fun updateCard(u: Updater.Update): View {
         val card = UI.card(this, R.color.accent_container, R.color.accent_container_edge)
