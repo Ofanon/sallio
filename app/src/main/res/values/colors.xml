@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Creme, light. Cream and ink, with the logo's yellow as the one dominant colour; the subjects bring the rest.
-     "accent" fills (buttons, cards, ticks) with "on_accent" ink; "accent_ink" is the accent as text or icon on cream.
+     "accent" is the launcher icon's yellow (tools/make_logo.py YELLOW): fills (buttons, cards, ticks) with "on_accent" ink; "accent_ink" is the accent as text or icon on cream.
      "edge" colours draw the sticker outline and its offset shadow. -->
 <resources>
     <color name="bg">#FBF7F0</color>
@@ -11,7 +11,7 @@
     <color name="text">#2E2A3A</color>
     <color name="text2">#7A7266</color>
     <color name="text3">#A89F92</color>
-    <color name="accent">#FFC83D</color>
+    <color name="accent">#FFD66B</color>
     <color name="accent_edge">#D49A1C</color>
     <color name="on_accent">#3B2A00</color>
     <color name="accent_ink">#8A5C00</color>
