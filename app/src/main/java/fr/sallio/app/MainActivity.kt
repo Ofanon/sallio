@@ -370,10 +370,11 @@ class MainActivity : Activity() {
                 setOnClickListener { openTab(t) }
             }
             val pill = FrameLayout(this).apply {
-                if (selected) background = UI.sticker(context, getColor(R.color.accent_container), getColor(R.color.accent_container_edge), 13, 2)
+                // The selected tab inverted: the yellow becomes the pill, the icon takes its dark ink.
+                if (selected) background = UI.sticker(context, getColor(R.color.accent), getColor(R.color.accent_edge), 13, 2)
             }
             if (selected && switched) { switched = false; pill.post { Motion.pop(pill) } }
-            pill.addView(UI.icon(this, t.icon, if (selected) R.color.on_accent_container else R.color.text3, 22).apply {
+            pill.addView(UI.icon(this, t.icon, if (selected) R.color.on_accent else R.color.text3, 22).apply {
                 layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER).apply { bottomMargin = if (selected) dp(2) else 0 }
             })
             val dot = (t == Tab.GRADES && s.unseenGrades.isNotEmpty()) || (t == Tab.INBOX && repo.unreadInbox() > 0)
