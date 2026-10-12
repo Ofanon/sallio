@@ -84,6 +84,19 @@ object Subjects {
         return if (l > 0.42) 0xFF2E2A3A.toInt() else 0xFFFFFFFF.toInt()
     }
 
-    /** Sticker edge of a solid card: the darker shade by day, the night outline by night. */
-    fun edge(context: Context, f: Family): Int = if (isDark(context)) context.getColor(R.color.edge) else f.edge.toInt()
+    /**
+     * Sticker edge of a solid card: a deeper shade of the subject colour, in
+     * light and dark alike, so a coral card casts a coral shadow.
+     */
+    fun edge(context: Context, f: Family): Int = darker(f.solid.toInt(), if (isDark(context)) 0.55f else 0.78f)
+
+    /** Edge of a pale (tinted) card. */
+    fun softEdge(context: Context, f: Family): Int = if (isDark(context)) darker(f.darkTint.toInt(), 0.6f) else darker(f.tint.toInt(), 0.86f)
+
+    fun darker(color: Int, factor: Float): Int {
+        val r = ((color shr 16) and 0xFF) * factor
+        val g = ((color shr 8) and 0xFF) * factor
+        val b = (color and 0xFF) * factor
+        return (0xFF shl 24) or (r.toInt() shl 16) or (g.toInt() shl 8) or b.toInt()
+    }
 }

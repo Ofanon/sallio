@@ -231,17 +231,24 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         root.addView(scroller, UI.matchWidth())
         // Back to where the strip was, at once (no visible jump), then nudge only if
         // the selected day is off screen.
-        scroller.setOnScrollChangeListener { _, x, _, _, _ -> activity.stripScroll = x }
+        // The previous strip may still be finishing its own smooth scroll after it was
+        // replaced: only the strip on screen records its position, so the new one
+        // never starts from a stale value and slide the wrong way.
+        val restore = activity.stripScroll
+        activity.stripOwner = scroller
+        scroller.setOnScrollChangeListener { v, x, _, _, _ -> if (activity.stripOwner === v) activity.stripScroll = x }
         scroller.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
             override fun onPreDraw(): Boolean {
                 scroller.viewTreeObserver.removeOnPreDrawListener(this)
                 val chip = strip.getChildAt(days.indexOf(day)) ?: return true
-                val start = if (activity.stripScroll >= 0) activity.stripScroll else (chip.left - ctx.dp(24)).coerceAtLeast(0)
-                scroller.scrollTo(start, 0)
-                val visible = chip.left >= start + ctx.dp(8) && chip.right <= start + scroller.width - ctx.dp(8)
-                val centered = (chip.left - (scroller.width - chip.width) / 2).coerceAtLeast(0)
-                if (activity.stripScroll < 0) scroller.scrollTo(centered, 0)
-                else if (!visible || kotlin.math.abs(centered - start) > ctx.dp(4)) scroller.smoothScrollTo(centered, 0)
+                val max = (strip.width - scroller.width).coerceAtLeast(0)
+                val centered = (chip.left - (scroller.width - chip.width) / 2).coerceIn(0, max)
+                if (restore < 0) {
+                    scroller.scrollTo(centered, 0)
+                } else {
+                    scroller.scrollTo(restore.coerceIn(0, max), 0)
+                    if (kotlin.math.abs(centered - restore) > ctx.dp(4)) scroller.smoothScrollTo(centered, 0)
+                }
                 return true
             }
         })
@@ -323,6 +330,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
     // ---- Devoirs -----------------------------------------------------------------
 
     fun homework(s: Snapshot): View {
+        lastSnapshot = s
         val root = UI.column(ctx)
         val today = s.now.toLocalDate()
         val upcoming = s.homework.filter { it.due >= today }
@@ -399,11 +407,8 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         if (done) description.paintFlags = description.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
         col.addView(description)
         col.setOnClickListener {
-            if (compact) activity.openTab(MainActivity.Tab.HOMEWORK)
-            else {
-                if (!activity.expanded.remove(h.id)) activity.expanded.add(h.id)
-                activity.render()
-            }
+            Motion.tap(col)
+            lastSnapshot?.let { HomeworkSheet.show(activity, h, it, activity.bottomInsetPx) }
         }
         row.addView(col, UI.weight())
         return row

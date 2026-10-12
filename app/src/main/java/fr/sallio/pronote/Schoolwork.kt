@@ -17,7 +17,16 @@ data class Homework(
     val done: Boolean,
     val color: String?,
     val attachments: Int,
+    /** Day the teacher gave it. */
+    val given: LocalDate? = null,
+    val teachers: List<String> = emptyList(),
+    /** Estimated time, in minutes, when the teacher filled it in. */
+    val minutes: Int? = null,
+    /** Attached documents: name, and the address for web links (files have none). */
+    val files: List<Attachment> = emptyList(),
 ) {
+    data class Attachment(val name: String, val link: String?)
+
     /**
      * PRONOTE re-encrypts every id ("147#...") for each session, so [id] is
      * only valid in the session that fetched it. This key survives logins.
@@ -27,6 +36,10 @@ data class Homework(
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("sub", subject).put("d", description).put("due", due.toString())
         .put("done", done).put("col", color ?: JSONObject.NULL).put("att", attachments)
+        .put("given", given?.toString() ?: JSONObject.NULL)
+        .put("teachers", JSONArray(teachers))
+        .put("min", minutes ?: JSONObject.NULL)
+        .put("files", JSONArray(files.map { JSONObject().put("n", it.name).put("u", it.link ?: JSONObject.NULL) }))
 
     companion object {
         fun fromJson(o: JSONObject) = Homework(
@@ -37,6 +50,10 @@ data class Homework(
             done = o.optBoolean("done"),
             color = if (o.isNull("col")) null else o.optString("col"),
             attachments = o.optInt("att"),
+            given = if (o.isNull("given") || !o.has("given")) null else LocalDate.parse(o.getString("given")),
+            teachers = o.optJSONArray("teachers")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty(),
+            minutes = if (o.isNull("min") || !o.has("min")) null else o.optInt("min"),
+            files = o.optJSONArray("files")?.objects().orEmpty().map { Attachment(it.optString("n"), if (it.isNull("u")) null else it.optString("u")) },
         )
     }
 }
@@ -151,6 +168,14 @@ object Schoolwork {
                 done = item.optBoolean("TAFFait"),
                 color = item.optString("CouleurFond").ifEmpty { null },
                 attachments = item.optJSONObject("ListePieceJointe")?.optJSONArray("V")?.length() ?: 0,
+                given = item.optJSONObject("DonneLe")?.optString("V")?.let { PronoteDates.parse(it)?.toLocalDate() },
+                teachers = item.optJSONObject("listeProfesseurs")?.optJSONArray("V")?.objects().orEmpty().map { it.optString("L") }.filter { it.isNotEmpty() },
+                minutes = item.optInt("duree", 0).takeIf { it > 0 },
+                // G = 0 is a web link (its address in "url" or the label), G = 1 a file.
+                files = item.optJSONObject("ListePieceJointe")?.optJSONArray("V")?.objects().orEmpty().map { a ->
+                    val isLink = a.optInt("G", 1) == 0
+                    Homework.Attachment(a.optString("L").ifEmpty { "Document" }, if (isLink) a.optString("url").ifEmpty { a.optString("L") } else null)
+                },
             )
         }.filter { it.due in from..to }.sortedWith(compareBy({ it.due }, { it.subject }))
     }

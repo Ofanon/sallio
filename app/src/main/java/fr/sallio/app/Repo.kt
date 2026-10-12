@@ -152,29 +152,86 @@ class Repo private constructor(private val context: Context) {
      */
     fun pushPending(): SyncResult {
         if (pending().isEmpty()) return SyncResult.SKIPPED
-        val account = account() ?: return SyncResult.SKIPPED
+        account() ?: return SyncResult.SKIPPED
         lock.lock()
         try {
             if (status().needsLogin || System.currentTimeMillis() < prefs.getLong("suspendedUntil", 0)) return SyncResult.SKIPPED
+            // Ticks are safe on the phone: without a live session, they wait for the next
+            // sync rather than costing a login of their own.
+            val logged = liveSession() ?: if (canLogin(manual = true)) login() else return SyncResult.SKIPPED
             return try {
-                val logged = Pronote.loginToken(UrlConnectionHttp(), account.credentials)
-                saveAccount(logged)
-                prefs.edit().putLong("attempt", System.currentTimeMillis()).apply()
                 fetchAndStore(logged)
+                onSuccess()
                 if (pending().isEmpty()) SyncResult.DONE else SyncResult.FAILED
             } catch (e: PronoteException) {
-                val edit = prefs.edit().putString("error", explain(e))
-                if (e.needsNewLogin) edit.putBoolean("needsLogin", true)
-                edit.apply()
+                onFailure(e)
                 SyncResult.FAILED
             } catch (e: Exception) {
                 SyncResult.FAILED
             }
+        } catch (e: PronoteException) {
+            onFailure(e)
+            return SyncResult.FAILED
         } finally {
             lock.unlock()
             Widgets.refreshAll(context)
         }
     }
+
+    // ---- Being polite with PRONOTE ---------------------------------------------------
+    //
+    // PRONOTE suspends, for a while, IP addresses that log in too often. A whole
+    // class on the same school or home network shares one address, so every
+    // login counts: sessions are reused for a few minutes, logins are spaced out,
+    // and failures back off exponentially.
+
+    private var live: LoggedIn? = null
+    private var liveSince = 0L
+
+    /** The session of a login made less than [SESSION_REUSE_MS] ago, if any. */
+    private fun liveSession(): LoggedIn? =
+        live?.takeIf { System.currentTimeMillis() - liveSince < SESSION_REUSE_MS }
+
+    private fun canLogin(manual: Boolean): Boolean {
+        val now = System.currentTimeMillis()
+        if (now < prefs.getLong("suspendedUntil", 0)) return false
+        val fails = prefs.getInt("fails", 0)
+        val gap = if (manual) MANUAL_GAP_MS else (BACKGROUND_GAP_MS shl fails.coerceAtMost(3)).coerceAtMost(MAX_BACKOFF_MS)
+        return now - prefs.getLong("lastLogin", 0) >= gap
+    }
+
+    private fun login(): LoggedIn {
+        val account = account() ?: throw PronoteException.BadCredentials()
+        prefs.edit().putLong("lastLogin", System.currentTimeMillis()).putLong("attempt", System.currentTimeMillis()).apply()
+        val logged = Pronote.loginToken(UrlConnectionHttp(), account.credentials)
+        // The old token is already dead: store the new one before anything else.
+        saveAccount(logged)
+        live = logged
+        liveSince = System.currentTimeMillis()
+        return logged
+    }
+
+    private fun onSuccess() {
+        prefs.edit().putInt("fails", 0).remove("suspendedUntil").apply()
+    }
+
+    private fun onFailure(e: PronoteException) {
+        live = null
+        val now = System.currentTimeMillis()
+        val edit = prefs.edit().putString("error", explain(e)).putInt("fails", prefs.getInt("fails", 0) + 1)
+        if (e.needsNewLogin) edit.putBoolean("needsLogin", true)
+        if (e is PronoteException.SuspendedIp || e is PronoteException.RateLimited) {
+            val until = now + SUSPENSION_COOLDOWN_MS
+            edit.putLong("suspendedUntil", until)
+            val t = java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(until), java.time.ZoneId.systemDefault())
+            edit.putString("error", "Pronote bloque ta connexion pour un moment, nouvel essai vers ${Agenda.time(t)}")
+        }
+        edit.apply()
+    }
+
+    /** When PRONOTE lets us try again, or 0. */
+    fun suspendedUntil(): Long = prefs.getLong("suspendedUntil", 0).takeIf { it > System.currentTimeMillis() } ?: 0
+
 
     /** Sends the pending ticks in [logged]'s session and returns the homework as PRONOTE now has it. */
     private fun pushTicks(logged: LoggedIn, fetched: List<Homework>): List<Homework> {
@@ -216,8 +273,10 @@ class Repo private constructor(private val context: Context) {
             vault.delete(PHOTO)
             cachedPhoto = null
             saveAccount(logged)
-            prefs.edit().putBoolean("needsLogin", false).remove("error")
-                .putLong("attempt", System.currentTimeMillis()).apply()
+            prefs.edit().putBoolean("needsLogin", false).remove("error").putInt("fails", 0).remove("suspendedUntil")
+                .putLong("attempt", System.currentTimeMillis()).putLong("lastLogin", System.currentTimeMillis()).apply()
+            live = logged
+            liveSince = System.currentTimeMillis()
             try {
                 fetchAndStore(logged)
             } catch (e: PronoteException) {
@@ -237,36 +296,21 @@ class Repo private constructor(private val context: Context) {
      * stays on screen.
      */
     fun sync(manual: Boolean): SyncResult {
-        val account = account() ?: return SyncResult.SKIPPED
+        account() ?: return SyncResult.SKIPPED
         if (!lock.tryLock()) return SyncResult.SKIPPED
         try {
-            val now = System.currentTimeMillis()
-            val status = status()
-            if (status.needsLogin) return SyncResult.SKIPPED
-            if (now < prefs.getLong("suspendedUntil", 0)) return SyncResult.SKIPPED
-            // Background syncs stay polite: PRONOTE suspends IPs that hammer it.
-            val minGap = if (manual) MANUAL_GAP_MS else BACKGROUND_GAP_MS
-            if (now - status.lastAttempt < minGap) return SyncResult.SKIPPED
-
-            prefs.edit().putLong("attempt", now).apply()
-            return try {
-                val logged = Pronote.loginToken(UrlConnectionHttp(), account.credentials)
-                // The old token is already dead: store the new one before anything else.
-                saveAccount(logged)
-                fetchAndStore(logged)
-                SyncResult.DONE
-            } catch (e: PronoteException) {
-                val edit = prefs.edit().putString("error", explain(e))
-                if (e.needsNewLogin) edit.putBoolean("needsLogin", true)
-                if (e is PronoteException.SuspendedIp || e is PronoteException.RateLimited) {
-                    edit.putLong("suspendedUntil", now + SUSPENSION_COOLDOWN_MS)
-                }
-                edit.apply()
-                SyncResult.FAILED
-            } catch (e: Exception) {
-                prefs.edit().putString("error", "Erreur inattendue (${e.javaClass.simpleName})").apply()
-                SyncResult.FAILED
-            }
+            if (status().needsLogin) return SyncResult.SKIPPED
+            val logged = liveSession() ?: if (canLogin(manual)) login() else return SyncResult.SKIPPED
+            fetchAndStore(logged)
+            onSuccess()
+            return SyncResult.DONE
+        } catch (e: PronoteException) {
+            onFailure(e)
+            return SyncResult.FAILED
+        } catch (e: Exception) {
+            live = null
+            prefs.edit().putString("error", "Erreur inattendue (${e.javaClass.simpleName})").apply()
+            return SyncResult.FAILED
         } finally {
             lock.unlock()
             Widgets.refreshAll(context)
@@ -282,15 +326,8 @@ class Repo private constructor(private val context: Context) {
             val synced = pushTicks(logged, list)
             vault.write(HOMEWORK, JSONArray(synced.map { it.toJson() }).toString())
         }
-        // The photo rarely changes: fetched once, then again after a new login.
-        // Not every school publishes photos: after a miss, try again only a week later.
-        val photoDue = System.currentTimeMillis() - prefs.getLong("photoTried", 0) > 7 * 24 * 3600_000L
-        if (vault.read(PHOTO) == null && photoDue) runCatching { logged.photo() }
-            .also { prefs.edit().putLong("photoTried", System.currentTimeMillis()).apply() }
-            .getOrNull()?.let { bytes ->
-            vault.write(PHOTO, android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
-            cachedPhoto = null
-        }
+        // Profile photo: parked. PRONOTE 2026 answers 404 to the file address that
+        // Pawnote and pronotepy build; failing requests only add to the IP's count.
         runCatching { Schoolwork.report(logged) }.onSuccess { report ->
             val first = vault.read(GRADES) == null
             vault.write(GRADES, report.toJson().toString())
@@ -325,9 +362,11 @@ class Repo private constructor(private val context: Context) {
         private const val PHOTO = "photo"
         private const val GRADES = "grades"
         private const val FETCH_DAYS = 13L
-        private const val MANUAL_GAP_MS = 30_000L
-        private const val BACKGROUND_GAP_MS = 20 * 60_000L
-        private const val SUSPENSION_COOLDOWN_MS = 30 * 60_000L
+        private const val MANUAL_GAP_MS = 2 * 60_000L
+        private const val SESSION_REUSE_MS = 4 * 60_000L
+        private const val MAX_BACKOFF_MS = 3 * 3600_000L
+        private const val BACKGROUND_GAP_MS = 45 * 60_000L
+        private const val SUSPENSION_COOLDOWN_MS = 60 * 60_000L
 
         @Volatile private var instance: Repo? = null
 
@@ -341,7 +380,7 @@ class Repo private constructor(private val context: Context) {
             is PronoteException.Unreachable -> "Pas de connexion à Pronote"
             is PronoteException.Unavailable -> "Pronote est indisponible"
             is PronoteException.SuspendedIp, is PronoteException.RateLimited ->
-                "Pronote limite les connexions, pause de 30 min"
+                "Pronote bloque ta connexion pour un moment"
             is PronoteException.SessionExpired -> "Session expirée, nouvel essai plus tard"
             is PronoteException.BadCredentials -> "Connexion expirée : reconnecte-toi"
             is PronoteException.AccessDenied -> "Accès refusé par Pronote : reconnecte-toi"

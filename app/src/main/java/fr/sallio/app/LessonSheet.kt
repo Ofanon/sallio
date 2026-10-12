@@ -88,7 +88,7 @@ object LessonSheet {
                 val card = UI.card(ctx, padding = 14)
                 homework.forEachIndexed { i, h ->
                     if (i > 0) card.addView(UI.divider(ctx))
-                    card.addView(UI.homeworkCheck(ctx, h, { activity.isHomeworkDone(h) }) { done -> activity.setHomeworkDone(h, done) }, UI.matchWidth())
+                    card.addView(UI.homeworkCheck(ctx, h, { activity.isHomeworkDone(h) }, { HomeworkSheet.show(activity, h, s, bottomInset) }) { done -> activity.setHomeworkDone(h, done) }, UI.matchWidth())
                 }
                 sheet.addView(card, UI.matchWidth())
             }

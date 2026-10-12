@@ -217,7 +217,7 @@ internal object UI {
      * A homework line with its sticker checkbox. [isDone] / [toggle] come from the
      * repository; the row redraws itself, so it works inside any sheet.
      */
-    fun homeworkCheck(context: Context, h: fr.sallio.pronote.Homework, isDone: () -> Boolean, toggle: (Boolean) -> Unit): View {
+    fun homeworkCheck(context: Context, h: fr.sallio.pronote.Homework, isDone: () -> Boolean, onOpen: (() -> Unit)? = null, toggle: (Boolean) -> Unit): View {
         val row = row(context).apply {
             gravity = Gravity.TOP
             setPadding(0, dp(10), 0, dp(10))
@@ -245,7 +245,7 @@ internal object UI {
             }
         }
         box.setOnClickListener(click)
-        text.setOnClickListener(click)
+        text.setOnClickListener(if (onOpen != null) View.OnClickListener { Motion.tap(text); onOpen() } else click)
         row.addView(box, LinearLayout.LayoutParams(context.dp(28), context.dp(28)))
         row.addView(hgap(context, 12))
         row.addView(text, weight())

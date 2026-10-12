@@ -902,6 +902,7 @@ class MainActivity : Activity() {
 
     /** Day strip of the Cours tab: kept across renders so picking a day does not jump. */
     internal var stripScroll = -1
+    internal var stripOwner: android.view.View? = null
 
     companion object {
         /** The home cascade plays once per launch of the app, not at every visit. */
