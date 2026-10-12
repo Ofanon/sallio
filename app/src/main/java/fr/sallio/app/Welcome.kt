@@ -88,9 +88,9 @@ object Welcome {
             }
         }
 
-        // The door, centered, on a blue sticker.
+        // The logo, centered: the door plate on the launcher icon's own yellow.
         val badge = FrameLayout(ctx).apply {
-            background = UI.sticker(ctx, ctx.getColor(R.color.accent), ctx.getColor(R.color.accent_edge), 32, 5)
+            background = UI.sticker(ctx, ctx.getColor(R.color.sun), ctx.getColor(R.color.sun_edge), 32, 5)
             setPadding(0, 0, 0, ctx.dp(5))
             addView(android.widget.ImageView(ctx).apply { setImageResource(R.drawable.ic_launcher_fg) }, FrameLayout.LayoutParams(-1, -1))
         }
