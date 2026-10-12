@@ -199,7 +199,7 @@ object Inbox {
      * Marks actualités as read or unread on PRONOTE (`SaisieActualites` with
      * `marqueLueSeulement`, as Pawnote's `newsRead`): nothing else changes, a
      * survey stays unanswered. [wanted] maps [News.key] to the wanted state.
-     * Returns the keys now settled: sent, already in that state, or gone.
+     * Returns the keys now settled: sent, or gone from PRONOTE.
      */
     fun setNewsRead(logged: LoggedIn, wanted: Map<String, Boolean>): Set<String> {
         if (wanted.isEmpty()) return emptySet()
@@ -210,7 +210,9 @@ object Inbox {
         for (item in items) {
             val key = base(item).key
             val read = wanted[key] ?: continue
-            if (item.optBoolean("lue") != read) {
+            // Always sent: within a session PRONOTE's list keeps the state it had at login,
+            // so its "lue" cannot tell whether a change is still needed.
+            run {
                 // The student, not the item's own audience (often the whole class): the
                 // read state is the student's, as in pronotepy's mark_as_read.
                 val audience = JSONObject().put("N", session.userResource?.optString("N").orEmpty()).put("G", 4)

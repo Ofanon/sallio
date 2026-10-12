@@ -317,11 +317,13 @@ internal object UI {
         paint(on)
         button.setOnClickListener {
             on = !on
-            if (on) Motion.success(box) else Motion.tick(box)
+            // A single click either way: the success pattern is two pulses, felt as a double tap here.
+            if (on) Motion.tap(box) else Motion.tick(box)
             paint(on)
             Motion.bounce(box) { onTap(on) }
         }
-        Motion.pressable(button)
+        // One vibration per tap: the tick or success above, none on release.
+        Motion.pressable(button, haptic = false)
         return button
     }
 
