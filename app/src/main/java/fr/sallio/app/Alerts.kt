@@ -41,6 +41,17 @@ object Alerts {
 
     private const val GROUP = "changes."
 
+    /** Every channel at once, so Android's settings list them all before the first alert. */
+    fun createChannels(context: Context) {
+        val nm = context.getSystemService(NotificationManager::class.java)
+        for (channel in CHANNELS.values) {
+            nm.createNotificationChannel(NotificationChannel(channel.id, channel.name, NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = channel.description
+            })
+        }
+        Reminders.channel(context)
+    }
+
     fun post(context: Context, items: List<Changes.Item>, now: LocalDateTime = LocalDateTime.now()) {
         if (items.isEmpty() || !isEnabled(context)) return
         val nm = context.getSystemService(NotificationManager::class.java)

@@ -34,6 +34,29 @@ class Repo private constructor(private val context: Context) {
     private val prefs = context.getSharedPreferences("sync", Context.MODE_PRIVATE)
     private val lock = ReentrantLock()
 
+    init {
+        runCatching { learnColors() }
+    }
+
+    /** The student's choice: subjects in PRONOTE's colours (on by default). */
+    fun pronoteColors(): Boolean = context.getSharedPreferences("ui", Context.MODE_PRIVATE).getBoolean("pronoteColors", true)
+
+    fun setPronoteColors(on: Boolean) {
+        context.getSharedPreferences("ui", Context.MODE_PRIVATE).edit().putBoolean("pronoteColors", on).apply()
+        learnColors()
+        Widgets.refreshAll(context)
+    }
+
+    /** Hands [Subjects] the colour PRONOTE gives each subject, from what is stored. */
+    fun learnColors() {
+        val colors = LinkedHashMap<String, String?>()
+        // Lessons last: when sources disagree, the timetable's colour wins, as on PRONOTE.
+        report()?.subjects?.forEach { if (it.color != null) colors[it.subject] = it.color }
+        homework().forEach { if (it.color != null) colors[it.subject] = it.color }
+        lessons().forEach { if (it.color != null) colors[it.subject] = it.color }
+        Subjects.learn(colors, pronoteColors())
+    }
+
     class Account(
         val credentials: Credentials,
         val studentName: String,
@@ -132,7 +155,39 @@ class Repo private constructor(private val context: Context) {
     fun discussions(): List<Discussion> = readList(DISCUSSIONS) { Discussion.fromJson(it) }
 
     /** Unread actualités and messages, for the badge on the tab. */
-    fun unreadInbox(): Int = news().count { !it.read } + discussions().sumOf { it.unread }
+    fun unreadInbox(): Int = news().count { !isRead(it) } + discussions().sumOf { it.unread }
+
+    /** "J'ai vu" waiting to reach PRONOTE, as "+key" (read) or "-key" (unread), like [pending]. */
+    private fun pendingReads(): Set<String> = prefs.getStringSet("pendingRead", emptySet())!!
+
+    fun isRead(n: News): Boolean {
+        val p = pendingReads()
+        return when {
+            "+" + n.key in p -> true
+            "-" + n.key in p -> false
+            else -> n.read
+        }
+    }
+
+    /** Records "J'ai vu" on the phone at once; [pushPending] then sends it to PRONOTE. */
+    fun setRead(n: News, read: Boolean) {
+        val set = pendingReads().toMutableSet()
+        set.remove("+" + n.key)
+        set.remove("-" + n.key)
+        if (read != n.read) set += (if (read) "+" else "-") + n.key
+        prefs.edit().putStringSet("pendingRead", set).apply()
+    }
+
+    /** Sends the waiting "J'ai vu" in [logged]'s session; they stay waiting if PRONOTE refuses. */
+    private fun pushReads(logged: LoggedIn) {
+        val wanted = pendingReads()
+        if (wanted.isEmpty()) return
+        val settled = runCatching { Inbox.setNewsRead(logged, wanted.associate { it.substring(1) to (it[0] == '+') }) }.getOrNull() ?: return
+        prefs.edit().putStringSet("pendingRead", pendingReads().filterNot { it.substring(1) in settled }.toSet()).apply()
+    }
+
+    /** Ticks and "J'ai vu" not yet on PRONOTE. */
+    fun pendingTotal(): Int = pending().size + pendingReads().size
 
     fun schoolLife(): SchoolLife? = vault.read(SCHOOL_LIFE)?.let { runCatching { SchoolLife.fromJson(JSONObject(it)) }.getOrNull() }
 
@@ -181,7 +236,7 @@ class Repo private constructor(private val context: Context) {
      * next sync sends them.
      */
     fun pushPending(): SyncResult {
-        if (pending().isEmpty()) return SyncResult.SKIPPED
+        if (pendingTotal() == 0) return SyncResult.SKIPPED
         account() ?: return SyncResult.SKIPPED
         lock.lock()
         try {
@@ -192,7 +247,7 @@ class Repo private constructor(private val context: Context) {
             return try {
                 fetchAndStore(logged)
                 onSuccess()
-                if (pending().isEmpty()) SyncResult.DONE else SyncResult.FAILED
+                if (pendingTotal() == 0) SyncResult.DONE else SyncResult.FAILED
             } catch (e: PronoteException) {
                 onFailure(e)
                 SyncResult.FAILED
@@ -407,6 +462,8 @@ class Repo private constructor(private val context: Context) {
         }
         runCatching { Attachments.prune(context) }
         // Actualités and Messagerie: read-only, contents cached so a sync only asks for new ones.
+        // "J'ai vu" first, so the list read just after already says "read".
+        pushReads(logged)
         val newsBefore = storedList(NEWS) { News.fromJson(it) }
         runCatching { Inbox.news(logged, newsBefore.orEmpty().associateBy { it.key }) }.onSuccess { list ->
             vault.write(NEWS, JSONArray(list.map { it.toJson() }).toString())
@@ -430,6 +487,7 @@ class Repo private constructor(private val context: Context) {
             vault.write(SCHOOL_LIFE, life.toJson().toString())
             runCatching { changes += Changes.schoolLife(before?.events, life.events) }
         }
+        runCatching { learnColors() }
         runCatching { Alerts.post(context, changes, now) }
         prefs.edit()
             .putLong("success", System.currentTimeMillis())

@@ -75,7 +75,26 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
                 if (i > 0) card.addView(UI.divider(ctx))
                 card.addView(homeworkRow(h, compact = true), UI.matchWidth())
             }
-            if (due.size > 4) card.addView(UI.text(ctx, "+ ${due.size - 4} autres", 13f, R.color.text2).apply { setPadding(0, dp(8), 0, 0) })
+            if (due.size > 4) {
+                // Unfolds the rest right here: the student stays on the day they were looking at.
+                val more = UI.text(ctx, "+ ${due.size - 4} autre${if (due.size > 5) "s" else ""}  ▾", 14f, R.color.accent, 800).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(12), 0, dp(4))
+                    contentDescription = "Voir les ${due.size - 4} autres devoirs"
+                }
+                more.setOnClickListener {
+                    Motion.tap(more)
+                    val at = card.indexOfChild(more)
+                    card.removeView(more)
+                    due.drop(4).forEachIndexed { i, h ->
+                        card.addView(UI.divider(ctx), at + 2 * i)
+                        val row = homeworkRow(h, compact = true)
+                        card.addView(row, at + 2 * i + 1, UI.matchWidth())
+                        Motion.fadeIn(row, 40L * i)
+                    }
+                }
+                card.addView(more, UI.matchWidth())
+            }
             root.addView(card, UI.matchWidth())
         }
 

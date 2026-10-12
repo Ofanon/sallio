@@ -19,17 +19,31 @@ Cinq onglets, pour l'essentiel de Pronote au quotidien sans le charger :
   devoir le coche aussi sur Pronote (`SaisieTAFFaitEleve`, comme l'app
   officielle) ; sans réseau, la coche attend et part à la synchro suivante.
 - **Notes** : moyenne générale et de classe, dernières notes, moyennes par
-  matière ; les notes arrivées depuis la dernière visite sont signalées. Une
+  matière ; les notes arrivées depuis la dernière visite sont signalées. Les
+  statistiques tracent ta moyenne et celle de la classe au fil des notes (la
+  classe : la moyenne de classe de chaque devoir, mêmes coefficients). Une
   note touchée ouvre sa fiche : barème, coefficient, commentaire, et sa place
   dans la classe (note la plus basse, moyenne, plus haute).
 - **Infos** : les actualités (et sondages), la messagerie et la **vie
-  scolaire**, en lecture seule. Vie scolaire : le total de l'année (absences,
+  scolaire**. Les actualités à lire passent en tête, la plus récente en grand,
+  chaque catégorie avec sa couleur ; « J'ai vu » la marque comme lue sur
+  Pronote aussi (`SaisieActualites`, comme Pawnote `newsRead`), et sans réseau
+  la coche attend la synchro suivante, comme pour les devoirs. Messages et vie
+  scolaire sont en lecture seule. Vie scolaire : le total de l'année (absences,
   heures manquées, retards), ce qui attend un motif des parents, puis les
   punitions et sanctions, absences, retards et dispenses, chacun avec sa fiche
   (`PagePresence`, onglet 19, toute l'année scolaire).
 
 Pour tout le reste (répondre à un message, justifier une absence, bulletins),
 « Ouvrir Pronote ».
+
+Chaque matière garde la **couleur qu'elle a sur Pronote**, ramenée à la
+douceur de la palette de Sallio pour que deux matières ne jurent jamais
+(réglage « Couleurs de Pronote », dans Apparence). L'icône vient du nom de la
+matière.
+
+Les **réglages** (touche ton avatar) tiennent sur un écran : Widgets et accès
+rapide, Notifications, Apparence, Compte et données, chacun ouvrant sa page.
 
 Accès le plus rapide possible, sans même ouvrir l'app :
 

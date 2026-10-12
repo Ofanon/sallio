@@ -88,8 +88,9 @@ data class Discussion(
 }
 
 /**
- * Read-only access to the Actualités and the Messagerie. Nothing here marks
- * anything as read or answers anything: PRONOTE stays as the student left it.
+ * Access to the Actualités and the Messagerie. Only [setNewsRead] writes, when
+ * the student asks for it; nothing else marks anything as read or answers
+ * anything: PRONOTE stays as the student left it.
  */
 object Inbox {
 
@@ -192,6 +193,50 @@ object Inbox {
                 )
             })
         }
+    }
+
+    /**
+     * Marks actualités as read or unread on PRONOTE (`SaisieActualites` with
+     * `marqueLueSeulement`, as Pawnote's `newsRead`): nothing else changes, a
+     * survey stays unanswered. [wanted] maps [News.key] to the wanted state.
+     * Returns the keys now settled: sent, already in that state, or gone.
+     */
+    fun setNewsRead(logged: LoggedIn, wanted: Map<String, Boolean>): Set<String> {
+        if (wanted.isEmpty()) return emptySet()
+        val session = logged.session
+        val p = session.properties
+        val items = list(session)
+        val settled = HashSet<String>()
+        for (item in items) {
+            val key = base(item).key
+            val read = wanted[key] ?: continue
+            if (item.optBoolean("lue") != read) {
+                val audience = item.optJSONObject("public")?.optJSONObject("V")
+                    ?: JSONObject().put("N", session.userResource?.optString("N").orEmpty()).put("G", 4)
+                session.call(
+                    "SaisieActualites",
+                    JSONObject()
+                        .put(p.signature, JSONObject().put("onglet", 8))
+                        .put(p.data, JSONObject()
+                            .put("listeActualites", JSONArray().put(JSONObject()
+                                .put("N", item.optString("N"))
+                                .put("L", item.optString("L"))
+                                .put("genrePublic", audience.optInt("G", 4))
+                                .put("public", audience)
+                                .put("validationDirecte", true)
+                                .put("listeQuestions", JSONArray())
+                                .put("marqueLueSeulement", true)
+                                .put("lue", read)
+                                .put("supprimee", false)
+                                .put("saisieActualite", false)))
+                            .put("saisieActualite", false)),
+                )
+            }
+            settled += key
+        }
+        // No longer on PRONOTE: nothing left to mark.
+        settled += wanted.keys - items.map { base(it).key }.toSet()
+        return settled
     }
 
     /** Address of the file [name] of the actualité [key], in this session (ids change with each one). */

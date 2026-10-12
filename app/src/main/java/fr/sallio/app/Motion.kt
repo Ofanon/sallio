@@ -141,6 +141,15 @@ internal object Motion {
         }
     }
 
+    /** One view rising in, for content that unfolds after a tap. */
+    fun fadeIn(view: View, startDelay: Long = 0) {
+        if (!enabled()) return
+        view.alpha = 0f
+        view.translationY = view.dp(10).toFloat()
+        view.animate().alpha(1f).translationY(0f).setStartDelay(startDelay).setDuration(260)
+            .setInterpolator(DecelerateInterpolator(2f)).start()
+    }
+
     /** A small pop, for a freshly selected item. */
     fun pop(view: View, from: Float = 0.85f) {
         if (!enabled()) return

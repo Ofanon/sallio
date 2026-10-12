@@ -6,8 +6,11 @@ import java.text.Normalizer
 
 /**
  * Each subject gets a colour family and an icon, so the student recognises a
- * lesson before reading it. PRONOTE's own colours are set by each school and
- * are often dull or clashing, so they are not used for the design.
+ * lesson before reading it. By default the family takes the hue PRONOTE gives
+ * the subject (so Maths is the colour the student knows from PRONOTE), brought
+ * to the softness of Sallio's own palette: PRONOTE's raw colours are set by
+ * each school and are often dull or clashing. Without a PRONOTE colour, or with
+ * the option off, the subject gets one of Sallio's families from its name.
  */
 object Subjects {
 
@@ -55,11 +58,99 @@ object Subjects {
 
     private val cache = HashMap<String, Style>()
 
+    /** A stable family for anything that is not a subject (a news category, a person). */
+    fun familyFor(name: String): Family = ALL[Math.floorMod(fold(name).hashCode(), ALL.size)]
+
+    /** PRONOTE's colour of each subject, by folded name ("#RRGGBB" as PRONOTE writes it). */
+    @Volatile private var pronote: Map<String, Int> = emptyMap()
+    @Volatile var usePronote = true
+        private set
+
+    /**
+     * Teaches the colours PRONOTE gives the subjects, from the stored lessons,
+     * homework and averages. [use] is the student's choice in the settings.
+     */
+    @Synchronized
+    fun learn(colors: Map<String, String?>, use: Boolean) {
+        val parsed = colors.mapNotNull { (subject, hex) -> hex?.let(::parseHex)?.let { fold(subject).trim() to it } }.toMap()
+        if (parsed == pronote && use == usePronote) return
+        pronote = parsed
+        usePronote = use
+        cache.clear()
+    }
+
+    @Synchronized
     fun style(subject: String): Style = cache.getOrPut(subject) {
         val key = " " + fold(subject) + " "
-        RULES.firstOrNull { rule -> rule.keys.any { it in key } }?.let { Style(it.family, it.icon) }
-            // Unknown subject: a stable colour from its name, the school icon.
-            ?: Style(ALL[Math.floorMod(fold(subject).hashCode(), ALL.size)], R.drawable.ic_school)
+        val rule = RULES.firstOrNull { rule -> rule.keys.any { it in key } }
+        val icon = rule?.icon ?: R.drawable.ic_school
+        val fromPronote = if (usePronote) pronoteColor(subject)?.let { familyFrom(it) } else null
+        Style(
+            fromPronote ?: rule?.family
+                // Unknown subject: a stable colour from its name.
+                ?: ALL[Math.floorMod(fold(subject).hashCode(), ALL.size)],
+            icon,
+        )
+    }
+
+    /** PRONOTE's colour for [subject]; a sub-service ("Anglais > oral") takes its subject's. */
+    private fun pronoteColor(subject: String): Int? =
+        pronote[fold(subject).trim()] ?: pronote[fold(subject.substringBefore(" > ")).trim()]
+
+    /** "#1E90FF", "1e90ff" -> 0xFF1E90FF; null for anything else. */
+    internal fun parseHex(text: String): Int? {
+        val hex = text.trim().removePrefix("#")
+        if (hex.length != 6 || hex.any { it.lowercaseChar() !in "0123456789abcdef" }) return null
+        return (0xFF000000.toInt()) or hex.toInt(16)
+    }
+
+    /**
+     * A family with [color]'s hue at the lightness and saturation of Sallio's
+     * own families, so a school's harsh red or dull brown still sits well
+     * next to the others. Greys stay grey.
+     */
+    internal fun familyFrom(color: Int): Family {
+        val (h, sRaw) = hueSat(color)
+        val grey = sRaw < 0.12
+        fun c(sat: Double, light: Double): Long = hsl(h, if (grey) sat * 0.15 else sat, light).toLong() and 0xFFFFFFFFL
+        return Family(
+            tint = c(0.75, 0.92), ink = c(0.50, 0.38), solid = c(0.72, 0.68), edge = c(0.50, 0.58),
+            darkTint = c(0.30, 0.21), darkInk = c(0.80, 0.80),
+        )
+    }
+
+    private fun hueSat(color: Int): Pair<Double, Double> {
+        val r = ((color shr 16) and 0xFF) / 255.0
+        val g = ((color shr 8) and 0xFF) / 255.0
+        val b = (color and 0xFF) / 255.0
+        val max = maxOf(r, g, b)
+        val min = minOf(r, g, b)
+        val l = (max + min) / 2
+        val delta = max - min
+        if (delta < 1e-9) return 0.0 to 0.0
+        val s = delta / (1 - Math.abs(2 * l - 1))
+        val h = when (max) {
+            r -> 60 * (((g - b) / delta) % 6)
+            g -> 60 * ((b - r) / delta + 2)
+            else -> 60 * ((r - g) / delta + 4)
+        }
+        return (h + 360) % 360 to s.coerceIn(0.0, 1.0)
+    }
+
+    private fun hsl(h: Double, s: Double, l: Double): Int {
+        val c = (1 - Math.abs(2 * l - 1)) * s
+        val x = c * (1 - Math.abs((h / 60) % 2 - 1))
+        val m = l - c / 2
+        val (r, g, b) = when {
+            h < 60 -> Triple(c, x, 0.0)
+            h < 120 -> Triple(x, c, 0.0)
+            h < 180 -> Triple(0.0, c, x)
+            h < 240 -> Triple(0.0, x, c)
+            h < 300 -> Triple(x, 0.0, c)
+            else -> Triple(c, 0.0, x)
+        }
+        fun ch(v: Double) = Math.round((v + m) * 255).toInt().coerceIn(0, 255)
+        return (0xFF shl 24) or (ch(r) shl 16) or (ch(g) shl 8) or ch(b)
     }
 
     private fun fold(text: String): String =

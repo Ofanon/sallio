@@ -7,8 +7,9 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 
 /**
- * Everything in one place, behind the avatar: the ways to see the room
- * faster, the preferences and the account.
+ * Everything behind the avatar: a short hub (the student, then one row per
+ * topic), each topic opening its own page on top. Back closes the page and
+ * returns to the hub.
  */
 object SettingsSheet {
 
@@ -16,6 +17,10 @@ object SettingsSheet {
         /** A switch. [set] receives the wanted state and a callback once it is applied. */
         class Toggle(icon: Int, title: String, description: String, val isOn: () -> Boolean, val set: (Boolean, () -> Unit) -> Unit) :
             Item(icon, title, description)
+
+        /** Opens its own page of [sections] over the hub; [summary] tells the state at a glance. */
+        class Page(icon: Int, title: String, val summary: String, val subtitle: String, val sections: () -> List<Section>) :
+            Item(icon, title, summary)
 
         /** A button; [badge] like "Ajouté" shows on the right. */
         class Action(icon: Int, title: String, description: String? = null, val badge: String? = null, val danger: Boolean = false, val closes: Boolean = true, val run: () -> Unit) :
@@ -28,16 +33,7 @@ object SettingsSheet {
         val ctx = activity
         Sheet.open(activity, bottomInset) { sheet, dialog ->
             sheet.addView(header, UI.matchWidth())
-            for (section in sections) {
-                if (section.items.isEmpty()) continue
-                sheet.addView(UI.section(ctx, section.title))
-                val card = UI.card(ctx, padding = 6)
-                section.items.forEachIndexed { i, item ->
-                    if (i > 0) card.addView(UI.divider(ctx).apply { (layoutParams as LinearLayout.LayoutParams).apply { marginStart = ctx.dp(12); marginEnd = ctx.dp(12) } })
-                    card.addView(row(activity, item) { dialog.dismiss() }, UI.matchWidth())
-                }
-                sheet.addView(card, UI.matchWidth())
-            }
+            addSections(activity, sheet, sections, bottomInset) { dialog.dismiss() }
             sheet.addView(UI.text(ctx, footer, 12f, R.color.text3).apply {
                 gravity = Gravity.CENTER
                 setPadding(0, ctx.dp(18), 0, 0)
@@ -46,7 +42,30 @@ object SettingsSheet {
         }
     }
 
-    private fun row(ctx: MainActivity, item: Item, close: () -> Unit): View {
+    private fun addSections(activity: MainActivity, sheet: LinearLayout, sections: List<Section>, bottomInset: Int, close: () -> Unit) {
+        val ctx = activity
+        for (section in sections) {
+            if (section.items.isEmpty()) continue
+            if (section.title.isNotEmpty()) sheet.addView(UI.section(ctx, section.title))
+            else sheet.addView(UI.gap(ctx, 14))
+            val card = UI.card(ctx, padding = 6)
+            section.items.forEachIndexed { i, item ->
+                if (i > 0) card.addView(UI.divider(ctx).apply { (layoutParams as LinearLayout.LayoutParams).apply { marginStart = ctx.dp(12); marginEnd = ctx.dp(12) } })
+                card.addView(row(activity, item, bottomInset, close), UI.matchWidth())
+            }
+            sheet.addView(card, UI.matchWidth())
+        }
+    }
+
+    /** A topic's page, over the hub. Its actions that leave the settings close both. */
+    private fun openPage(activity: MainActivity, page: Item.Page, bottomInset: Int, closeHub: () -> Unit) {
+        Sheet.open(activity, bottomInset) { sheet, dialog ->
+            Sheet.title(sheet, page.title, page.subtitle)
+            addSections(activity, sheet, page.sections(), bottomInset) { dialog.dismiss(); closeHub() }
+        }
+    }
+
+    private fun row(ctx: MainActivity, item: Item, bottomInset: Int, close: () -> Unit): View {
         val row = UI.row(ctx).apply {
             setPadding(ctx.dp(12), ctx.dp(13), ctx.dp(12), ctx.dp(13))
             foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, ctx.dp(16).toFloat()))
@@ -76,6 +95,13 @@ object SettingsSheet {
                     redraw(ctx, switch, wanted)
                     // The option may ask first (preview, permission): redraw from its real state.
                     item.set(wanted) { redraw(ctx, switch, item.isOn()) }
+                }
+            }
+            is Item.Page -> {
+                row.addView(UI.text(ctx, "›", 26f, R.color.text3, 700).apply { setPadding(ctx.dp(4), 0, ctx.dp(2), ctx.dp(4)) })
+                row.setOnClickListener {
+                    Motion.tap(row)
+                    openPage(ctx, item, bottomInset, close)
                 }
             }
             is Item.Action -> {

@@ -13,7 +13,10 @@ import java.time.LocalDateTime
 import java.time.format.TextStyle
 import java.util.Locale
 
-/** The "Infos" tab: actualités, sondages, the messagerie and the vie scolaire, read-only. */
+/**
+ * The "Infos" tab: actualités, sondages, the messagerie and the vie scolaire.
+ * Read-only, except "J'ai vu" on an actualité, which marks it read on PRONOTE.
+ */
 class InboxTab(private val activity: MainActivity, private val repo: Repo) {
 
     private val ctx = activity
@@ -30,7 +33,7 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
             background = UI.rounded(ctx.getColor(R.color.surface2), ctx.dp(16).toFloat())
             setPadding(ctx.dp(4), ctx.dp(4), ctx.dp(4), ctx.dp(4))
         }
-        val unreadNews = news.count { !it.read }
+        val unreadNews = news.count { !repo.isRead(it) }
         val unreadMessages = discussions.sumOf { it.unread }
         // Three views share the width: counts stay short ("Messages · 2").
         for ((label, m) in listOf((if (unreadNews > 0) "Actus · $unreadNews" else "Actualités") to Mode.NEWS,
@@ -51,12 +54,26 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
         when (mode) {
             Mode.NEWS -> {
                 if (news.isEmpty()) root.addView(empty(R.drawable.ic_news, if (s.status.lastSuccess == 0L) "Les actualités arrivent à la prochaine mise à jour." else "Aucune actualité pour l'instant."), UI.matchWidth().apply { topMargin = ctx.dp(14) })
-                for ((title, items) in news.groupBy { section(it.date, s.now) }) {
-                    root.addView(UI.section(ctx, title))
+                // What is still to read comes first, the newest one in big.
+                val unread = news.filter { !repo.isRead(it) }
+                unread.firstOrNull()?.let { first ->
+                    root.addView(UI.section(ctx, if (unread.size > 1) "À lire · ${unread.size}" else "À lire"))
+                    root.addView(featureCard(first), UI.matchWidth())
+                    if (unread.size > 1) {
+                        val card = UI.card(ctx, padding = 6)
+                        unread.drop(1).forEachIndexed { i, n ->
+                            if (i > 0) card.addView(divider())
+                            card.addView(newsRow(n), UI.matchWidth())
+                        }
+                        root.addView(card, UI.matchWidth().apply { topMargin = ctx.dp(10) })
+                    }
+                }
+                for ((title, items) in news.filter { repo.isRead(it) }.groupBy { section(it.date, s.now) }) {
+                    root.addView(UI.section(ctx, if (unread.isEmpty()) title else "Déjà vu · ${title.replaceFirstChar { it.lowercase() }}"))
                     val card = UI.card(ctx, padding = 6)
                     items.forEachIndexed { i, n ->
                         if (i > 0) card.addView(divider())
-                        card.addView(newsRow(n, s), UI.matchWidth())
+                        card.addView(newsRow(n), UI.matchWidth())
                     }
                     root.addView(card, UI.matchWidth())
                 }
@@ -75,8 +92,11 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
             }
             Mode.LIFE -> schoolLife(root)
         }
-        val footer = if (mode == Mode.LIFE) "Lecture seule. Pour justifier une absence, ouvre Pronote."
-        else "Lecture seule : Sallio ne marque rien comme lu sur Pronote. Pour répondre, ouvre Pronote."
+        val footer = when (mode) {
+            Mode.LIFE -> "Lecture seule. Pour justifier une absence, ouvre Pronote."
+            Mode.NEWS -> "Une actualité n'est marquée lue sur Pronote que quand tu touches « J'ai vu »."
+            Mode.MESSAGES -> "Lecture seule : Sallio ne marque aucun message comme lu. Pour répondre, ouvre Pronote."
+        }
         root.addView(UI.text(ctx, footer, 12f, R.color.text3).apply {
             gravity = Gravity.CENTER
             setPadding(0, ctx.dp(20), 0, 0)
@@ -186,6 +206,75 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
 
     private fun divider() = UI.divider(ctx).apply { (layoutParams as LinearLayout.LayoutParams).apply { marginStart = ctx.dp(62); marginEnd = ctx.dp(12) } }
 
+    /** Category of an actualité as shown: "Sondage", "Information", or PRONOTE's own. */
+    private fun category(n: News) = if (n.survey) "Sondage" else n.category.ifEmpty { "Information" }
+
+    /** Rounded tile in a family's colours (a news category, a person). */
+    private fun familyTile(icon: Int, family: Subjects.Family) = FrameLayout(ctx).apply {
+        background = UI.rounded(Subjects.tint(ctx, family), ctx.dp(12).toFloat())
+        addView(UI.icon(ctx, icon, Subjects.ink(ctx, family), 20, tintIsColor = true).apply {
+            layoutParams = FrameLayout.LayoutParams(ctx.dp(20), ctx.dp(20), Gravity.CENTER)
+        })
+    }
+
+    /** Round badge with a person's initials, in a colour of their own. */
+    private fun initials(name: String): View {
+        val family = Subjects.familyFor(name)
+        // "M. MARTIN P." -> "MP": civility dropped, first letter of the first two words.
+        val letters = name.replace(Regex("^(M\\.|Mme|Mlle|Mr)\\s+"), "").split(" ", "-")
+            .filter { w -> w.any { it.isLetter() } }.take(2)
+            .joinToString("") { w -> w.first { it.isLetter() }.uppercase() }.ifEmpty { "?" }
+        return android.widget.TextView(ctx).apply {
+            text = letters
+            gravity = Gravity.CENTER
+            textSize = 15f
+            typeface = UI.display(ctx)
+            setTextColor(Subjects.ink(ctx, family))
+            background = UI.rounded(Subjects.tint(ctx, family), ctx.dp(20).toFloat())
+        }
+    }
+
+    /** The newest actualité to read, large, in its category's colour. */
+    private fun featureCard(n: News): View {
+        val family = Subjects.familyFor(category(n))
+        val ink = Subjects.onSolid(family)
+        val card = UI.column(ctx).apply {
+            background = UI.sticker(ctx, Subjects.solid(family), Subjects.edge(ctx, family), 24, 5, pressable = true)
+            UI.stickerPadding(this, 18, 14, 5)
+        }
+        val top = UI.row(ctx)
+        top.addView(UI.icon(ctx, if (n.survey) R.drawable.ic_tasks else R.drawable.ic_news, ink, 16, tintIsColor = true))
+        top.addView(UI.text(ctx, category(n).uppercase(fr), 12f, weight = 900).apply {
+            setTextColor(ink); alpha = 0.85f; letterSpacing = 0.06f; setPadding(ctx.dp(6), 0, 0, 0)
+        }, UI.weight())
+        shortDate(n.date).takeIf { it.isNotEmpty() }?.let { top.addView(UI.text(ctx, it, 12f, weight = 800).apply { setTextColor(ink); alpha = 0.85f }) }
+        card.addView(top, UI.matchWidth())
+        card.addView(UI.title(ctx, n.title, 21f).apply { setTextColor(ink); setPadding(0, ctx.dp(8), 0, 0) })
+        val preview = if (n.survey) n.questions.firstOrNull()?.let { it.title.ifEmpty { it.text } }.orEmpty() else n.content
+        if (preview.isNotEmpty()) card.addView(UI.text(ctx, preview, 15f).apply {
+            setTextColor(ink); alpha = 0.92f
+            maxLines = 3
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setPadding(0, ctx.dp(6), 0, 0)
+        })
+        val bottom = UI.row(ctx).apply { setPadding(0, ctx.dp(12), 0, 0) }
+        bottom.addView(UI.oneLine(UI.text(ctx, n.author, 13f, weight = 800).apply { setTextColor(ink); alpha = 0.85f }), UI.weight())
+        // "J'ai vu" right on the card: no need to open it to clear it.
+        bottom.addView(android.widget.TextView(ctx).apply {
+            text = "J'ai vu ✓"
+            textSize = 14f
+            typeface = UI.display(ctx)
+            setTextColor(Subjects.solid(family).let { Subjects.darker(it, 0.55f) })
+            background = UI.rounded(android.graphics.Color.WHITE, ctx.dp(14).toFloat())
+            setPadding(ctx.dp(14), ctx.dp(7), ctx.dp(14), ctx.dp(8))
+            setOnClickListener { Motion.success(this); activity.setNewsRead(n, true) }
+        })
+        card.addView(bottom, UI.matchWidth())
+        card.setOnClickListener { Motion.tap(card); showNews(n) }
+        Motion.pressable(card)
+        return card
+    }
+
     private fun tile(icon: Int, accent: Boolean) = FrameLayout(ctx).apply {
         background = UI.rounded(ctx.getColor(if (accent) R.color.accent_container else R.color.surface2), ctx.dp(12).toFloat())
         addView(UI.icon(ctx, icon, if (accent) R.color.accent else R.color.text2, 20).apply {
@@ -196,19 +285,20 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
     private fun shortDate(d: LocalDateTime?): String =
         d?.let { "${it.dayOfMonth} ${it.month.getDisplayName(TextStyle.SHORT, fr)}" }.orEmpty()
 
-    private fun newsRow(n: News, s: Snapshot) = UI.row(ctx).apply {
+    private fun newsRow(n: News) = UI.row(ctx).apply {
+        val read = repo.isRead(n)
         gravity = Gravity.TOP
         setPadding(ctx.dp(10), ctx.dp(12), ctx.dp(12), ctx.dp(12))
         foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, ctx.dp(16).toFloat()))
-        addView(tile(if (n.survey) R.drawable.ic_tasks else R.drawable.ic_news, !n.read), LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(40)))
+        addView(familyTile(if (n.survey) R.drawable.ic_tasks else R.drawable.ic_news, Subjects.familyFor(category(n))), LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(40)))
         addView(UI.hgap(ctx, 12))
         val col = UI.column(ctx)
         val top = UI.row(ctx)
-        top.addView(UI.oneLine(UI.title(ctx, n.title, 16f)), UI.weight())
-        if (!n.read) top.addView(View(ctx).apply { background = UI.rounded(ctx.getColor(R.color.accent), ctx.dp(5).toFloat()) },
+        top.addView(UI.oneLine(UI.title(ctx, n.title, 16f, if (read) R.color.text2 else R.color.text)), UI.weight())
+        if (!read) top.addView(View(ctx).apply { background = UI.rounded(ctx.getColor(R.color.accent), ctx.dp(5).toFloat()) },
             LinearLayout.LayoutParams(ctx.dp(10), ctx.dp(10)).apply { marginStart = ctx.dp(8) })
         col.addView(top, UI.matchWidth())
-        val meta = listOf(if (n.survey) "Sondage" else n.category.ifEmpty { "Information" }, n.author, shortDate(n.date)).filter { it.isNotEmpty() }.joinToString(" · ")
+        val meta = listOf(category(n), n.author, shortDate(n.date)).filter { it.isNotEmpty() }.joinToString(" · ")
         col.addView(UI.oneLine(UI.text(ctx, meta, 12f, R.color.text2)).apply { setPadding(0, ctx.dp(2), 0, 0) })
         val preview = if (n.survey) n.questions.firstOrNull()?.let { it.title.ifEmpty { it.text } }.orEmpty() else n.content
         if (preview.isNotEmpty()) col.addView(UI.text(ctx, preview, 14f).apply {
@@ -224,7 +314,7 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
         gravity = Gravity.TOP
         setPadding(ctx.dp(10), ctx.dp(12), ctx.dp(12), ctx.dp(12))
         foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, ctx.dp(16).toFloat()))
-        addView(tile(R.drawable.ic_mail, d.unread > 0), LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(40)))
+        addView(initials(d.with), LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(40)))
         addView(UI.hgap(ctx, 12))
         val col = UI.column(ctx)
         val top = UI.row(ctx)
@@ -253,8 +343,9 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
     // ---- Sheets ------------------------------------------------------------------
 
     private fun showNews(n: News) {
-        Sheet.open(activity, activity.bottomInsetPx) { sheet, _ ->
-            sheet.addView(UI.chip(ctx, if (n.survey) "Sondage" else n.category.ifEmpty { "Information" }, ctx.getColor(R.color.accent_container), ctx.getColor(R.color.accent), 12f), UI.wrap())
+        Sheet.open(activity, activity.bottomInsetPx) { sheet, dialog ->
+            val family = Subjects.familyFor(category(n))
+            sheet.addView(UI.chip(ctx, category(n), Subjects.tint(ctx, family), Subjects.ink(ctx, family), 12f), UI.wrap())
             sheet.addView(UI.title(ctx, n.title, 23f).apply { setPadding(0, ctx.dp(10), 0, 0) })
             sheet.addView(UI.text(ctx, listOf(n.author, n.date?.let { "${Agenda.dayName(it.toLocalDate())} ${it.dayOfMonth} ${it.month.getDisplayName(TextStyle.FULL, fr)}" }.orEmpty())
                 .filter { it.isNotEmpty() }.joinToString(" · "), 13f, R.color.text2).apply { setPadding(0, ctx.dp(4), 0, ctx.dp(8)) })
@@ -289,7 +380,25 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
                 sheet.addView(UI.section(ctx, if (files.size > 1) "Pièces jointes et liens" else if (files[0].link != null) "Lien" else "Pièce jointe"))
                 sheet.addView(Attachments.card(activity, files, "news|${n.key}") { logged, name -> Inbox.newsFileUrl(logged, n.key, name) }, UI.matchWidth())
             }
-            if (n.survey) sheet.addView(UI.button(ctx, "Répondre sur Pronote", R.drawable.ic_open) { activity.openPronote() }, UI.matchWidth().apply { topMargin = ctx.dp(16) })
+            if (n.survey) sheet.addView(UI.ghostButton(ctx, "Répondre sur Pronote") { activity.openPronote() }, UI.matchWidth().apply { topMargin = ctx.dp(16) })
+            // Marks it read on PRONOTE too (sent with the next ticks), only on this tap.
+            if (!repo.isRead(n)) {
+                sheet.addView(UI.button(ctx, "J'ai vu", R.drawable.ic_check) {
+                    activity.setNewsRead(n, true)
+                    Motion.success(sheet)
+                    dialog.dismiss()
+                }, UI.matchWidth().apply { topMargin = ctx.dp(if (n.survey) 10 else 16) })
+            } else {
+                sheet.addView(UI.text(ctx, if (n.read) "Vue · lue sur Pronote" else "Vue · envoi à Pronote à la prochaine connexion", 13f, R.color.success, 800).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(0, ctx.dp(16), 0, 0)
+                }, UI.matchWidth())
+                sheet.addView(UI.text(ctx, "Marquer comme non lue", 13f, R.color.text2, 800).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(0, ctx.dp(10), 0, ctx.dp(4))
+                    setOnClickListener { Motion.tick(this); activity.setNewsRead(n, false); dialog.dismiss() }
+                }, UI.matchWidth())
+            }
         }
     }
 

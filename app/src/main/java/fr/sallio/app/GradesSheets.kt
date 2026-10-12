@@ -31,19 +31,30 @@ object GradesSheets {
     private fun classOn20(g: Grade): Double? =
         if (g.classAverage != null && g.outOf != null && g.outOf > 0) g.classAverage / g.outOf * 20 else null
 
-    /** One point of a curve: the average after [grade], given on [date]. */
-    class Point(val value: Double, val date: java.time.LocalDate, val grade: Grade)
+    /**
+     * One point of a curve: the student's average after [grade], given on
+     * [date], and the class's average over the same tests ([classValue], null
+     * until a test has a class average).
+     */
+    class Point(val value: Double, val date: java.time.LocalDate, val grade: Grade, val classValue: Double? = null)
 
-    /** Running weighted average after each grade, oldest first: the curve of the period. */
-    private fun runningAverage(grades: List<Grade>): List<Point> {
+    /**
+     * Running weighted averages after each grade, oldest first: the curves of
+     * the period. The class curve uses the class average of each test, with
+     * the same coefficients, so both lines move for the same reasons.
+     */
+    internal fun runningAverage(grades: List<Grade>): List<Point> {
         var sum = 0.0
         var weight = 0.0
+        var classSum = 0.0
+        var classWeight = 0.0
         return grades.sortedBy { it.date }.mapNotNull { g ->
             val v = on20(g) ?: return@mapNotNull null
             val w = g.coefficient?.takeIf { it > 0 } ?: 1.0
             sum += v * w
             weight += w
-            Point(sum / weight, g.date, g)
+            classOn20(g)?.let { c -> classSum += c * w; classWeight += w }
+            Point(sum / weight, g.date, g, if (classWeight > 0) classSum / classWeight else null)
         }
     }
 
@@ -97,7 +108,8 @@ object GradesSheets {
                 sheet.addView(UI.section(ctx, "Évolution"))
                 val card = UI.card(ctx, padding = 14)
                 card.addView(LineChart(ctx, curve, report.classOverall, ctx.getColor(R.color.accent)), LinearLayout.LayoutParams(-1, ctx.dp(170)))
-                card.addView(UI.text(ctx, "Touche ou glisse sur la courbe pour voir ta moyenne à chaque note. Pointillés : la classe.", 12f, R.color.text2).apply { setPadding(0, ctx.dp(8), 0, 0) })
+                card.addView(legend(ctx, ctx.getColor(R.color.accent), curve.any { it.classValue != null }), UI.matchWidth().apply { topMargin = ctx.dp(8) })
+                card.addView(UI.text(ctx, "Touche ou glisse sur la courbe pour voir les deux moyennes à chaque note.", 12f, R.color.text2).apply { setPadding(0, ctx.dp(6), 0, 0) })
                 sheet.addView(card, UI.matchWidth())
             }
 
@@ -195,6 +207,7 @@ object GradesSheets {
                 sheet.addView(UI.section(ctx, "Évolution"))
                 val card = UI.card(ctx, padding = 14)
                 card.addView(LineChart(ctx, curve, sub.classAverage, Subjects.solid(style.family)), LinearLayout.LayoutParams(-1, ctx.dp(160)))
+                card.addView(legend(ctx, Subjects.solid(style.family), curve.any { it.classValue != null }), UI.matchWidth().apply { topMargin = ctx.dp(8) })
                 sheet.addView(card, UI.matchWidth())
             }
 
@@ -234,6 +247,25 @@ object GradesSheets {
 
     // ---- Charts ------------------------------------------------------------------
 
+    /** "— Toi  - - La classe", under a curve. */
+    private fun legend(ctx: Context, tint: Int, withClass: Boolean): View {
+        val row = UI.row(ctx)
+        fun key(color: Int, dashed: Boolean, label: String) {
+            row.addView(object : View(ctx) {
+                private val d = resources.displayMetrics.density
+                private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    this.color = color; strokeWidth = (if (dashed) 2.5f else 3.5f) * d; strokeCap = Paint.Cap.ROUND
+                    if (dashed) pathEffect = DashPathEffect(floatArrayOf(5 * d, 4 * d), 0f)
+                }
+                override fun onDraw(canvas: Canvas) = canvas.drawLine(2 * d, height / 2f, width - 2 * d, height / 2f, paint)
+            }, LinearLayout.LayoutParams(ctx.dp(22), ctx.dp(12)))
+            row.addView(UI.text(ctx, label, 12f, R.color.text2, 800).apply { setPadding(ctx.dp(6), 0, ctx.dp(16), 0) })
+        }
+        key(tint, false, "Toi")
+        key(ctx.getColor(R.color.text3), true, if (withClass) "La classe" else "Moyenne de la classe")
+        return row
+    }
+
     /** Values out of 20 as a smooth line with dots; the class average dashed. */
     @SuppressLint("ViewConstructor")
     private class LineChart(context: Context, private val points: List<Point>, private val reference: Double?, private val tint: Int) : View(context) {
@@ -270,7 +302,7 @@ object GradesSheets {
         private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = (tint and 0x00FFFFFF) or 0x26000000 }
         private val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = tint }
         private val dotIn = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = context.getColor(R.color.surface) }
-        private val ref = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 1.5f * d; this.color = context.getColor(R.color.text3); pathEffect = DashPathEffect(floatArrayOf(6 * d, 5 * d), 0f) }
+        private val ref = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 2.5f * d; strokeCap = Paint.Cap.ROUND; this.color = context.getColor(R.color.text3); pathEffect = DashPathEffect(floatArrayOf(5 * d, 4 * d), 0f) }
         private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = context.getColor(R.color.text3); textSize = 10 * d; typeface = UI.body(context, 800) }
         private var progress = 0f
 
@@ -289,8 +321,9 @@ object GradesSheets {
         }
 
         override fun onDraw(canvas: Canvas) {
-            val lo = (values.min().coerceAtMost(reference ?: 20.0) - 1.5).coerceAtLeast(0.0)
-            val hi = (values.max().coerceAtLeast(reference ?: 0.0) + 1.5).coerceAtMost(20.0)
+            val classValues = points.mapNotNull { it.classValue }
+            val lo = (minOf(values.min(), classValues.minOrNull() ?: 20.0).coerceAtMost(reference ?: 20.0) - 1.5).coerceAtLeast(0.0)
+            val hi = (maxOf(values.max(), classValues.maxOrNull() ?: 0.0).coerceAtLeast(reference ?: 0.0) + 1.5).coerceAtMost(20.0)
             val left = 22 * d
             val top = 8 * d
             val bottom = height - 8 * d
@@ -301,7 +334,25 @@ object GradesSheets {
             if (selected >= 0) canvas.drawLine(x(selected), top, x(selected), bottom, guide)
             canvas.drawText(UI.number(hi).substringBefore(','), 0f, top + 8 * d, label)
             canvas.drawText(UI.number(lo).substringBefore(','), 0f, bottom, label)
-            reference?.let { r -> canvas.drawLine(left, y(r), right, y(r), ref) }
+            // The class: its own curve when the tests carry a class average, else today's flat line.
+            if (classValues.size >= 2) {
+                val classPath = Path()
+                var started = false
+                var prev = -1
+                for (i in points.indices) {
+                    val c = points[i].classValue ?: continue
+                    if (!started) { classPath.moveTo(x(i), y(c)); started = true }
+                    else {
+                        val cx = (x(prev) + x(i)) / 2
+                        classPath.cubicTo(cx, y(points[prev].classValue!!), cx, y(c), x(i), y(c))
+                    }
+                    prev = i
+                }
+                canvas.save()
+                canvas.clipRect(0f, 0f, left + (right - left + 8 * d) * progress, height.toFloat())
+                canvas.drawPath(classPath, ref)
+                canvas.restore()
+            } else reference?.let { r -> canvas.drawLine(left, y(r), right, y(r), ref) }
 
             val path = Path()
             val area = Path()
@@ -336,7 +387,7 @@ object GradesSheets {
             // Bubble of the selected point: the average then, the grade and its date.
             if (selected in points.indices) {
                 val pt = points[selected]
-                val main = "Moyenne ${UI.number(pt.value)}"
+                val main = "Toi ${UI.number(pt.value)}" + (pt.classValue?.let { " · classe ${UI.number(it)}" } ?: "")
                 val sub = "${pt.date.dayOfMonth}/${pt.date.monthValue} · ${pt.grade.value.replace('.', ',')}${pt.grade.outOf?.let { "/" + UI.number(it) } ?: ""}"
                 val w = maxOf(bubbleText.measureText(main), bubbleSmall.measureText(sub)) + 20 * d
                 val h = 40 * d

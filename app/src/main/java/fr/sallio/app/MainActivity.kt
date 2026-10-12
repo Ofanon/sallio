@@ -269,7 +269,7 @@ class MainActivity : Activity() {
         worker.execute {
             val result = repo.pushPending()
             // Not allowed to log in yet: the ticks are safe, a job sends them as soon as it is.
-            if (repo.pendingCount() > 0) SyncJob.runLater(applicationContext, repo.waitBeforeLogin(manual = true))
+            if (repo.pendingTotal() > 0) SyncJob.runLater(applicationContext, repo.waitBeforeLogin(manual = true))
             runOnUiThread {
                 if (result == Repo.SyncResult.FAILED) Motion.failure(root)
                 if (!isFinishing) render()
@@ -287,6 +287,13 @@ class MainActivity : Activity() {
     val bottomInsetPx: Int get() = bottomInset
 
     fun isHomeworkDone(h: fr.sallio.pronote.Homework) = repo.isDone(h)
+
+    /** "J'ai vu" from an actualité: saved at once, sent to PRONOTE shortly after with any ticks. */
+    fun setNewsRead(n: fr.sallio.pronote.News, read: Boolean) {
+        repo.setRead(n, read)
+        render()
+        schedulePush()
+    }
 
     /** Ticks from a sheet: saved at once, sent to PRONOTE shortly after, page redrawn behind. */
     fun setHomeworkDone(h: fr.sallio.pronote.Homework, done: Boolean) {
@@ -459,68 +466,128 @@ class MainActivity : Activity() {
 
         val widgets = getSystemService(AppWidgetManager::class.java)
         fun placed(cls: Class<*>) = widgets.getAppWidgetIds(ComponentName(this, cls)).isNotEmpty()
-        val faster = buildList {
-            if (widgets.isRequestPinAppWidgetSupported) {
-                add(SettingsSheet.Item.Action(R.drawable.ic_widgets, "Widget « Prochaine salle »", "Ta salle en grand sur l'écran d'accueil.",
-                    badge = if (placed(NextWidget::class.java)) "Ajouté" else null) {
-                    widgets.requestPinAppWidget(ComponentName(this@MainActivity, NextWidget::class.java), null, null)
-                })
-                add(SettingsSheet.Item.Action(R.drawable.ic_widgets, "Widget « Ma journée »", "Tous les cours du jour avec leur salle.",
-                    badge = if (placed(DayWidget::class.java)) "Ajouté" else null) {
-                    widgets.requestPinAppWidget(ComponentName(this@MainActivity, DayWidget::class.java), null, null)
-                })
-            }
-            if (Build.VERSION.SDK_INT >= 33) {
-                add(SettingsSheet.Item.Action(R.drawable.ic_school, "Tuile des réglages rapides", "Glisse vers le bas, n'importe où : ta salle.") {
-                    getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
-                        ComponentName(this@MainActivity, RoomTile::class.java), "Ma salle",
-                        android.graphics.drawable.Icon.createWithResource(this@MainActivity, R.drawable.ic_school), mainExecutor,
-                    ) { }
-                })
-            }
-            add(SettingsSheet.Item.Toggle(R.drawable.ic_calendar, "Salles sur l'écran verrouillé",
-                "Ton fond de verrouillage affiche les cours du jour, mis à jour tout seul.", { Wallpaper.isEnabled(this@MainActivity) }) { on, done ->
-                if (on) previewWallpaper(done)
-                else {
-                    worker.execute { Wallpaper.disable(applicationContext) }
-                    done()
+
+        // Each page is built when it opens, so "Ajouté" and the switches show the state of that moment.
+        val quick = SettingsSheet.Item.Page(R.drawable.ic_widgets, "Widgets et accès rapide",
+            listOfNotNull(
+                listOf(NextWidget::class.java, DayWidget::class.java).count { placed(it) }.let { n -> if (n > 0) "$n widget${if (n > 1) "s" else ""} posé${if (n > 1) "s" else ""}" else "Aucun widget posé" },
+                if (Wallpaper.isEnabled(this)) "écran verrouillé" else null,
+            ).joinToString(" · "),
+            "Ta salle sans ouvrir l'app",
+        ) {
+            val homeScreen = buildList {
+                if (widgets.isRequestPinAppWidgetSupported) {
+                    add(SettingsSheet.Item.Action(R.drawable.ic_widgets, "Widget « Prochaine salle »", "Ta salle en grand sur l'écran d'accueil.",
+                        badge = if (placed(NextWidget::class.java)) "Ajouté" else null) {
+                        widgets.requestPinAppWidget(ComponentName(this@MainActivity, NextWidget::class.java), null, null)
+                    })
+                    add(SettingsSheet.Item.Action(R.drawable.ic_widgets, "Widget « Ma journée »", "Tous les cours du jour avec leur salle.",
+                        badge = if (placed(DayWidget::class.java)) "Ajouté" else null) {
+                        widgets.requestPinAppWidget(ComponentName(this@MainActivity, DayWidget::class.java), null, null)
+                    })
                 }
-            })
-            add(SettingsSheet.Item.Toggle(R.drawable.ic_clock, "Rappel avant chaque cours",
-                "Une notification 5 min avant : la salle, le prof, ou s'il est annulé.", { Reminders.isEnabled(this@MainActivity) && notificationsAllowed() }) { on, done ->
-                withNotifications(on, { Reminders.setEnabled(this@MainActivity, it) }, done)
-            })
-            add(SettingsSheet.Item.Toggle(R.drawable.ic_warning, "Alertes de changement",
-                "Prof absent, cours annulé, salle changée, nouvelle note ou nouveau message : prévenu dès la synchro.", { Alerts.isEnabled(this@MainActivity) && notificationsAllowed() }) { on, done ->
-                withNotifications(on, { Alerts.setEnabled(this@MainActivity, it) }, done)
-            })
+            }
+            val elsewhere = buildList {
+                if (Build.VERSION.SDK_INT >= 33) {
+                    add(SettingsSheet.Item.Action(R.drawable.ic_school, "Tuile des réglages rapides", "Glisse vers le bas, n'importe où : ta salle.") {
+                        getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
+                            ComponentName(this@MainActivity, RoomTile::class.java), "Ma salle",
+                            android.graphics.drawable.Icon.createWithResource(this@MainActivity, R.drawable.ic_school), mainExecutor,
+                        ) { }
+                    })
+                }
+                add(SettingsSheet.Item.Toggle(R.drawable.ic_calendar, "Salles sur l'écran verrouillé",
+                    "Ton fond de verrouillage affiche les cours du jour, mis à jour tout seul.", { Wallpaper.isEnabled(this@MainActivity) }) { on, done ->
+                    if (on) previewWallpaper(done)
+                    else {
+                        worker.execute { Wallpaper.disable(applicationContext) }
+                        done()
+                    }
+                })
+            }
+            listOf(SettingsSheet.Section("Écran d'accueil", homeScreen), SettingsSheet.Section("Ailleurs sur le téléphone", elsewhere))
         }
-        val preferences = listOf(
-            SettingsSheet.Item.Action(R.drawable.ic_palette, "Mon avatar", "Ta photo, un emoji ou ton initiale, et sa couleur.") {
-                Avatar.edit(this, first) { render() }
+
+        val notifications = SettingsSheet.Item.Page(R.drawable.ic_clock, "Notifications",
+            when {
+                !notificationsAllowed() -> "Bloquées par Android"
+                else -> listOfNotNull(
+                    if (Alerts.isEnabled(this)) "alertes" else null,
+                    if (Reminders.isEnabled(this)) "rappels" else null,
+                ).joinToString(" et ").replaceFirstChar { it.uppercase() }.ifEmpty { "Aucune" }
             },
-            SettingsSheet.Item.Toggle(R.drawable.ic_sparkles, "Vibrations", "Un petit retour quand tu touches un bouton.", { Motion.hapticsOn(this) }) { on, done ->
-                getSharedPreferences("ui", MODE_PRIVATE).edit().putBoolean("haptics", on).apply()
-                done()
-            },
-        )
-        val account = listOf(
-            SettingsSheet.Item.Action(R.drawable.ic_open, "Ouvrir Pronote", "Répondre aux messages, justifier une absence, bulletins…") { openPronote() },
-            SettingsSheet.Item.Action(R.drawable.ic_shield, "Tes données", "Ce que Sallio garde, et où.") { privacyDialog() },
-            SettingsSheet.Item.Action(R.drawable.ic_refresh, "Rechercher une mise à jour", "Version installée : ${BuildConfig.VERSION_NAME}") { checkUpdateNow() },
-            SettingsSheet.Item.Action(R.drawable.ic_logout, "Se déconnecter et tout effacer", danger = true) { confirmLogout() },
-        ) + if (BuildConfig.DEBUG) listOf(
-            SettingsSheet.Item.Action(R.drawable.ic_warning, "Tester les alertes (debug)", "Invente des changements sur les données du téléphone, sans Pronote.") {
-                worker.execute { Alerts.demo(applicationContext) }
-            },
-        ) else emptyList()
+            "Ce que Sallio peut te dire",
+        ) {
+            listOf(
+                SettingsSheet.Section("", listOf(
+                    SettingsSheet.Item.Toggle(R.drawable.ic_warning, "Alertes de changement",
+                        "Prof absent, cours annulé, salle changée, nouvelle note, nouveau message ou vie scolaire : prévenu dès la synchro.", { Alerts.isEnabled(this@MainActivity) && notificationsAllowed() }) { on, done ->
+                        withNotifications(on, { Alerts.setEnabled(this@MainActivity, it) }, done)
+                    },
+                    SettingsSheet.Item.Toggle(R.drawable.ic_clock, "Rappel avant chaque cours",
+                        "Une notification 5 min avant : la salle, le prof, ou s'il est annulé.", { Reminders.isEnabled(this@MainActivity) && notificationsAllowed() }) { on, done ->
+                        withNotifications(on, { Reminders.setEnabled(this@MainActivity, it) }, done)
+                    },
+                )),
+                SettingsSheet.Section("Dans Android", listOf(
+                    SettingsSheet.Item.Action(R.drawable.ic_open, "Choisir les types d'alertes", "Couper les notes et garder l'emploi du temps, changer le son…") {
+                        Alerts.createChannels(applicationContext)
+                        runCatching {
+                            startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName))
+                        }
+                    },
+                )),
+            )
+        }
+
+        val look = SettingsSheet.Item.Page(R.drawable.ic_palette, "Apparence",
+            listOfNotNull(
+                if (repo.pronoteColors()) "Couleurs de Pronote" else "Couleurs Sallio",
+                if (Motion.hapticsOn(this)) "vibrations" else null,
+            ).joinToString(" · "),
+            "Ton avatar, les couleurs, les vibrations",
+        ) {
+            listOf(SettingsSheet.Section("", listOf(
+                SettingsSheet.Item.Action(R.drawable.ic_palette, "Mon avatar", "Ta photo, un emoji ou ton initiale, et sa couleur.") {
+                    Avatar.edit(this, first) { render() }
+                },
+                SettingsSheet.Item.Toggle(R.drawable.ic_sparkles, "Couleurs de Pronote",
+                    "Chaque matière garde la couleur qu'elle a sur Pronote, adoucie pour rester lisible. Sinon, les couleurs de Sallio.", { repo.pronoteColors() }) { on, done ->
+                    repo.setPronoteColors(on)
+                    render()
+                    done()
+                },
+                SettingsSheet.Item.Toggle(R.drawable.ic_sparkles, "Vibrations", "Un petit retour quand tu touches un bouton.", { Motion.hapticsOn(this) }) { on, done ->
+                    getSharedPreferences("ui", MODE_PRIVATE).edit().putBoolean("haptics", on).apply()
+                    done()
+                },
+            )))
+        }
+
+        val account = SettingsSheet.Item.Page(R.drawable.ic_shield, "Compte et données",
+            "Version ${BuildConfig.VERSION_NAME} · tes données restent sur le téléphone",
+            Schools.prettySchool(s.account.schoolName),
+        ) {
+            listOf(
+                SettingsSheet.Section("", listOf(
+                    SettingsSheet.Item.Action(R.drawable.ic_open, "Ouvrir Pronote", "Répondre aux messages, justifier une absence, bulletins…") { openPronote() },
+                    SettingsSheet.Item.Action(R.drawable.ic_shield, "Tes données", "Ce que Sallio garde, et où.") { privacyDialog() },
+                    SettingsSheet.Item.Action(R.drawable.ic_refresh, "Rechercher une mise à jour", "Version installée : ${BuildConfig.VERSION_NAME}") { checkUpdateNow() },
+                ) + if (BuildConfig.DEBUG) listOf(
+                    SettingsSheet.Item.Action(R.drawable.ic_warning, "Tester les alertes (debug)", "Invente des changements sur les données du téléphone, sans Pronote.") {
+                        worker.execute { Alerts.demo(applicationContext) }
+                    },
+                ) else emptyList()),
+                SettingsSheet.Section("", listOf(
+                    SettingsSheet.Item.Action(R.drawable.ic_logout, "Se déconnecter et tout effacer", danger = true) { confirmLogout() },
+                )),
+            )
+        }
+
         SettingsSheet.show(
             this, who,
-            listOf(
-                SettingsSheet.Section("Voir ta salle plus vite", faster),
-                SettingsSheet.Section("Préférences", preferences),
-                SettingsSheet.Section("Compte", account),
-            ),
+            listOf(SettingsSheet.Section("Réglages", listOf(quick, notifications, look, account))),
             "Sallio ${BuildConfig.VERSION_NAME} · code source sur GitHub",
             { runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/${Updater.REPO}"))) } },
             bottomInset,
@@ -981,7 +1048,7 @@ class MainActivity : Activity() {
             "Tu te connectes sur la vraie page de ton ENT. L'app ne voit jamais ton mot de passe, seulement le jeton que Pronote donne à ce téléphone.",
             "Le jeton, ton emploi du temps, tes devoirs, tes notes, tes messages et ta vie scolaire sont chiffrés sur le téléphone et exclus des sauvegardes.",
             "Aucune pub, aucun traqueur, aucune statistique.",
-            "Cocher un devoir le coche aussi sur Pronote : c'est la seule chose que l'app y modifie.",
+            "Sur Pronote, l'app ne modifie que deux choses, et seulement quand tu le demandes : cocher un devoir, et marquer une actualité « J'ai vu ».",
         )
 
         /** PRONOTE writes "NOM Prénom": show "Prénom Nom". */
