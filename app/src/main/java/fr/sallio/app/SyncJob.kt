@@ -54,6 +54,17 @@ class SyncJob : JobService() {
             )
         }
 
+        /** A sync as soon as PRONOTE allows it again (pending ticks waiting for a login). */
+        fun runLater(context: Context, delayMs: Long) {
+            context.getSystemService(JobScheduler::class.java).schedule(
+                JobInfo.Builder(ONE_SHOT_ID, ComponentName(context, SyncJob::class.java))
+                    .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                    .setMinimumLatency(delayMs + 5_000L)
+                    .setBackoffCriteria(5 * 60_000L, JobInfo.BACKOFF_POLICY_EXPONENTIAL)
+                    .build()
+            )
+        }
+
         fun cancelAll(context: Context) {
             context.getSystemService(JobScheduler::class.java).cancelAll()
         }

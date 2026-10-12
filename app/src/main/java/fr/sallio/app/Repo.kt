@@ -2,6 +2,9 @@ package fr.sallio.app
 
 import android.content.Context
 import fr.sallio.pronote.Credentials
+import fr.sallio.pronote.Discussion
+import fr.sallio.pronote.Inbox
+import fr.sallio.pronote.News
 import fr.sallio.pronote.Homework
 import fr.sallio.pronote.Report
 import fr.sallio.pronote.Schoolwork
@@ -106,6 +109,18 @@ class Repo private constructor(private val context: Context) {
         }.getOrNull()?.also { cachedPhoto = it }
     }
 
+    private fun <T> readList(name: String, decode: (JSONObject) -> T): List<T> =
+        vault.read(name)?.let { text ->
+            runCatching { JSONArray(text).let { a -> (0 until a.length()).map { decode(a.getJSONObject(it)) } } }.getOrNull()
+        }.orEmpty()
+
+    fun news(): List<News> = readList(NEWS) { News.fromJson(it) }
+
+    fun discussions(): List<Discussion> = readList(DISCUSSIONS) { Discussion.fromJson(it) }
+
+    /** Unread actualités and messages, for the badge on the tab. */
+    fun unreadInbox(): Int = news().count { !it.read } + discussions().sumOf { it.unread }
+
     fun report(): Report? = vault.read(GRADES)?.let { runCatching { Report.fromJson(JSONObject(it)) }.getOrNull() }
 
     /**
@@ -192,12 +207,21 @@ class Repo private constructor(private val context: Context) {
     private fun liveSession(): LoggedIn? =
         live?.takeIf { System.currentTimeMillis() - liveSince < SESSION_REUSE_MS }
 
-    private fun canLogin(manual: Boolean): Boolean {
+    private fun canLogin(manual: Boolean, openGap: Boolean = false): Boolean = waitBeforeLogin(manual, openGap) == 0L
+
+    /** Milliseconds before a login is allowed (0 = now). */
+    fun waitBeforeLogin(manual: Boolean, openGap: Boolean = false): Long {
         val now = System.currentTimeMillis()
-        if (now < prefs.getLong("suspendedUntil", 0)) return false
+        val suspended = prefs.getLong("suspendedUntil", 0)
+        if (now < suspended) return suspended - now
         val fails = prefs.getInt("fails", 0)
-        val gap = if (manual) MANUAL_GAP_MS else (BACKGROUND_GAP_MS shl fails.coerceAtMost(3)).coerceAtMost(MAX_BACKOFF_MS)
-        return now - prefs.getLong("lastLogin", 0) >= gap
+        val base = when {
+            manual -> MANUAL_GAP_MS
+            openGap -> OPEN_GAP_MS
+            else -> BACKGROUND_GAP_MS
+        }
+        val gap = (base shl fails.coerceAtMost(3)).coerceAtMost(MAX_BACKOFF_MS)
+        return (prefs.getLong("lastLogin", 0) + gap - now).coerceAtLeast(0)
     }
 
     private fun login(): LoggedIn {
@@ -295,12 +319,15 @@ class Repo private constructor(private val context: Context) {
      * Never throws: failures are recorded in [status] and the old timetable
      * stays on screen.
      */
-    fun sync(manual: Boolean): SyncResult {
+    /** Opening the app reads PRONOTE again sooner than the background job does. */
+    fun syncOnOpen(): SyncResult = sync(manual = false, openGap = true)
+
+    fun sync(manual: Boolean, openGap: Boolean = false): SyncResult {
         account() ?: return SyncResult.SKIPPED
         if (!lock.tryLock()) return SyncResult.SKIPPED
         try {
             if (status().needsLogin) return SyncResult.SKIPPED
-            val logged = liveSession() ?: if (canLogin(manual)) login() else return SyncResult.SKIPPED
+            val logged = liveSession() ?: if (canLogin(manual, openGap)) login() else return SyncResult.SKIPPED
             fetchAndStore(logged)
             onSuccess()
             return SyncResult.DONE
@@ -328,6 +355,13 @@ class Repo private constructor(private val context: Context) {
         }
         // Profile photo: parked. PRONOTE 2026 answers 404 to the file address that
         // Pawnote and pronotepy build; failing requests only add to the IP's count.
+        // Actualités and Messagerie: read-only, contents cached so a sync only asks for new ones.
+        runCatching { Inbox.news(logged, news().associateBy { it.key }) }.onSuccess { list ->
+            vault.write(NEWS, JSONArray(list.map { it.toJson() }).toString())
+        }
+        runCatching { Inbox.discussions(logged, discussions().associateBy { it.key }) }.onSuccess { list ->
+            vault.write(DISCUSSIONS, JSONArray(list.map { it.toJson() }).toString())
+        }
         runCatching { Schoolwork.report(logged) }.onSuccess { report ->
             val first = vault.read(GRADES) == null
             vault.write(GRADES, report.toJson().toString())
@@ -361,9 +395,12 @@ class Repo private constructor(private val context: Context) {
         private const val HOMEWORK = "homework"
         private const val PHOTO = "photo"
         private const val GRADES = "grades"
+        private const val NEWS = "news"
+        private const val DISCUSSIONS = "discussions"
         private const val FETCH_DAYS = 13L
         private const val MANUAL_GAP_MS = 2 * 60_000L
         private const val SESSION_REUSE_MS = 4 * 60_000L
+        private const val OPEN_GAP_MS = 10 * 60_000L
         private const val MAX_BACKOFF_MS = 3 * 3600_000L
         private const val BACKGROUND_GAP_MS = 45 * 60_000L
         private const val SUSPENSION_COOLDOWN_MS = 60 * 60_000L

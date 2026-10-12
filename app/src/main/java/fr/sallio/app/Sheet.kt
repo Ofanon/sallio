@@ -26,8 +26,9 @@ object Sheet {
     /** Opens a sheet; [build] fills the column under the handle. */
     fun open(activity: MainActivity, bottomInset: Int, build: (LinearLayout, Dialog) -> Unit): Dialog {
         val ctx = activity
-        val dialog = Dialog(ctx)
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        // A full screen, non-floating theme: a floating dialog is always laid out above
+        // the navigation bar, which left a strip of the page visible under the sheet.
+        val dialog = Dialog(ctx, android.R.style.Theme_Translucent_NoTitleBar)
 
         val column = UI.column(ctx).apply {
             setPadding(ctx.dp(18), ctx.dp(12), ctx.dp(18), ctx.dp(22))
@@ -55,17 +56,35 @@ object Sheet {
         val maxHeight = (ctx.resources.displayMetrics.heightPixels * 0.92f).toInt()
         container.maxHeight = maxHeight
 
-        dialog.setContentView(container)
+        // The window covers the whole screen, navigation bar included, so the sheet's
+        // own colour runs to the bottom edge: nothing of the page behind shows there.
+        // A tap above the sheet closes it, like a normal dialog.
+        val screen = FrameLayout(ctx).apply {
+            setBackgroundColor(0x73000000)
+            setOnClickListener { dialog.dismiss() }
+            addView(container, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        }
+        container.isClickable = true
+        container.setOnApplyWindowInsetsListener { v, insets ->
+            val nav = if (android.os.Build.VERSION.SDK_INT >= 30) {
+                insets.getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.ime()).bottom
+            } else @Suppress("DEPRECATION") insets.systemWindowInsetBottom
+            v.setPadding(0, 0, 0, nav)
+            insets
+        }
+
+        dialog.setContentView(screen)
         dialog.window?.apply {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            setGravity(Gravity.BOTTOM)
-            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             setWindowAnimations(android.R.style.Animation_InputMethod)
-            setDimAmount(0.45f)
-            // The sheet stops above the navigation bar: paint that bar in the sheet colour.
-            addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            if (android.os.Build.VERSION.SDK_INT >= 30) setDecorFitsSystemWindows(false)
             @Suppress("DEPRECATION")
-            navigationBarColor = ctx.getColor(R.color.bg)
+            addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+            @Suppress("DEPRECATION")
+            navigationBarColor = Color.TRANSPARENT
+            @Suppress("DEPRECATION")
+            statusBarColor = Color.TRANSPARENT
         }
         dialog.show()
         return dialog

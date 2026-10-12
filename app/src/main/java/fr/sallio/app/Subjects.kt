@@ -77,8 +77,9 @@ object Subjects {
     fun solid(f: Family): Int = f.solid.toInt()
 
     /** Text on [solid]: white on the deeper colours, ink on the light ones (amber, teal...). */
-    fun onSolid(f: Family): Int {
-        val c = f.solid.toInt()
+    fun onSolid(f: Family): Int = onSolidColor(f.solid.toInt())
+
+    fun onSolidColor(c: Int): Int {
         fun lin(v: Int): Double = (v / 255.0).let { if (it <= 0.03928) it / 12.92 else Math.pow((it + 0.055) / 1.055, 2.4) }
         val l = 0.2126 * lin((c shr 16) and 0xFF) + 0.7152 * lin((c shr 8) and 0xFF) + 0.0722 * lin(c and 0xFF)
         return if (l > 0.42) 0xFF2E2A3A.toInt() else 0xFFFFFFFF.toInt()

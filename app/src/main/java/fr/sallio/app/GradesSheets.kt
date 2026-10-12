@@ -31,8 +31,11 @@ object GradesSheets {
     private fun classOn20(g: Grade): Double? =
         if (g.classAverage != null && g.outOf != null && g.outOf > 0) g.classAverage / g.outOf * 20 else null
 
+    /** One point of a curve: the average after [grade], given on [date]. */
+    class Point(val value: Double, val date: java.time.LocalDate, val grade: Grade)
+
     /** Running weighted average after each grade, oldest first: the curve of the period. */
-    private fun runningAverage(grades: List<Grade>): List<Double> {
+    private fun runningAverage(grades: List<Grade>): List<Point> {
         var sum = 0.0
         var weight = 0.0
         return grades.sortedBy { it.date }.mapNotNull { g ->
@@ -40,7 +43,7 @@ object GradesSheets {
             val w = g.coefficient?.takeIf { it > 0 } ?: 1.0
             sum += v * w
             weight += w
-            sum / weight
+            Point(sum / weight, g.date, g)
         }
     }
 
@@ -93,8 +96,8 @@ object GradesSheets {
             if (curve.size >= 2) {
                 sheet.addView(UI.section(ctx, "Évolution"))
                 val card = UI.card(ctx, padding = 14)
-                card.addView(LineChart(ctx, curve, report.classOverall, ctx.getColor(R.color.accent)), LinearLayout.LayoutParams(-1, ctx.dp(150)))
-                card.addView(UI.text(ctx, "Ta moyenne après chaque note de la période. Pointillés : la classe.", 12f, R.color.text2).apply { setPadding(0, ctx.dp(8), 0, 0) })
+                card.addView(LineChart(ctx, curve, report.classOverall, ctx.getColor(R.color.accent)), LinearLayout.LayoutParams(-1, ctx.dp(170)))
+                card.addView(UI.text(ctx, "Touche ou glisse sur la courbe pour voir ta moyenne à chaque note. Pointillés : la classe.", 12f, R.color.text2).apply { setPadding(0, ctx.dp(8), 0, 0) })
                 sheet.addView(card, UI.matchWidth())
             }
 
@@ -189,7 +192,7 @@ object GradesSheets {
             if (curve.size >= 2) {
                 sheet.addView(UI.section(ctx, "Évolution"))
                 val card = UI.card(ctx, padding = 14)
-                card.addView(LineChart(ctx, curve, sub.classAverage, Subjects.solid(style.family)), LinearLayout.LayoutParams(-1, ctx.dp(130)))
+                card.addView(LineChart(ctx, curve, sub.classAverage, Subjects.solid(style.family)), LinearLayout.LayoutParams(-1, ctx.dp(160)))
                 sheet.addView(card, UI.matchWidth())
             }
 
@@ -231,8 +234,36 @@ object GradesSheets {
 
     /** Values out of 20 as a smooth line with dots; the class average dashed. */
     @SuppressLint("ViewConstructor")
-    private class LineChart(context: Context, private val values: List<Double>, private val reference: Double?, private val tint: Int) : View(context) {
+    private class LineChart(context: Context, private val points: List<Point>, private val reference: Double?, private val tint: Int) : View(context) {
+        private val values = points.map { it.value }
         private val d = resources.displayMetrics.density
+        private val bubble = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = tint }
+        private val bubbleText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Subjects.onSolidColor(tint); textSize = 13 * d; typeface = UI.display(context); textAlign = Paint.Align.CENTER
+        }
+        private val bubbleSmall = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Subjects.onSolidColor(tint); textSize = 10.5f * d; typeface = UI.body(context, 800); textAlign = Paint.Align.CENTER
+        }
+        private val guide = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = (tint and 0x00FFFFFF) or 0x66000000; strokeWidth = 1.5f * d }
+        /** Point under the finger, or -1. Stays selected after the finger lifts. */
+        private var selected = -1
+
+        override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
+            if (values.isEmpty()) return false
+            val left = 22 * d
+            val right = width - 8 * d
+            val i = Math.round((event.x - left) / ((right - left) / (values.size - 1).coerceAtLeast(1))).coerceIn(0, values.size - 1)
+            when (event.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN -> parent?.requestDisallowInterceptTouchEvent(true)
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> parent?.requestDisallowInterceptTouchEvent(false)
+            }
+            if (i != selected) {
+                selected = i
+                Motion.tick(this)
+                invalidate()
+            }
+            return true
+        }
         private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 3.5f * d; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; color = tint }
         private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = (tint and 0x00FFFFFF) or 0x26000000 }
         private val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = tint }
@@ -263,6 +294,7 @@ object GradesSheets {
             fun x(i: Int) = left + (right - left) * i / (values.size - 1).coerceAtLeast(1)
             fun y(v: Double) = (bottom - (bottom - top) * ((v - lo) / (hi - lo).coerceAtLeast(0.1))).toFloat()
 
+            if (selected >= 0) canvas.drawLine(x(selected), top, x(selected), bottom, guide)
             canvas.drawText(UI.number(hi).substringBefore(','), 0f, top + 8 * d, label)
             canvas.drawText(UI.number(lo).substringBefore(','), 0f, bottom, label)
             reference?.let { r -> canvas.drawLine(left, y(r), right, y(r), ref) }
@@ -285,8 +317,25 @@ object GradesSheets {
             canvas.drawPath(area, fill)
             canvas.drawPath(path, line)
             for (i in 0 until visible) {
-                canvas.drawCircle(x(i), y(values[i]), 4.5f * d, dot)
-                canvas.drawCircle(x(i), y(values[i]), 2f * d, dotIn)
+                val r = if (i == selected) 7.5f else 4.5f
+                canvas.drawCircle(x(i), y(values[i]), r * d, dot)
+                canvas.drawCircle(x(i), y(values[i]), r * 0.45f * d, dotIn)
+            }
+
+            // Bubble of the selected point: the average then, the grade and its date.
+            if (selected in points.indices) {
+                val pt = points[selected]
+                val main = "Moyenne ${UI.number(pt.value)}"
+                val sub = "${pt.date.dayOfMonth}/${pt.date.monthValue} · ${pt.grade.value.replace('.', ',')}${pt.grade.outOf?.let { "/" + UI.number(it) } ?: ""}"
+                val w = maxOf(bubbleText.measureText(main), bubbleSmall.measureText(sub)) + 20 * d
+                val h = 40 * d
+                val cx = x(selected).coerceIn(w / 2, width - w / 2)
+                val py = y(values[selected])
+                val above = py - h - 14 * d > 0
+                val by = if (above) py - h - 12 * d else py + 12 * d
+                canvas.drawRoundRect(cx - w / 2, by, cx + w / 2, by + h, 12 * d, 12 * d, bubble)
+                canvas.drawText(main, cx, by + 17 * d, bubbleText)
+                canvas.drawText(sub, cx, by + 32 * d, bubbleSmall)
             }
         }
     }

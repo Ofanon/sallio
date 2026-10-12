@@ -42,6 +42,7 @@ class MainActivity : Activity() {
         TIMETABLE("Cours", R.drawable.ic_calendar),
         HOMEWORK("Devoirs", R.drawable.ic_tasks),
         GRADES("Notes", R.drawable.ic_star),
+        INBOX("Infos", R.drawable.ic_news),
     }
 
     private lateinit var root: FrameLayout
@@ -53,6 +54,8 @@ class MainActivity : Activity() {
     private var tab = Tab.HOME
     private var selectedDay: LocalDate? = null
     private var gradesBySubject = false
+    private var inboxMessages = false
+    private val inboxTab by lazy { InboxTab(this, repo) }
     internal val expanded = mutableSetOf<String>()
     private var scroll: ScrollView? = null
     private var syncing = false
@@ -122,7 +125,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         render()
-        if (repo.account() != null) refresh(manual = false)
+        if (repo.account() != null) refresh(manual = false, onOpen = true)
         worker.execute {
             val found = Updater.check(applicationContext)
             runOnUiThread {
@@ -175,6 +178,7 @@ class MainActivity : Activity() {
             Tab.TIMETABLE -> tabs.timetable(s, selectedDay) { selectedDay = it; entering = Enter.TAB; render() }
             Tab.HOMEWORK -> tabs.homework(s)
             Tab.GRADES -> tabs.grades(s, gradesBySubject) { gradesBySubject = it; render() }
+            Tab.INBOX -> inboxTab.build(s, inboxMessages) { inboxMessages = it; render() }
         }
         content.addView(body, UI.matchWidth())
         when (entering) {
@@ -246,6 +250,8 @@ class MainActivity : Activity() {
         pushScheduled = false
         worker.execute {
             val result = repo.pushPending()
+            // Not allowed to log in yet: the ticks are safe, a job sends them as soon as it is.
+            if (repo.pendingCount() > 0) SyncJob.runLater(applicationContext, repo.waitBeforeLogin(manual = true))
             runOnUiThread {
                 if (result == Repo.SyncResult.FAILED) Motion.failure(root)
                 if (!isFinishing) render()
@@ -297,6 +303,7 @@ class MainActivity : Activity() {
             Tab.TIMETABLE -> "Cours" to "2 semaines"
             Tab.HOMEWORK -> "Devoirs" to tabs.homeworkSummary(s)
             Tab.GRADES -> "Notes" to (s.report?.periodName ?: "")
+            Tab.INBOX -> "Infos" to "Actualités et messages"
         }
         col.addView(UI.oneLine(UI.title(this, title, 27f)))
         val (status, color) = when {
@@ -347,10 +354,11 @@ class MainActivity : Activity() {
             pill.addView(UI.icon(this, t.icon, if (selected) R.color.accent else R.color.text3, 22).apply {
                 layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER).apply { bottomMargin = if (selected) dp(2) else 0 }
             })
-            if (t == Tab.GRADES && s.unseenGrades.isNotEmpty() && !selected) pill.addView(View(this).apply {
+            val dot = (t == Tab.GRADES && s.unseenGrades.isNotEmpty()) || (t == Tab.INBOX && repo.unreadInbox() > 0)
+            if (dot && !selected) pill.addView(View(this).apply {
                 background = UI.rounded(0xFFD9705A.toInt(), dp(5).toFloat())
             }, FrameLayout.LayoutParams(dp(10), dp(10), Gravity.TOP or Gravity.END).apply { topMargin = dp(2); marginEnd = dp(12) })
-            item.addView(pill, LinearLayout.LayoutParams(dp(58), dp(34)))
+            item.addView(pill, LinearLayout.LayoutParams(dp(52), dp(34)))
             item.addView(UI.text(this, t.label, 12f, if (selected) R.color.text else R.color.text3, 800).apply {
                 setPadding(0, dp(4), 0, 0)
                 gravity = Gravity.CENTER
@@ -838,12 +846,12 @@ class MainActivity : Activity() {
 
     // ---- Sync & account ----------------------------------------------------------
 
-    private fun refresh(manual: Boolean) {
+    private fun refresh(manual: Boolean, onOpen: Boolean = false) {
         if (syncing) return
         syncing = true
         if (manual) render()
         worker.execute {
-            val result = repo.sync(manual)
+            val result = if (onOpen) repo.syncOnOpen() else repo.sync(manual)
             runOnUiThread {
                 syncing = false
                 if (manual) when (result) {
