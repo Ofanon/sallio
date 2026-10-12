@@ -157,7 +157,11 @@ class Repo private constructor(private val context: Context) {
     /** Unread actualités and messages, for the badge on the tab. */
     fun unreadInbox(): Int = news().count { !isRead(it) } + discussions().sumOf { it.unread }
 
-    /** "J'ai vu" waiting to reach PRONOTE, as "+key" (read) or "-key" (unread), like [pending]. */
+    /**
+     * "J'ai vu" waiting to reach PRONOTE, as "+key", like [pending]. One way
+     * only: PRONOTE answers a request to mark an actualité unread without
+     * applying it (tried on a real school, 2026-10-12).
+     */
     private fun pendingReads(): Set<String> = prefs.getStringSet("pendingRead", emptySet())!!
 
     fun isRead(n: News): Boolean {
@@ -170,11 +174,9 @@ class Repo private constructor(private val context: Context) {
     }
 
     /** Records "J'ai vu" on the phone at once; [pushPending] then sends it to PRONOTE. */
-    fun setRead(n: News, read: Boolean) {
-        val set = pendingReads().toMutableSet()
-        set.remove("+" + n.key)
-        set.remove("-" + n.key)
-        if (read != n.read) set += (if (read) "+" else "-") + n.key
+    fun setRead(n: News) {
+        val set = pendingReads().filterNot { it.startsWith("-") }.toMutableSet()
+        if (!n.read) set += "+" + n.key
         // A new tap is a new request: forget that PRONOTE refused the last one.
         prefs.edit().putStringSet("pendingRead", set)
             .putStringSet("readRefused", prefs.getStringSet("readRefused", emptySet())!! - n.key).apply()
@@ -186,7 +188,9 @@ class Repo private constructor(private val context: Context) {
      * When the request fails they stay waiting.
      */
     private fun pushReads(logged: LoggedIn): Map<String, Boolean> {
-        val wanted = pendingReads()
+        // Old "-key" entries (unread) are dropped: PRONOTE does not apply them.
+        val wanted = pendingReads().filter { it.startsWith("+") }.toSet()
+        if (wanted.size != pendingReads().size) prefs.edit().putStringSet("pendingRead", wanted).apply()
         if (wanted.isEmpty()) return emptyMap()
         val asked = wanted.associate { it.substring(1) to (it[0] == '+') }
         val settled = runCatching { Inbox.setNewsRead(logged, asked) }

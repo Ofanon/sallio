@@ -28,7 +28,8 @@ Cinq onglets, pour l'essentiel de Pronote au quotidien sans le charger :
   scolaire**. Les actualités à lire passent en tête, la plus récente en grand,
   chaque catégorie avec sa couleur ; « J'ai vu » la marque comme lue sur
   Pronote aussi (`SaisieActualites`, comme Pawnote `newsRead`), et sans réseau
-  la coche attend la synchro suivante, comme pour les devoirs. Messages et vie
+  la coche attend la synchro suivante, comme pour les devoirs. C'est à sens
+  unique : Pronote accepte une demande « non lue » sans l'appliquer. Messages et vie
   scolaire sont en lecture seule. Vie scolaire : le total de l'année (absences,
   heures manquées, retards), ce qui attend un motif des parents, puis les
   punitions et sanctions, absences, retards et dispenses, chacun avec sa fiche

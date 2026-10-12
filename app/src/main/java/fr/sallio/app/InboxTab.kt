@@ -259,24 +259,9 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
         })
         val bottom = UI.row(ctx).apply { setPadding(0, ctx.dp(12), 0, 0) }
         bottom.addView(UI.oneLine(UI.text(ctx, n.author, 13f, weight = 800).apply { setTextColor(ink); alpha = 0.85f }), UI.weight())
-        // "J'ai vu" right on the card, the app's checkbox drawn in the card's colours.
-        val box = FrameLayout(ctx).apply { background = UI.rounded(0, ctx.dp(8).toFloat(), ctx.dp(3), ink) }
-        val seen = UI.row(ctx).apply {
-            setPadding(ctx.dp(10), ctx.dp(6), ctx.dp(4), ctx.dp(6))
-            addView(box, LinearLayout.LayoutParams(ctx.dp(24), ctx.dp(24)))
-            addView(UI.text(ctx, "J'ai vu", 15f, weight = 800).apply { setTextColor(ink); setPadding(ctx.dp(8), 0, 0, ctx.dp(2)) })
-            contentDescription = "Marquer comme vue"
-            setOnClickListener {
-                Motion.success(box)
-                box.background = UI.rounded(ink, ctx.dp(8).toFloat())
-                box.addView(UI.icon(ctx, R.drawable.ic_check, Subjects.solid(family), 15, tintIsColor = true).apply {
-                    layoutParams = FrameLayout.LayoutParams(ctx.dp(15), ctx.dp(15), Gravity.CENTER)
-                })
-                Motion.bounce(box) { activity.setNewsRead(n, true) }
-            }
-        }
-        bottom.addView(seen)
         card.addView(bottom, UI.matchWidth())
+        // "J'ai vu" right on the card: no need to open it to clear it.
+        card.addView(UI.checkButton(ctx, "J'ai vu", "Vue", false) { activity.setNewsRead(n) }, UI.matchWidth().apply { topMargin = ctx.dp(12) })
         card.setOnClickListener { Motion.tap(card); showNews(n) }
         Motion.pressable(card)
         return card
@@ -388,26 +373,11 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
                 sheet.addView(Attachments.card(activity, files, "news|${n.key}") { logged, name -> Inbox.newsFileUrl(logged, n.key, name) }, UI.matchWidth())
             }
             if (n.survey) sheet.addView(UI.ghostButton(ctx, "Répondre sur Pronote") { activity.openPronote() }, UI.matchWidth().apply { topMargin = ctx.dp(16) })
-            // "J'ai vu", ticked here and on PRONOTE (sent with the homework ticks), only on this tap.
-            val tick = UI.card(ctx, padding = 12)
-            val state = UI.text(ctx, "", 12f, R.color.text2, 700).apply { setPadding(ctx.dp(40), 0, 0, ctx.dp(6)) }
-            fun describe() {
-                val seen = repo.isRead(n)
-                state.text = when {
-                    repo.readRefused(n) -> if (n.read) "Pronote l'a gardée comme lue." else "Pronote l'a gardée comme non lue."
-                    seen != n.read -> "Envoi à Pronote dans un instant (ou à la prochaine connexion)."
-                    seen -> "Lue sur Pronote."
-                    else -> "Pas encore lue sur Pronote."
-                }
-                state.setTextColor(ctx.getColor(if (repo.readRefused(n)) R.color.alert else R.color.text2))
-            }
-            describe()
-            tick.addView(UI.check(ctx, "J'ai vu", { repo.isRead(n) }, size = 16f) { seen ->
-                activity.setNewsRead(n, seen)
-                describe()
-            }, UI.matchWidth())
-            tick.addView(state, UI.matchWidth())
-            sheet.addView(tick, UI.matchWidth().apply { topMargin = ctx.dp(16) })
+            // "J'ai vu": marks it read here and on PRONOTE (sent with the homework ticks), only on this tap.
+            val refused = repo.readRefused(n) && !n.read
+            sheet.addView(UI.checkButton(ctx, if (refused) "J'ai vu · réessayer" else "J'ai vu", "Vue", repo.isRead(n)) {
+                activity.setNewsRead(n)
+            }, UI.matchWidth().apply { topMargin = ctx.dp(16) })
         }
     }
 
