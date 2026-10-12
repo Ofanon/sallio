@@ -50,7 +50,8 @@ rapide, Notifications, Apparence, Compte et données, chacun ouvrant sa page.
 
 Accès le plus rapide possible, sans même ouvrir l'app :
 
-- **Widgets** « Prochaine salle » (aux couleurs de la matière) et « Ma journée ».
+- **Widgets** « Prochaine salle » (aux couleurs de la matière), « Ma journée »,
+  « Demain », « À savoir » et « Devoirs ».
 - **Tuile des réglages rapides** « Ma salle » : un glissement vers le bas,
   depuis n'importe où, affiche la prochaine salle (ajout en un clic depuis le
   menu du profil, Android 13+).
@@ -79,9 +80,12 @@ données du téléphone, sans rien demander à Pronote.
   quand le téléphone a du réseau (JobScheduler). Les widgets lisent la copie
   enregistrée sur le téléphone : ils s'affichent instantanément, même quand
   Pronote est saturé ou qu'il n'y a pas de réseau.
-- Deux widgets : **Prochaine salle** (la salle en gros, l'alerte « Prof absent »
-  ou « Cours annulé », puis le cours suivant) et **Ma journée** (tous les cours
-  du jour avec leur salle).
+- Cinq widgets : **Prochaine salle** (la salle en gros, l'alerte « Prof absent »
+  ou « Cours annulé », puis le cours suivant), **Ma journée** (tous les cours
+  du jour avec leur salle), **Demain** (les cours du prochain jour, pour
+  préparer son sac la veille), **À savoir** (profs absents, cours annulés et
+  salles changées d'aujourd'hui et demain) et **Devoirs** (ceux du prochain
+  jour de cours ; la case les coche aussi sur Pronote, en arrière-plan).
 - Les widgets se redessinent d'eux-mêmes au début et à la fin de chaque cours.
   Ils affichent toujours l'heure à côté de la salle, donc un retard de
   quelques minutes du système n'induit jamais en erreur.
