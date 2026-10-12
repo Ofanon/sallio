@@ -8,7 +8,7 @@ moment-là.
 
 ## L'app
 
-Quatre onglets, pour l'essentiel de Pronote au quotidien sans le charger :
+Cinq onglets, pour l'essentiel de Pronote au quotidien sans le charger :
 
 - **Accueil** : le prochain cours en grand (salle, prof, horaires, alerte),
   ce qui a changé aujourd'hui et demain, les devoirs du prochain jour de cours
@@ -22,8 +22,11 @@ Quatre onglets, pour l'essentiel de Pronote au quotidien sans le charger :
   matière ; les notes arrivées depuis la dernière visite sont signalées. Une
   note touchée ouvre sa fiche : barème, coefficient, commentaire, et sa place
   dans la classe (note la plus basse, moyenne, plus haute).
+- **Infos** : les actualités (et sondages) et la messagerie, en lecture
+  seule, avec leurs pièces jointes et leurs liens.
 
-Pour tout le reste (messagerie, vie scolaire, bulletins), « Ouvrir Pronote ».
+Pour tout le reste (répondre à un message, vie scolaire, bulletins),
+« Ouvrir Pronote ».
 
 Accès le plus rapide possible, sans même ouvrir l'app :
 
@@ -116,7 +119,8 @@ le compte de démonstration, pratique pour essayer les widgets.
 
 ## Publier une mise à jour
 
-L'app vérifie au plus toutes les 6 heures, à l'ouverture, la dernière release
+L'app vérifie au plus une fois par heure, à l'ouverture (ou à la demande depuis
+les réglages), la dernière release
 GitHub de `Ofanon/sallio`. Si son APK (`sallio-<versionCode>.apk`) est plus
 récent, elle propose « Mettre à jour » ; Android demande confirmation à
 l'élève. Avant de l'installer, l'app vérifie que l'APK est bien Sallio, du
