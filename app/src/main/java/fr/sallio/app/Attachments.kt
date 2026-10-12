@@ -177,9 +177,11 @@ object Attachments {
         }
 
         override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
-            if (mode != "r") throw SecurityException("lecture seule")
             val file = resolve(uri) ?: throw java.io.FileNotFoundException(uri.toString())
-            return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+            if (mode == "r") return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+            // The only writable file: the camera's shot for the avatar, handed out for one capture.
+            if (uri.path?.trimStart('/') != "camera/capture.jpg") throw SecurityException("lecture seule")
+            return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_WRITE_ONLY or ParcelFileDescriptor.MODE_TRUNCATE)
         }
 
         override fun getType(uri: Uri): String? = resolve(uri)?.let { mime(it.name) }

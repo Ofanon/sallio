@@ -328,20 +328,17 @@ class MainActivity : Activity() {
         spinner = if (syncing) Motion.spin(refresh) else null
         row.addView(UI.squareButton(this, R.color.surface, R.color.edge, refresh) { refresh(manual = true) })
         row.addView(UI.hgap(this, 8))
-        row.addView(UI.squareButton(this, R.color.sun, R.color.sun_edge, avatar(first, 40, 19f)) { settingsSheet(s) })
+        row.addView(Avatar.button(this, first, 40, 19f) { settingsSheet(s) })
         return row
     }
 
-    /** The PRONOTE photo, rounded inside the sticker; the initial when there is none. */
-    private fun avatar(first: String, sizeDp: Int, letterSize: Float): View {
-        val photo = repo.photo() ?: return UI.title(this, first.take(1).uppercase().ifEmpty { "?" }, letterSize, R.color.on_sun)
-        return android.widget.ImageView(this).apply {
-            setImageBitmap(photo)
-            scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-            background = UI.rounded(getColor(R.color.sun), dp(sizeDp * 12 / 40).toFloat())
-            clipToOutline = true
-            layoutParams = FrameLayout.LayoutParams(dp(sizeDp), dp(sizeDp), Gravity.CENTER)
-            contentDescription = "Photo de profil"
+    @Deprecated("Activity API")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
+        if (Avatar.onResult(this, requestCode, resultCode, data)) {
+            Motion.success(root)
+            render()
         }
     }
 
@@ -434,10 +431,17 @@ class MainActivity : Activity() {
     private fun settingsSheet(s: Snapshot) {
         val first = firstName(s.account.studentName)
         val who = UI.row(this)
-        who.addView(UI.squareButton(this, R.color.sun, R.color.sun_edge, avatar(first, 50, 22f)) {}.apply {
-            layoutParams = LinearLayout.LayoutParams(dp(56), dp(59))
-            isClickable = false
-        })
+        // Tapping the avatar changes it: a photo, an emoji, a colour. This header follows.
+        val slot = FrameLayout(this)
+        fun editAvatar() {
+            Avatar.edit(this, first) {
+                render()
+                slot.removeAllViews()
+                slot.addView(Avatar.button(this, first, 50, 22f) { editAvatar() }.apply { contentDescription = "Changer mon avatar" }, FrameLayout.LayoutParams(-1, -1))
+            }
+        }
+        slot.addView(Avatar.button(this, first, 50, 22f) { editAvatar() }.apply { contentDescription = "Changer mon avatar" }, FrameLayout.LayoutParams(-1, -1))
+        who.addView(slot, LinearLayout.LayoutParams(dp(56), dp(59)))
         who.addView(UI.hgap(this, 14))
         val info = UI.column(this)
         info.addView(UI.title(this, prettyStudent(s.account.studentName), 20f))
@@ -485,6 +489,9 @@ class MainActivity : Activity() {
             })
         }
         val preferences = listOf(
+            SettingsSheet.Item.Action(R.drawable.ic_palette, "Mon avatar", "Ta photo, un emoji ou ton initiale, et sa couleur.") {
+                Avatar.edit(this, first) { render() }
+            },
             SettingsSheet.Item.Toggle(R.drawable.ic_sparkles, "Vibrations", "Un petit retour quand tu touches un bouton.", { Motion.hapticsOn(this) }) { on, done ->
                 getSharedPreferences("ui", MODE_PRIVATE).edit().putBoolean("haptics", on).apply()
                 done()

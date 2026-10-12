@@ -100,7 +100,14 @@ class Repo private constructor(private val context: Context) {
 
     @Volatile private var cachedPhoto: android.graphics.Bitmap? = null
 
-    /** The PRONOTE profile photo, decoded once. */
+    /** The photo the student chose for their avatar (JPEG), or null to remove it. */
+    fun setPhoto(jpeg: ByteArray?) {
+        if (jpeg == null) vault.delete(PHOTO)
+        else vault.write(PHOTO, android.util.Base64.encodeToString(jpeg, android.util.Base64.NO_WRAP))
+        cachedPhoto = null
+    }
+
+    /** The avatar photo, decoded once. */
     fun photo(): android.graphics.Bitmap? {
         cachedPhoto?.let { return it }
         val text = vault.read(PHOTO) ?: return null
@@ -331,10 +338,8 @@ class Repo private constructor(private val context: Context) {
         try {
             // A first login gets the welcome celebration; a reconnection does not.
             if (account() == null) context.getSharedPreferences("ui", Context.MODE_PRIVATE).edit().putBoolean("welcomePending", true).apply()
-            vault.delete(PHOTO)
-            cachedPhoto = null
             saveAccount(logged)
-            prefs.edit().putBoolean("needsLogin", false).remove("error").putInt("fails", 0).remove("suspendedUntil").remove("photoTried")
+            prefs.edit().putBoolean("needsLogin", false).remove("error").putInt("fails", 0).remove("suspendedUntil")
                 .putLong("attempt", System.currentTimeMillis()).putLong("lastLogin", System.currentTimeMillis()).apply()
             live = logged
             liveSince = System.currentTimeMillis()
@@ -389,16 +394,6 @@ class Repo private constructor(private val context: Context) {
         runCatching { Schoolwork.homework(logged, today, today.plusDays(FETCH_DAYS)) }.onSuccess { list ->
             val synced = pushTicks(logged, list)
             vault.write(HOMEWORK, JSONArray(synced.map { it.toJson() }).toString())
-        }
-        // The photo rarely changes: fetched once, then again after a new login.
-        // Not every school publishes photos: after a miss, try again only a week later.
-        val photoDue = System.currentTimeMillis() - prefs.getLong("photoTried", 0) > 7 * 24 * 3600_000L
-        if (vault.read(PHOTO) == null && photoDue) {
-            prefs.edit().putLong("photoTried", System.currentTimeMillis()).apply()
-            runCatching { logged.photo() }.getOrNull()?.let { bytes ->
-                vault.write(PHOTO, android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
-                cachedPhoto = null
-            }
         }
         runCatching { Attachments.prune(context) }
         // Actualités and Messagerie: read-only, contents cached so a sync only asks for new ones.
