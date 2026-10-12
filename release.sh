@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Publishes a new version on GitHub; installed apps offer it within 6 hours
-# (immediately when the app is opened after the check window).
+# Publishes a new version on GitHub; installed apps offer it the next time
+# they are opened.
 #
 #   1. bump versionCode AND versionName in app/build.gradle.kts, commit
 #   2. ./release.sh "Ce qui change, en une ou deux phrases pour les élèves."

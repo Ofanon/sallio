@@ -18,8 +18,9 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 
 /**
- * Bottom sheet shared by every panel: a handle, a scrolling body, and a swipe
- * down (from anywhere once the content is scrolled to the top) to close it.
+ * Bottom sheet shared by every panel: a handle fixed at the top, a scrolling
+ * body under it, and a swipe down (on the handle, or anywhere once the content
+ * is scrolled to the top) to close it.
  */
 object Sheet {
 
@@ -31,16 +32,20 @@ object Sheet {
         val dialog = Dialog(ctx, android.R.style.Theme_Translucent_NoTitleBar)
 
         val column = UI.column(ctx).apply {
-            setPadding(ctx.dp(18), ctx.dp(12), ctx.dp(18), ctx.dp(22))
+            setPadding(ctx.dp(18), 0, ctx.dp(18), ctx.dp(22))
         }
-        column.addView(View(ctx).apply { background = UI.rounded(ctx.getColor(R.color.text3), ctx.dp(3).toFloat()) },
-            LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(5)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = ctx.dp(14) })
         build(column, dialog)
 
         val scroll = ScrollView(ctx).apply {
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
             addView(column)
+        }
+        // The handle above the scroll view: a long actualité scrolls under it, it stays in sight.
+        val body = UI.column(ctx).apply {
+            addView(View(ctx).apply { background = UI.rounded(ctx.getColor(R.color.text3), ctx.dp(3).toFloat()) },
+                LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(5)).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = ctx.dp(12); bottomMargin = ctx.dp(14) })
+            addView(scroll, LinearLayout.LayoutParams(-1, -2))
         }
         val container = DragLayout(ctx, scroll) { dialog.dismiss() }.apply {
             // Rounded on top only: the sheet sits on the bottom edge of the screen.
@@ -51,7 +56,7 @@ object Sheet {
             }
             outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
             clipToOutline = true
-            addView(scroll, FrameLayout.LayoutParams(-1, -2))
+            addView(body, FrameLayout.LayoutParams(-1, -2))
         }
         val maxHeight = (ctx.resources.displayMetrics.heightPixels * 0.92f).toInt()
         container.maxHeight = maxHeight
@@ -103,6 +108,8 @@ object Sheet {
         var maxHeight = Int.MAX_VALUE
         private val slop = ViewConfiguration.get(context).scaledTouchSlop
         private var downY = 0f
+        /** The finger came down on the handle strip: dragging it always pulls the sheet. */
+        private var onHandle = false
         private var dragging = false
         private var velocity: VelocityTracker? = null
 
@@ -112,10 +119,10 @@ object Sheet {
 
         override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
             when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { downY = ev.rawY; dragging = false }
+                MotionEvent.ACTION_DOWN -> { downY = ev.rawY; onHandle = ev.y < 40 * resources.displayMetrics.density; dragging = false }
                 MotionEvent.ACTION_MOVE -> {
                     val dy = ev.rawY - downY
-                    if (!dragging && dy > slop && !scroll.canScrollVertically(-1)) {
+                    if (!dragging && dy > slop && (onHandle || !scroll.canScrollVertically(-1))) {
                         dragging = true
                         velocity = VelocityTracker.obtain()
                         return true

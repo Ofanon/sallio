@@ -160,8 +160,8 @@ le compte de démonstration, pratique pour essayer les widgets.
 
 ## Publier une mise à jour
 
-L'app vérifie au plus une fois par heure, à l'ouverture (ou à la demande depuis
-les réglages), la dernière release
+L'app vérifie à chaque ouverture (ou à la demande depuis les réglages) la
+dernière release
 GitHub de `Ofanon/sallio`. Si son APK (`sallio-<versionCode>.apk`) est plus
 récent, elle propose « Mettre à jour » ; Android demande confirmation à
 l'élève. Avant de l'installer, l'app vérifie que l'APK est bien Sallio, du

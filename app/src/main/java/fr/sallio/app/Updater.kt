@@ -26,8 +26,12 @@ import java.security.MessageDigest
 object Updater {
 
     const val REPO = "Ofanon/sallio"
-    /** GitHub allows 60 anonymous API calls an hour per address: once an hour per phone is plenty. */
-    private const val CHECK_EVERY_MS = 3600_000L
+    /**
+     * Checked each time the app opens. The minute only absorbs the resumes that
+     * follow a system dialog (permission, share); GitHub allows 60 anonymous
+     * calls an hour per address.
+     */
+    private const val CHECK_EVERY_MS = 60_000L
     private val ASSET = Regex("""^sallio-(\d+)\.apk$""")
 
     class Update(val versionName: String, val versionCode: Int, val notes: String, val url: String, val size: Long)
