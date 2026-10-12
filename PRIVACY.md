@@ -8,7 +8,7 @@ Sallio n'a **aucun serveur**. Personne d'autre que l'élève et son
 | Donnée | Où | Protection |
 | --- | --- | --- |
 | Jeton d'appareil Pronote, identifiant Pronote, adresse du Pronote | téléphone, stockage privé de l'app | chiffré (AES-256-GCM, clé dans le Keystore Android, qui ne sort jamais du téléphone) |
-| Emploi du temps et devoirs des deux prochaines semaines, notes de la période | téléphone, stockage privé de l'app | chiffré, même clé |
+| Emploi du temps et devoirs des deux prochaines semaines, notes de la période, actualités, messages, vie scolaire de l'année (absences, retards, punitions, dispenses), avatar choisi | téléphone, stockage privé de l'app | chiffré, même clé |
 | Devoirs cochés en attente d'envoi, notes déjà vues | téléphone | clés techniques (date, matière, empreinte de la consigne) |
 | Heure de la dernière mise à jour, dernier message d'erreur | téléphone | aucune donnée personnelle |
 
@@ -27,7 +27,7 @@ la fin de chaque connexion.
   « Chercher autour de moi » : la position, arrondie à environ 1 km, est
   envoyée au service de recherche d'établissements qu'utilise l'app officielle.
   Rien n'est envoyé sans ce geste.
-- **GitHub**, au plus toutes les 6 heures quand l'app est ouverte, pour savoir
+- **GitHub**, au plus une fois par heure quand l'app est ouverte (ou sur demande dans les réglages), pour savoir
   s'il existe une nouvelle version. GitHub voit l'adresse IP du téléphone, et
   rien d'autre : aucune donnée de compte ni d'emploi du temps n'est envoyée.
 
@@ -51,3 +51,11 @@ l'emploi du temps et la clé de chiffrement. Désinstaller l'app a le même effe
 
 Les widgets affichent salles, matières et noms de professeurs sur l'écran
 d'accueil : toute personne qui voit l'écran les voit aussi.
+
+Les alertes de changement sont des notifications Android ordinaires. Sur
+l'écran verrouillé, une nouvelle note, un message ou un événement de vie
+scolaire n'affichent qu'un titre neutre (« Nouvelle note en Maths »,
+« Nouveau message », « Vie scolaire ») : la note, le texte et le motif
+n'apparaissent qu'une fois le téléphone déverrouillé. Les changements
+d'emploi du temps, eux, s'affichent en entier. Chaque type d'alerte se coupe
+dans les réglages Android de l'app.

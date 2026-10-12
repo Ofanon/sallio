@@ -25,6 +25,8 @@ object Alerts {
             "Une note qui arrive sur Pronote. Elle n'est pas affichée sur l'écran verrouillé.", MainActivity.Tab.GRADES, R.drawable.ic_star),
         Changes.Kind.INBOX to Channel("inbox", "Messages et actualités",
             "Un nouveau message ou une nouvelle actualité.", MainActivity.Tab.INBOX, R.drawable.ic_news),
+        Changes.Kind.SCHOOL_LIFE to Channel("school_life", "Vie scolaire",
+            "Une absence, un retard, une punition ou une dispense enregistrés sur Pronote.", MainActivity.Tab.INBOX, R.drawable.ic_absent),
     )
 
     /** On unless the student turned them off; Android's permission still decides. */
@@ -49,6 +51,12 @@ object Alerts {
                 description = channel.description
             })
             val open = Widgets.openApp(context, channel.tab)
+            fun openFor(item: Changes.Item) = when {
+                kind == Changes.Kind.SCHOOL_LIFE -> Widgets.openApp(context, channel.tab, InboxTab.Mode.LIFE)
+                item.key.startsWith("message|") -> Widgets.openApp(context, channel.tab, InboxTab.Mode.MESSAGES)
+                item.key.startsWith("news|") -> Widgets.openApp(context, channel.tab, InboxTab.Mode.NEWS)
+                else -> open
+            }
             val shown = nm.activeNotifications.filter { it.notification.group == GROUP + kind.name && !it.notification.isGroupSummary() }.map { it.id }
             for (item in list) {
                 val style = item.subject?.let { Subjects.style(it) }
@@ -59,7 +67,7 @@ object Alerts {
                     .setStyle(Notification.BigTextStyle().bigText(item.text))
                     .setGroup(GROUP + kind.name)
                     .setAutoCancel(true)
-                    .setContentIntent(open)
+                    .setContentIntent(openFor(item))
                 style?.let { builder.setColor(Subjects.solid(it.family)) }
                 item.until?.let { builder.setTimeoutAfter(Duration.between(now, it).toMillis().coerceAtLeast(60_000L)) }
                 item.publicTitle?.let { title ->

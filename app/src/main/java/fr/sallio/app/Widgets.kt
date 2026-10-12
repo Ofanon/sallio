@@ -69,13 +69,14 @@ object Widgets {
         else -> "Mis à jour ${Agenda.ago(status.lastSuccess, now)}"
     }
 
-    /** Opens the app straight on [tab]. Distinct request codes keep the extras apart. */
-    fun openApp(context: Context, tab: MainActivity.Tab = MainActivity.Tab.HOME): PendingIntent =
+    /** Opens the app straight on [tab] (and [inbox]'s view of Infos). Distinct request codes keep the extras apart. */
+    fun openApp(context: Context, tab: MainActivity.Tab = MainActivity.Tab.HOME, inbox: InboxTab.Mode? = null): PendingIntent =
         PendingIntent.getActivity(
-            context, 10 + tab.ordinal,
+            context, 10 + tab.ordinal + (inbox?.let { 20 + it.ordinal } ?: 0),
             Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                .putExtra(MainActivity.EXTRA_TAB, tab.name),
+                .putExtra(MainActivity.EXTRA_TAB, tab.name)
+                .apply { inbox?.let { putExtra(MainActivity.EXTRA_INBOX, it.name) } },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 

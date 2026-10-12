@@ -22,10 +22,13 @@ Cinq onglets, pour l'essentiel de Pronote au quotidien sans le charger :
   matière ; les notes arrivées depuis la dernière visite sont signalées. Une
   note touchée ouvre sa fiche : barème, coefficient, commentaire, et sa place
   dans la classe (note la plus basse, moyenne, plus haute).
-- **Infos** : les actualités (et sondages) et la messagerie, en lecture
-  seule, avec leurs pièces jointes et leurs liens.
+- **Infos** : les actualités (et sondages), la messagerie et la **vie
+  scolaire**, en lecture seule. Vie scolaire : le total de l'année (absences,
+  heures manquées, retards), ce qui attend un motif des parents, puis les
+  punitions et sanctions, absences, retards et dispenses, chacun avec sa fiche
+  (`PagePresence`, onglet 19, toute l'année scolaire).
 
-Pour tout le reste (répondre à un message, vie scolaire, bulletins),
+Pour tout le reste (répondre à un message, justifier une absence, bulletins),
 « Ouvrir Pronote ».
 
 Accès le plus rapide possible, sans même ouvrir l'app :
@@ -43,7 +46,8 @@ notifications) :
 - emploi du temps des 7 prochains jours : prof absent, cours annulé, déplacé,
   ajouté ou retiré, salle changée, cours finalement maintenu ;
 - nouvelle note (la valeur n'apparaît pas sur l'écran verrouillé) ;
-- nouveau message ou nouvelle actualité.
+- nouveau message ou nouvelle actualité ;
+- nouvelle absence, nouveau retard, punition, sanction ou dispense.
 
 Sallio compare la copie du téléphone avec ce que Pronote vient d'envoyer
 (`Changes.kt`, testé dans `ChangesTest.kt`) : aucune requête de plus. Chaque
@@ -160,7 +164,8 @@ retirée de cette version : Google interdit qu'une app se mette à jour seule.
 
 - `pronote/` : le protocole, en Kotlin pur (sans Android, testé sur la JVM).
   `Session` (chiffrement, ordre des messages), `Login` (jeton, identifiants,
-  double authentification), `Timetable`, `Schools` (trouver l'adresse Pronote).
+  double authentification), `Timetable`, `Schoolwork` (devoirs, notes), `Inbox` (actualités, messages),
+  `Presence` (vie scolaire), `Schools` (trouver l'adresse Pronote).
 - `app/` : `LoginActivity` (WebView), `Repo` (état, synchronisation), `Vault`
   (fichiers chiffrés), `SyncJob`, `Widgets`, `Agenda` (quel cours afficher),
   `Changes` et `Alerts` (ce qui a changé, et les notifications),

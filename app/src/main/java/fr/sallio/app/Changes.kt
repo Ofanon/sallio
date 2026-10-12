@@ -4,6 +4,7 @@ import fr.sallio.pronote.Discussion
 import fr.sallio.pronote.Grade
 import fr.sallio.pronote.Lesson
 import fr.sallio.pronote.News
+import fr.sallio.pronote.SchoolEvent
 import java.time.LocalDateTime
 
 /**
@@ -16,7 +17,7 @@ import java.time.LocalDateTime
  */
 object Changes {
 
-    enum class Kind { LESSON, GRADE, INBOX }
+    enum class Kind { LESSON, GRADE, INBOX, SCHOOL_LIFE }
 
     class Item(
         val kind: Kind,
@@ -148,6 +149,23 @@ object Changes {
                 title = "Message de $from",
                 text = listOfNotNull(d.subject.ifBlank { null }, last?.text?.let(::oneLine)?.ifBlank { null }).joinToString(" · "),
                 publicTitle = "Nouveau message",
+            )
+        }
+    }
+
+    // ---- Vie scolaire ----------------------------------------------------------------
+
+    fun schoolLife(before: List<SchoolEvent>?, after: List<SchoolEvent>): List<Item> {
+        if (before == null) return emptyList()
+        val known = before.map { it.key }.toSet()
+        return after.filter { it.key !in known }.sortedBy { it.start }.map { e ->
+            Item(
+                Kind.SCHOOL_LIFE,
+                key = "life|${e.key}",
+                title = SchoolLifeText.title(e),
+                text = SchoolLifeText.details(e),
+                publicTitle = "Vie scolaire",
+                subject = e.subject,
             )
         }
     }

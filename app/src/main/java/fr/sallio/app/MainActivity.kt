@@ -54,7 +54,7 @@ class MainActivity : Activity() {
     private var tab = Tab.HOME
     private var selectedDay: LocalDate? = null
     private var gradesBySubject = false
-    private var inboxMessages = false
+    private var inboxMode = InboxTab.Mode.NEWS
     private val inboxTab by lazy { InboxTab(this, repo) }
     internal val expanded = mutableSetOf<String>()
     private var scroll: ScrollView? = null
@@ -104,6 +104,7 @@ class MainActivity : Activity() {
         }
         // A widget, shortcut or tile asking for a tab wins over the restored one.
         if (savedInstanceState == null) intent?.getStringExtra(EXTRA_TAB)?.let { name -> runCatching { tab = Tab.valueOf(name) } }
+        if (savedInstanceState == null) intent?.let(::inboxModeFrom)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -113,6 +114,14 @@ class MainActivity : Activity() {
                 if (target != tab) { tab = target; entering = Enter.ALL; scroll = null }
             }
         }
+        if (inboxModeFrom(intent) && tab == Tab.INBOX) { entering = Enter.TAB; render() }
+    }
+
+    /** A notification can open Infos on its view (messages, vie scolaire). True when it did. */
+    private fun inboxModeFrom(intent: Intent): Boolean {
+        val mode = intent.getStringExtra(EXTRA_INBOX)?.let { runCatching { InboxTab.Mode.valueOf(it) }.getOrNull() } ?: return false
+        inboxMode = mode
+        return true
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -185,7 +194,7 @@ class MainActivity : Activity() {
             Tab.TIMETABLE -> tabs.timetable(s, selectedDay) { selectedDay = it; entering = Enter.TAB; render() }
             Tab.HOMEWORK -> tabs.homework(s)
             Tab.GRADES -> tabs.grades(s, gradesBySubject) { gradesBySubject = it; render() }
-            Tab.INBOX -> inboxTab.build(s, inboxMessages) { inboxMessages = it; render() }
+            Tab.INBOX -> inboxTab.build(s, inboxMode) { inboxMode = it; render() }
         }
         content.addView(body, UI.matchWidth())
         when (entering) {
@@ -312,7 +321,7 @@ class MainActivity : Activity() {
             Tab.TIMETABLE -> "Cours" to "2 semaines"
             Tab.HOMEWORK -> "Devoirs" to tabs.homeworkSummary(s)
             Tab.GRADES -> "Notes" to (s.report?.periodName ?: "")
-            Tab.INBOX -> "Infos" to "Actualités et messages"
+            Tab.INBOX -> "Infos" to "Actualités, messages, vie scolaire"
         }
         col.addView(UI.oneLine(UI.title(this, title, 27f)))
         val (status, color) = when {
@@ -496,7 +505,7 @@ class MainActivity : Activity() {
             },
         )
         val account = listOf(
-            SettingsSheet.Item.Action(R.drawable.ic_open, "Ouvrir Pronote", "Messagerie, vie scolaire, bulletins…") { openPronote() },
+            SettingsSheet.Item.Action(R.drawable.ic_open, "Ouvrir Pronote", "Répondre aux messages, justifier une absence, bulletins…") { openPronote() },
             SettingsSheet.Item.Action(R.drawable.ic_shield, "Tes données", "Ce que Sallio garde, et où.") { privacyDialog() },
             SettingsSheet.Item.Action(R.drawable.ic_refresh, "Rechercher une mise à jour", "Version installée : ${BuildConfig.VERSION_NAME}") { checkUpdateNow() },
             SettingsSheet.Item.Action(R.drawable.ic_logout, "Se déconnecter et tout effacer", danger = true) { confirmLogout() },
@@ -963,13 +972,14 @@ class MainActivity : Activity() {
         private var homeIntroPlayed = false
 
         const val EXTRA_TAB = "tab"
+        const val EXTRA_INBOX = "inbox"
         private const val REQ_LOCATION = 1
         private const val REQ_NOTIFICATIONS = 2
 
         private val PRIVACY = listOf(
             "Sallio n'a aucun serveur : ton téléphone parle directement à Pronote.",
             "Tu te connectes sur la vraie page de ton ENT. L'app ne voit jamais ton mot de passe, seulement le jeton que Pronote donne à ce téléphone.",
-            "Le jeton, ton emploi du temps, tes devoirs et tes notes sont chiffrés sur le téléphone et exclus des sauvegardes.",
+            "Le jeton, ton emploi du temps, tes devoirs, tes notes, tes messages et ta vie scolaire sont chiffrés sur le téléphone et exclus des sauvegardes.",
             "Aucune pub, aucun traqueur, aucune statistique.",
             "Cocher un devoir le coche aussi sur Pronote : c'est la seule chose que l'app y modifie.",
         )

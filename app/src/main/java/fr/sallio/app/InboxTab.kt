@@ -8,17 +8,20 @@ import android.widget.LinearLayout
 import fr.sallio.pronote.Discussion
 import fr.sallio.pronote.Inbox
 import fr.sallio.pronote.News
+import fr.sallio.pronote.SchoolEvent
 import java.time.LocalDateTime
 import java.time.format.TextStyle
 import java.util.Locale
 
-/** The "Infos" tab: actualités, sondages and the messagerie, read-only. */
+/** The "Infos" tab: actualités, sondages, the messagerie and the vie scolaire, read-only. */
 class InboxTab(private val activity: MainActivity, private val repo: Repo) {
 
     private val ctx = activity
     private val fr = Locale.FRANCE
 
-    fun build(s: Snapshot, messages: Boolean, onMode: (Boolean) -> Unit): View {
+    enum class Mode { NEWS, MESSAGES, LIFE }
+
+    fun build(s: Snapshot, mode: Mode, onMode: (Mode) -> Unit): View {
         val root = UI.column(ctx)
         val news = repo.news()
         val discussions = repo.discussions()
@@ -29,48 +32,144 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
         }
         val unreadNews = news.count { !it.read }
         val unreadMessages = discussions.sumOf { it.unread }
-        for ((label, mode) in listOf((if (unreadNews > 0) "Actualités · $unreadNews" else "Actualités") to false,
-            (if (unreadMessages > 0) "Messages · $unreadMessages" else "Messages") to true)) {
-            val on = mode == messages
-            seg.addView(UI.text(ctx, label, 14f, if (on) R.color.text else R.color.text2, 800).apply {
+        // Three views share the width: counts stay short ("Messages · 2").
+        for ((label, m) in listOf((if (unreadNews > 0) "Actus · $unreadNews" else "Actualités") to Mode.NEWS,
+            (if (unreadMessages > 0) "Messages · $unreadMessages" else "Messages") to Mode.MESSAGES,
+            "Vie scolaire" to Mode.LIFE)) {
+            val on = m == mode
+            seg.addView(UI.oneLine(UI.text(ctx, label, 13f, if (on) R.color.text else R.color.text2, 800)).apply {
                 gravity = Gravity.CENTER
                 if (on) {
                     background = UI.sticker(ctx, ctx.getColor(R.color.surface), ctx.getColor(R.color.edge), 12, 2)
-                    setPadding(0, ctx.dp(8), 0, ctx.dp(10))
-                } else setPadding(0, ctx.dp(8), 0, ctx.dp(8))
-                setOnClickListener { if (!on) { Motion.tick(this); onMode(mode) } }
+                    setPadding(ctx.dp(4), ctx.dp(8), ctx.dp(4), ctx.dp(10))
+                } else setPadding(ctx.dp(4), ctx.dp(8), ctx.dp(4), ctx.dp(8))
+                setOnClickListener { if (!on) { Motion.tick(this); onMode(m) } }
             }, UI.weight())
         }
         root.addView(seg, UI.matchWidth().apply { bottomMargin = ctx.dp(4) })
 
-        if (!messages) {
-            if (news.isEmpty()) root.addView(empty(R.drawable.ic_news, if (s.status.lastSuccess == 0L) "Les actualités arrivent à la prochaine mise à jour." else "Aucune actualité pour l'instant."), UI.matchWidth().apply { topMargin = ctx.dp(14) })
-            for ((title, items) in news.groupBy { section(it.date, s.now) }) {
-                root.addView(UI.section(ctx, title))
-                val card = UI.card(ctx, padding = 6)
-                items.forEachIndexed { i, n ->
-                    if (i > 0) card.addView(divider())
-                    card.addView(newsRow(n, s), UI.matchWidth())
+        when (mode) {
+            Mode.NEWS -> {
+                if (news.isEmpty()) root.addView(empty(R.drawable.ic_news, if (s.status.lastSuccess == 0L) "Les actualités arrivent à la prochaine mise à jour." else "Aucune actualité pour l'instant."), UI.matchWidth().apply { topMargin = ctx.dp(14) })
+                for ((title, items) in news.groupBy { section(it.date, s.now) }) {
+                    root.addView(UI.section(ctx, title))
+                    val card = UI.card(ctx, padding = 6)
+                    items.forEachIndexed { i, n ->
+                        if (i > 0) card.addView(divider())
+                        card.addView(newsRow(n, s), UI.matchWidth())
+                    }
+                    root.addView(card, UI.matchWidth())
                 }
-                root.addView(card, UI.matchWidth())
             }
-        } else {
-            if (discussions.isEmpty()) root.addView(empty(R.drawable.ic_chat, if (s.status.lastSuccess == 0L) "Tes messages arrivent à la prochaine mise à jour." else "Aucun message."), UI.matchWidth().apply { topMargin = ctx.dp(14) })
-            else {
-                root.addView(UI.section(ctx, "Conversations"))
-                val card = UI.card(ctx, padding = 6)
-                discussions.forEachIndexed { i, d ->
-                    if (i > 0) card.addView(divider())
-                    card.addView(discussionRow(d), UI.matchWidth())
+            Mode.MESSAGES -> {
+                if (discussions.isEmpty()) root.addView(empty(R.drawable.ic_chat, if (s.status.lastSuccess == 0L) "Tes messages arrivent à la prochaine mise à jour." else "Aucun message."), UI.matchWidth().apply { topMargin = ctx.dp(14) })
+                else {
+                    root.addView(UI.section(ctx, "Conversations"))
+                    val card = UI.card(ctx, padding = 6)
+                    discussions.forEachIndexed { i, d ->
+                        if (i > 0) card.addView(divider())
+                        card.addView(discussionRow(d), UI.matchWidth())
+                    }
+                    root.addView(card, UI.matchWidth())
                 }
-                root.addView(card, UI.matchWidth())
             }
+            Mode.LIFE -> schoolLife(root)
         }
-        root.addView(UI.text(ctx, "Lecture seule : Sallio ne marque rien comme lu sur Pronote. Pour répondre, ouvre Pronote.", 12f, R.color.text3).apply {
+        val footer = if (mode == Mode.LIFE) "Lecture seule. Pour justifier une absence, ouvre Pronote."
+        else "Lecture seule : Sallio ne marque rien comme lu sur Pronote. Pour répondre, ouvre Pronote."
+        root.addView(UI.text(ctx, footer, 12f, R.color.text3).apply {
             gravity = Gravity.CENTER
             setPadding(0, ctx.dp(20), 0, 0)
         }, UI.matchWidth())
         return root
+    }
+
+    // ---- Vie scolaire ----------------------------------------------------------------
+
+    private fun schoolLife(root: LinearLayout) {
+        val life = repo.schoolLife()
+        if (life == null || life.events.isEmpty()) {
+            root.addView(empty(R.drawable.ic_absent, if (life == null) "La vie scolaire arrive à la prochaine mise à jour." else "Aucune absence, aucun retard, aucune punition cette année."),
+                UI.matchWidth().apply { topMargin = ctx.dp(14) })
+            return
+        }
+        val absences = life.events.filter { it.kind == SchoolEvent.Kind.ABSENCE }
+        val lates = life.events.filter { it.kind == SchoolEvent.Kind.LATE }
+
+        // PRONOTE's own totals for the year.
+        val stats = UI.card(ctx, padding = 14).apply { orientation = LinearLayout.HORIZONTAL }
+        fun stat(value: String, label: String) = UI.column(ctx).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            addView(UI.title(ctx, value, 24f).apply { gravity = Gravity.CENTER }, UI.matchWidth())
+            addView(UI.text(ctx, label, 12f, R.color.text2).apply { gravity = Gravity.CENTER }, UI.matchWidth())
+        }
+        stats.addView(stat(absences.size.toString(), if (absences.size > 1) "absences" else "absence"), UI.weight())
+        stats.addView(stat(life.absenceHours ?: "—", "de cours manqués"), UI.weight())
+        stats.addView(stat(lates.size.toString(), if (lates.size > 1) "retards" else "retard"), UI.weight())
+        root.addView(UI.section(ctx, "Cette année"))
+        root.addView(stats, UI.matchWidth())
+
+        val waiting = life.events.count { it.toJustify }
+        if (waiting > 0) {
+            root.addView(UI.card(ctx, R.color.warn_bg, R.color.warn_edge, padding = 14).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(UI.icon(ctx, R.drawable.ic_warning, R.color.warn, 22))
+                addView(UI.hgap(ctx, 12))
+                addView(UI.text(ctx, (if (waiting > 1) "$waiting absences ou retards attendent" else "Une absence ou un retard attend") +
+                    " un motif. Tes parents peuvent le donner sur Pronote.", 14f, R.color.text), UI.weight())
+            }, UI.matchWidth().apply { topMargin = ctx.dp(12) })
+        }
+
+        val groups = listOf(
+            "Punitions et sanctions" to life.events.filter { it.kind == SchoolEvent.Kind.PUNISHMENT || it.kind == SchoolEvent.Kind.SANCTION },
+            "Absences" to absences,
+            "Retards" to lates,
+            "Dispenses" to life.events.filter { it.kind == SchoolEvent.Kind.EXEMPTION },
+        )
+        for ((title, events) in groups) {
+            if (events.isEmpty()) continue
+            root.addView(UI.section(ctx, title))
+            val card = UI.card(ctx, padding = 6)
+            events.forEachIndexed { i, e ->
+                if (i > 0) card.addView(divider())
+                card.addView(eventRow(e), UI.matchWidth())
+            }
+            root.addView(card, UI.matchWidth())
+        }
+    }
+
+    private fun eventIcon(e: SchoolEvent) = when (e.kind) {
+        SchoolEvent.Kind.ABSENCE -> R.drawable.ic_absent
+        SchoolEvent.Kind.LATE -> R.drawable.ic_clock
+        SchoolEvent.Kind.EXEMPTION -> e.subject?.let { Subjects.style(it).icon } ?: R.drawable.ic_run
+        SchoolEvent.Kind.PUNISHMENT, SchoolEvent.Kind.SANCTION -> R.drawable.ic_warning
+    }
+
+    /** The status chip: orange while a reason is awaited, red when refused, green when settled. */
+    private fun statusChip(e: SchoolEvent): View? {
+        val label = SchoolLifeText.status(e) ?: return null
+        val (bg, fg) = when {
+            e.toJustify -> R.color.warn_bg to R.color.warn
+            e.justified == false -> R.color.alert_bg to R.color.alert
+            else -> R.color.success_bg to R.color.success
+        }
+        return UI.chip(ctx, label, ctx.getColor(bg), ctx.getColor(fg), 11f)
+    }
+
+    private fun eventRow(e: SchoolEvent) = UI.row(ctx).apply {
+        gravity = Gravity.TOP
+        setPadding(ctx.dp(10), ctx.dp(12), ctx.dp(12), ctx.dp(12))
+        foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, ctx.dp(16).toFloat()))
+        addView(tile(eventIcon(e), e.toJustify), LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(40)))
+        addView(UI.hgap(ctx, 12))
+        val col = UI.column(ctx)
+        col.addView(UI.oneLine(UI.title(ctx, SchoolLifeText.title(e), 16f)), UI.matchWidth())
+        col.addView(UI.text(ctx, listOfNotNull(SchoolLifeText.date(e), e.hours).joinToString(" · "), 12f, R.color.text2).apply { setPadding(0, ctx.dp(2), 0, 0) })
+        SchoolLifeText.reasons(e)?.let { col.addView(UI.oneLine(UI.text(ctx, it, 14f)).apply { setPadding(0, ctx.dp(4), 0, 0) }) }
+        statusChip(e)?.let { col.addView(it, UI.wrap().apply { topMargin = ctx.dp(6) }) }
+        addView(col, UI.weight())
+        setOnClickListener { Motion.tap(this); showEvent(e) }
     }
 
     private fun section(date: LocalDateTime?, now: LocalDateTime): String {
@@ -191,6 +290,29 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
                 sheet.addView(Attachments.card(activity, files, "news|${n.key}") { logged, name -> Inbox.newsFileUrl(logged, n.key, name) }, UI.matchWidth())
             }
             if (n.survey) sheet.addView(UI.button(ctx, "Répondre sur Pronote", R.drawable.ic_open) { activity.openPronote() }, UI.matchWidth().apply { topMargin = ctx.dp(16) })
+        }
+    }
+
+    private fun showEvent(e: SchoolEvent) {
+        Sheet.open(activity, activity.bottomInsetPx) { sheet, _ ->
+            statusChip(e)?.let { sheet.addView(it, UI.wrap()) }
+            sheet.addView(UI.title(ctx, SchoolLifeText.title(e), 23f).apply { setPadding(0, ctx.dp(10), 0, 0) })
+            sheet.addView(UI.text(ctx, SchoolLifeText.date(e), 13f, R.color.text2).apply { setPadding(0, ctx.dp(4), 0, ctx.dp(8)) })
+            val card = UI.card(ctx, padding = 16)
+            fun line(label: String, value: String?) {
+                if (value.isNullOrBlank()) return
+                if (card.childCount > 0) card.addView(UI.gap(ctx, 10))
+                card.addView(UI.text(ctx, label, 12f, R.color.text2, 800))
+                card.addView(UI.text(ctx, value, 16f, weight = 600).apply { setPadding(0, ctx.dp(2), 0, 0) })
+            }
+            line("Durée", e.hours?.let { "$it de cours" } ?: e.minutes?.let { "$it min" })
+            line(if (e.reasons.size > 1) "Motifs" else "Motif", SchoolLifeText.reasons(e) ?: if (e.toJustify) "Pas encore donné" else null)
+            line("Matière", e.subject?.let { Agenda.pretty(it) })
+            line("Donnée par", e.by?.let { Agenda.prettyName(it) })
+            line("Travail à faire", e.work)
+            line("Commentaire", e.comment)
+            if (card.childCount > 0) sheet.addView(card, UI.matchWidth().apply { topMargin = ctx.dp(8) })
+            if (e.toJustify) sheet.addView(UI.ghostButton(ctx, "Ouvrir Pronote") { activity.openPronote() }, UI.matchWidth().apply { topMargin = ctx.dp(16) })
         }
     }
 

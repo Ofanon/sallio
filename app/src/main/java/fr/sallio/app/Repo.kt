@@ -7,6 +7,8 @@ import fr.sallio.pronote.Inbox
 import fr.sallio.pronote.News
 import fr.sallio.pronote.Homework
 import fr.sallio.pronote.Report
+import fr.sallio.pronote.Presence
+import fr.sallio.pronote.SchoolLife
 import fr.sallio.pronote.Schoolwork
 import fr.sallio.pronote.Lesson
 import fr.sallio.pronote.LoggedIn
@@ -131,6 +133,8 @@ class Repo private constructor(private val context: Context) {
 
     /** Unread actualités and messages, for the badge on the tab. */
     fun unreadInbox(): Int = news().count { !it.read } + discussions().sumOf { it.unread }
+
+    fun schoolLife(): SchoolLife? = vault.read(SCHOOL_LIFE)?.let { runCatching { SchoolLife.fromJson(JSONObject(it)) }.getOrNull() }
 
     fun report(): Report? = vault.read(GRADES)?.let { runCatching { Report.fromJson(JSONObject(it)) }.getOrNull() }
 
@@ -421,6 +425,11 @@ class Repo private constructor(private val context: Context) {
             // A new trimestre starts empty: its grades are compared with nothing, not with the last one's.
             runCatching { changes += Changes.grades(before?.takeIf { it.periodName == report.periodName }?.grades, report.grades) }
         }
+        runCatching { Presence.fetch(logged) }.onSuccess { life ->
+            val before = schoolLife()
+            vault.write(SCHOOL_LIFE, life.toJson().toString())
+            runCatching { changes += Changes.schoolLife(before?.events, life.events) }
+        }
         runCatching { Alerts.post(context, changes, now) }
         prefs.edit()
             .putLong("success", System.currentTimeMillis())
@@ -452,6 +461,7 @@ class Repo private constructor(private val context: Context) {
         private const val GRADES = "grades"
         private const val NEWS = "news"
         private const val DISCUSSIONS = "discussions"
+        private const val SCHOOL_LIFE = "schoollife"
         private const val FETCH_DAYS = 13L
         private const val MANUAL_GAP_MS = 2 * 60_000L
         private const val MAX_FILE_BYTES = 40 * 1024 * 1024

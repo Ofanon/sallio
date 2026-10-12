@@ -48,6 +48,11 @@ class DemoServerTest {
         println("${report.periodName} moyenne=${report.overall} classe=${report.classOverall} ${report.grades.size} notes ${report.subjects.size} matières")
         report.grades.take(4).forEach { println("note ${it.date} ${it.subject} ${it.value}/${it.outOf} classe=${it.classAverage}") }
         assertTrue(report.subjects.isNotEmpty())
+
+        val life = Presence.fetch(first)
+        println("vie scolaire : ${life.events.size} événements, ${life.absenceHours} d'absence, ${life.unjustifiedAbsences} non justifiées")
+        life.events.groupBy { it.kind }.forEach { (k, list) -> println("$k ${list.size} : ${list.first()}") }
+        assertTrue(life.events.any { it.kind == SchoolEvent.Kind.ABSENCE })
         assertTrue(lessons.all { it.end > it.start })
     }
 }
