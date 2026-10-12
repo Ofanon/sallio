@@ -186,6 +186,9 @@ object Subjects {
 
     fun solid(f: Family): Int = f.solid.toInt()
 
+    /** Icon on [solid]: the same colour, much deeper (an orange icon on orange). */
+    fun deep(f: Family): Int = darker(f.solid.toInt(), 0.42f)
+
     /** Text on [solid]: white on the deeper colours, ink on the light ones (amber, teal...). */
     fun onSolid(f: Family): Int = onSolidColor(f.solid.toInt())
 

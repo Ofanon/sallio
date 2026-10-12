@@ -199,7 +199,7 @@ internal object UI {
         return FrameLayout(context).apply {
             // The subject's main colour behind its icon, as on the widget and the lesson card.
             background = rounded(Subjects.solid(style.family), dp(sizeDp * 13 / 40).toFloat())
-            addView(icon(context, style.icon, Subjects.onSolid(style.family), sizeDp / 2 + 2, tintIsColor = true).apply {
+            addView(icon(context, style.icon, Subjects.deep(style.family), sizeDp / 2 + 2, tintIsColor = true).apply {
                 layoutParams = FrameLayout.LayoutParams(dp(sizeDp / 2 + 2), dp(sizeDp / 2 + 2), Gravity.CENTER)
             })
             layoutParams = LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp))

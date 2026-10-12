@@ -193,7 +193,7 @@ object Widgets {
             if (lesson === view.focus) row.setTextColor(R.id.time, accent)
             row.setInt(R.id.tile, "setColorFilter", Subjects.solid(style.family))
             row.setImageViewResource(R.id.icon, style.icon)
-            row.setInt(R.id.icon, "setColorFilter", Subjects.onSolid(style.family))
+            row.setInt(R.id.icon, "setColorFilter", Subjects.deep(style.family))
             // Struck-through room when nobody will be there (spans survive RemoteViews, paint flags do not).
             val hasRoom = lesson.rooms.isNotEmpty()
             val room = android.text.SpannableString(if (hasRoom) Agenda.room(lesson) else Agenda.pretty(lesson.subject))
