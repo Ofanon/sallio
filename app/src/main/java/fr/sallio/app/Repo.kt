@@ -273,6 +273,12 @@ class Repo private constructor(private val context: Context) {
         prefs.edit().putStringSet("pendingDone", set).apply()
     }
 
+    /** This homework's tick is waiting to reach PRONOTE. */
+    fun isPending(h: Homework): Boolean = pending().let { "+" + h.key in it || "-" + h.key in it }
+
+    /** This actualité's "J'ai vu" is waiting to reach PRONOTE. */
+    fun isReadPending(n: News): Boolean = "+" + n.key in pendingReads()
+
     /** Number of ticks not yet on PRONOTE. */
     fun pendingCount(): Int = pending().size
 

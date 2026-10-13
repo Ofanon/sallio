@@ -259,13 +259,54 @@ internal object UI {
      * repository; the row redraws itself, so it works inside any sheet.
      */
     fun homeworkCheck(context: Context, h: fr.sallio.pronote.Homework, isDone: () -> Boolean, onOpen: (() -> Unit)? = null, toggle: (Boolean) -> Unit): View =
-        check(context, h.description.ifEmpty { "(pas de consigne)" }, isDone, strike = true, onOpen = onOpen, toggle = toggle)
+        check(context, h.description.ifEmpty { "(pas de consigne)" }, isDone, strike = true, onOpen = onOpen,
+            isBusy = { (context as? MainActivity)?.isHomeworkSending(h) == true }, toggle = toggle)
 
     /**
      * The sticker checkbox and its label: homework done, actualité seen.
      * [strike] crosses the label out once ticked (homework).
      */
-    fun check(context: Context, label: String, isOn: () -> Boolean, strike: Boolean = false, size: Float = 15f, onOpen: (() -> Unit)? = null, toggle: (Boolean) -> Unit): View {
+    /** A small spinning wheel in the accent ink, where a checkbox waits for a server. */
+    fun spinner(context: Context, sizeDp: Int): View = android.widget.ProgressBar(context, null, android.R.attr.progressBarStyleSmall).apply {
+        isIndeterminate = true
+        indeterminateTintList = ColorStateList.valueOf(context.getColor(R.color.accent_ink))
+        layoutParams = FrameLayout.LayoutParams(context.dp(sizeDp), context.dp(sizeDp), Gravity.CENTER)
+    }
+
+    /** Checks on screen, repainted when something they show changes elsewhere (a send finished). */
+    private val liveChecks = java.util.WeakHashMap<View, () -> Unit>()
+
+    /** Repaints every check on screen from its own state (main thread). */
+    fun refreshChecks() = liveChecks.values.toList().forEach { it() }
+
+    /** The box of a check: ticked, empty, or a spinner while [busy]. */
+    private fun paintBox(context: Context, box: FrameLayout, done: Boolean, busy: Boolean) {
+        box.removeAllViews()
+        if (busy) {
+            box.background = rounded(0, context.dp(9).toFloat(), context.dp(3), context.getColor(R.color.box_edge))
+            box.addView(spinner(context, 16))
+            return
+        }
+        box.background = if (done) sticker(context, context.getColor(R.color.accent), context.getColor(R.color.accent_edge), 9, 2)
+        else rounded(0, context.dp(9).toFloat(), context.dp(3), context.getColor(R.color.box_edge))
+        if (done) box.addView(icon(context, R.drawable.ic_check, R.color.on_accent, 16).apply {
+            layoutParams = FrameLayout.LayoutParams(context.dp(16), context.dp(16), Gravity.CENTER).apply { bottomMargin = context.dp(2) }
+        })
+    }
+
+    /**
+     * The checkbox of a homework row (lists draw it themselves): [busy] while
+     * the tick travels to PRONOTE, then ticked or empty.
+     */
+    fun homeworkBox(context: Context, done: Boolean, busy: Boolean, onToggle: () -> Unit): FrameLayout = FrameLayout(context).apply {
+        paintBox(context, this, done, busy)
+        if (!busy) setOnClickListener {
+            if (!done) Motion.success(this) else Motion.tick(this)
+            Motion.bounce(this) { onToggle() }
+        }
+    }
+
+    fun check(context: Context, label: String, isOn: () -> Boolean, strike: Boolean = false, size: Float = 15f, onOpen: (() -> Unit)? = null, isBusy: () -> Boolean = { false }, toggle: (Boolean) -> Unit): View {
         val row = row(context).apply {
             gravity = Gravity.TOP
             setPadding(0, dp(10), 0, dp(10))
@@ -273,19 +314,16 @@ internal object UI {
         val box = FrameLayout(context)
         val text = text(context, label, size).apply { setPadding(0, dp(2), 0, 0) }
         fun paint(done: Boolean) {
-            box.removeAllViews()
-            box.background = if (done) sticker(context, context.getColor(R.color.accent), context.getColor(R.color.accent_edge), 9, 2)
-            else rounded(0, context.dp(9).toFloat(), context.dp(3), context.getColor(R.color.box_edge))
-            if (done) box.addView(icon(context, R.drawable.ic_check, R.color.on_accent, 16).apply {
-                layoutParams = FrameLayout.LayoutParams(context.dp(16), context.dp(16), Gravity.CENTER).apply { bottomMargin = context.dp(2) }
-            })
+            paintBox(context, box, done, isBusy())
             if (!strike) return
             text.alpha = if (done) 0.45f else 1f
             text.paintFlags = if (done) text.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
             else text.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
         }
         paint(isOn())
+        liveChecks[row] = { paint(isOn()) }
         val click = View.OnClickListener {
+            if (isBusy()) return@OnClickListener
             val done = !isOn()
             if (done) Motion.success(box) else Motion.tick(box)
             Motion.bounce(box) {
@@ -306,7 +344,7 @@ internal object UI {
      * vu", final on PRONOTE): neutral with an empty box, then green with the
      * box ticked and [onLabel], and from then on it no longer reacts.
      */
-    fun checkButton(context: Context, label: String, onLabel: String, isOn: Boolean, onTap: () -> Unit): View {
+    fun checkButton(context: Context, label: String, onLabel: String, isOn: Boolean, isBusy: () -> Boolean = { false }, onTap: () -> Unit): View {
         val button = row(context).apply { gravity = Gravity.CENTER }
         val box = FrameLayout(context)
         val text = TextView(context).apply { textSize = 16f; typeface = display(context) }
@@ -322,7 +360,15 @@ internal object UI {
             })
             text.text = if (on) onLabel else label
             text.setTextColor(context.getColor(if (on) R.color.success else R.color.text))
+            // Sent but not confirmed yet: the wheel turns where the tick will be.
+            if (on && isBusy()) {
+                box.removeAllViews()
+                box.background = null
+                box.addView(spinner(context, 18))
+            }
         }
+        var current = isOn
+        liveChecks[button] = { paint(current) }
         button.addView(box, LinearLayout.LayoutParams(context.dp(24), context.dp(24)))
         button.addView(hgap(context, 10))
         button.addView(text)
@@ -333,6 +379,7 @@ internal object UI {
                 button.setOnTouchListener(null)
                 // A single click: the success pattern is two pulses, felt as a double tap here.
                 Motion.tap(box)
+                current = true
                 paint(true)
                 Motion.bounce(box) { onTap() }
             }

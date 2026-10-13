@@ -360,21 +360,8 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             gravity = Gravity.TOP
             setPadding(0, dp(10), 0, dp(10))
         }
-        val box = FrameLayout(ctx).apply {
-            background = if (done) UI.sticker(ctx, color(R.color.accent), color(R.color.accent_edge), 9, 2)
-            else UI.rounded(0, dp(9).toFloat(), dp(3), color(R.color.box_edge))
-            if (done) addView(UI.icon(ctx, R.drawable.ic_check, R.color.on_accent, 16).apply {
-                layoutParams = FrameLayout.LayoutParams(dp(16), dp(16), Gravity.CENTER).apply { bottomMargin = dp(2) }
-            })
-            setOnClickListener {
-                if (!done) Motion.success(this) else Motion.tick(this)
-                Motion.bounce(this) {
-                    repo.setDone(h, !done)
-                    activity.render()
-                    activity.schedulePush()
-                }
-            }
-        }
+        // A spinner while the tick travels to PRONOTE.
+        val box = UI.homeworkBox(ctx, done, activity.isHomeworkSending(h)) { activity.setHomeworkDone(h, !done) }
         row.addView(box, LinearLayout.LayoutParams(ctx.dp(28), ctx.dp(28)).apply { topMargin = ctx.dp(2) })
         row.addView(UI.hgap(ctx, 12))
         val col = UI.column(ctx).apply { if (done) alpha = 0.45f }

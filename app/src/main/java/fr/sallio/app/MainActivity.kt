@@ -271,14 +271,20 @@ class MainActivity : Activity() {
 
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pushScheduled = false
+    /** A push to PRONOTE is on its way: ticks waiting for it show a spinner. */
+    @Volatile private var pushing = false
+    val sending: Boolean get() = pushScheduled || pushing
     private val pushNow = Runnable {
         pushScheduled = false
+        pushing = true
         worker.execute {
             val result = repo.pushPending()
             // Not allowed to log in yet: the ticks are safe, a job sends them as soon as it is.
             if (repo.pendingTotal() > 0) SyncJob.runLater(applicationContext, repo.waitBeforeLogin(manual = true))
             runOnUiThread {
                 if (result == Repo.SyncResult.FAILED) Motion.failure(root)
+                pushing = false
+                UI.refreshChecks()
                 if (!isFinishing) render()
             }
         }
@@ -298,16 +304,21 @@ class MainActivity : Activity() {
     /** "J'ai vu" from an actualité: saved at once, sent to PRONOTE shortly after with any ticks. */
     fun setNewsRead(n: fr.sallio.pronote.News) {
         repo.setRead(n)
-        render()
         schedulePush()
+        render()
+        UI.refreshChecks()
     }
 
     /** Ticks from a sheet: saved at once, sent to PRONOTE shortly after, page redrawn behind. */
     fun setHomeworkDone(h: fr.sallio.pronote.Homework, done: Boolean) {
         repo.setDone(h, done)
-        render()
         schedulePush()
+        render()
+        UI.refreshChecks()
     }
+
+    fun isHomeworkSending(h: fr.sallio.pronote.Homework) = sending && repo.isPending(h)
+    fun isNewsSending(n: fr.sallio.pronote.News) = sending && repo.isReadPending(n)
 
     fun pinWidget() {
         val manager = getSystemService(AppWidgetManager::class.java)

@@ -163,29 +163,35 @@ object CanteenUI {
 
             // Bookings, rebuilt after each change.
             sheet.addView(UI.section(ctx, "Réservations"))
+            // A refusal shows in its own slot above the days, which stay as they are.
+            val notice = UI.column(ctx)
+            sheet.addView(notice, UI.matchWidth())
             val bookings = UI.column(ctx)
             sheet.addView(bookings, UI.matchWidth())
-            fun fill(data: Canteen.Data, message: String?) {
+            /** Days being booked or cancelled: their box spins until TurboSelf answers. */
+            val busy = mutableSetOf<String>()
+            fun showNotice(text: String?) {
+                notice.removeAllViews()
+                text ?: return
+                val box = UI.card(ctx, R.color.warn_bg, R.color.warn_edge, padding = 14)
+                box.addView(UI.row(ctx).apply {
+                    gravity = Gravity.TOP
+                    addView(UI.icon(ctx, R.drawable.ic_warning, R.color.warn, 22))
+                    addView(UI.hgap(ctx, 12))
+                    addView(UI.text(ctx, text, 14f, R.color.text, 700), UI.weight())
+                }, UI.matchWidth())
+                if (text == Canteen.INSUFFICIENT) box.addView(UI.ghostButton(ctx, "Recharger sur Turboself") {
+                    runCatching { activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ESPACE))) }
+                }, UI.matchWidth().apply { topMargin = ctx.dp(12) })
+                notice.addView(box, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
+                Motion.appear(box, "refusal:${System.nanoTime()}", 0)
+            }
+            fun fill(data: Canteen.Data) {
                 bookings.removeAllViews()
-                // A refusal as a calm card, with the way out when it is the balance.
-                message?.let { text ->
-                    val box = UI.card(ctx, R.color.warn_bg, R.color.warn_edge, padding = 14)
-                    box.addView(UI.row(ctx).apply {
-                        gravity = Gravity.TOP
-                        addView(UI.icon(ctx, R.drawable.ic_warning, R.color.warn, 22))
-                        addView(UI.hgap(ctx, 12))
-                        addView(UI.text(ctx, text, 14f, R.color.text, 700), UI.weight())
-                    }, UI.matchWidth())
-                    if (text == Canteen.INSUFFICIENT) box.addView(UI.ghostButton(ctx, "Recharger sur Turboself") {
-                        runCatching { activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ESPACE))) }
-                    }, UI.matchWidth().apply { topMargin = ctx.dp(12) })
-                    bookings.addView(box, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
-                    Motion.appear(box, "refusal:${System.nanoTime()}", 0)
-                }
                 val upcoming = data.days.filter { it.date >= LocalDate.now() }
                 if (!data.canBook) bookings.addView(UI.text(ctx, "Ton établissement ne permet pas de réserver en ligne.", 14f, R.color.text2))
                 else if (upcoming.isEmpty()) bookings.addView(UI.text(ctx, "Pas de jour à réserver pour l'instant.", 14f, R.color.text2))
-                else for ((week, days) in upcoming.groupBy { it.booking.week }) {
+                else for ((_, days) in upcoming.groupBy { it.booking.week }) {
                     // "Semaine du 19 oct. · Chaine 1, Chaine 2": the terminal once, not on every day.
                     val monday = days.first().date.with(java.time.DayOfWeek.MONDAY)
                     val terminal = days.first().booking.terminal.trim().trimEnd(',').trim()
@@ -197,14 +203,24 @@ object CanteenUI {
                     days.forEachIndexed { i, day ->
                         if (i > 0) card.addView(UI.divider(ctx))
                         val label = "${dayName(day.date, LocalDate.now())} ${if (day.date == LocalDate.now() || day.date == LocalDate.now().plusDays(1)) "${day.date.dayOfMonth} ${day.date.month.getDisplayName(TextStyle.SHORT, fr)}" else ""}".trim()
+                        val key = day.date.toString()
                         if (day.booking.allowed) {
-                            card.addView(UI.check(ctx, label, { day.booking.booked > 0 }) { want ->
+                            card.addView(UI.check(ctx, label, { day.booking.booked > 0 }, isBusy = { key in busy }) { want ->
+                                busy += key
+                                showNotice(null)
                                 activity.worker.execute {
                                     val error = canteen.book(day, want)
                                     activity.runOnUiThread {
-                                        if (error != null) Motion.failure(bookings)
-                                        canteen.data()?.let { fill(it, error) }
-                                        activity.refreshScreen()
+                                        busy -= key
+                                        if (error != null) {
+                                            // Refused: the box goes back as it was, the reason shows at once.
+                                            Motion.failure(bookings)
+                                            showNotice(error)
+                                            UI.refreshChecks()
+                                        } else {
+                                            canteen.data()?.let { fill(it) }
+                                            activity.refreshScreen()
+                                        }
                                     }
                                 }
                             }, UI.matchWidth())
@@ -219,9 +235,7 @@ object CanteenUI {
                     bookings.addView(card, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
                 }
             }
-            fill(d, null)
-            // From now on the days slide smoothly when a refusal card makes room for itself.
-            bookings.layoutTransition = android.animation.LayoutTransition()
+            fill(d)
 
             // History.
             if (d.history.isNotEmpty()) {
