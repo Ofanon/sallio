@@ -263,7 +263,8 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
         // "J'ai vu" right on the card: no need to open it to clear it.
         card.addView(UI.checkButton(ctx, "J'ai vu", "Vue", false) { activity.setNewsRead(n) }, UI.matchWidth().apply { topMargin = ctx.dp(12) })
         card.setOnClickListener { Motion.tap(card); showNews(n) }
-        Motion.pressable(card)
+        // One vibration: the tap above, none on release.
+        Motion.pressable(card, haptic = false)
         return card
     }
 

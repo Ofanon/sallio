@@ -44,8 +44,8 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
     /** The snapshot the current views were built from, for their click handlers. */
     private var lastSnapshot: Snapshot? = null
 
-    /** The day whose homework the student unfolded on the home tab: it stays open across redraws. */
-    private var unfoldedDay: java.time.LocalDate? = null
+    /** The days whose homework the student unfolded on the home tab: they stay open across redraws. */
+    private val unfoldedDays = mutableSetOf<java.time.LocalDate>()
 
     fun home(s: Snapshot): View {
         lastSnapshot = s
@@ -67,41 +67,11 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             }
         }
 
+        // Today's homework first while there is any (handed in during the day), then the next school day's.
+        val dueToday = s.homework.filter { it.due == today }
+        if (dueToday.isNotEmpty()) homeworkBlock(root, today, today, dueToday)
         val nextDay = s.lessons.map { it.start.toLocalDate() }.filter { it > today }.minOrNull() ?: today.plusDays(1)
-        val due = s.homework.filter { it.due == nextDay }
-        root.addView(sectionWithLink("Pour ${dayLabel(nextDay, today)}", "Tout voir") { activity.openTab(MainActivity.Tab.HOMEWORK) })
-        if (due.isEmpty()) {
-            root.addView(emptyCard(R.drawable.ic_sparkles, "Rien à rendre. Profites-en !"), UI.matchWidth())
-        } else {
-            val card = UI.card(ctx, padding = 14)
-            val shown = if (unfoldedDay == nextDay) due.size else 4
-            due.take(shown).forEachIndexed { i, h ->
-                if (i > 0) card.addView(UI.divider(ctx))
-                card.addView(homeworkRow(h, compact = true), UI.matchWidth())
-            }
-            if (due.size > shown) {
-                // Unfolds the rest right here: the student stays on the day they were looking at.
-                val more = UI.text(ctx, "+ ${due.size - 4} autre${if (due.size > 5) "s" else ""}  ▾", 14f, R.color.accent_ink, 800).apply {
-                    gravity = Gravity.CENTER
-                    setPadding(0, dp(12), 0, dp(4))
-                    contentDescription = "Voir les ${due.size - 4} autres devoirs"
-                }
-                more.setOnClickListener {
-                    Motion.tap(more)
-                    unfoldedDay = nextDay
-                    val at = card.indexOfChild(more)
-                    card.removeView(more)
-                    due.drop(4).forEachIndexed { i, h ->
-                        card.addView(UI.divider(ctx), at + 2 * i)
-                        val row = homeworkRow(h, compact = true)
-                        card.addView(row, at + 2 * i + 1, UI.matchWidth())
-                        Motion.fadeIn(row, 40L * i)
-                    }
-                }
-                card.addView(more, UI.matchWidth())
-            }
-            root.addView(card, UI.matchWidth())
-        }
+        homeworkBlock(root, nextDay, today, s.homework.filter { it.due == nextDay })
 
         val grades = s.report?.grades.orEmpty().take(3)
         if (grades.isNotEmpty()) {
@@ -580,6 +550,43 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         sub.classAverage?.let { col.addView(UI.text(ctx, "Classe : ${UI.number(it)}", 12f, R.color.text2).apply { setPadding(0, dp(4), 0, 0) }) }
         row.addView(col, UI.weight())
         return row
+    }
+
+    /** "Pour demain" (or another day): its homework, the first four, the rest unfolding in place. */
+    private fun homeworkBlock(root: LinearLayout, day: java.time.LocalDate, today: java.time.LocalDate, due: List<Homework>) {
+        root.addView(sectionWithLink("Pour ${dayLabel(day, today)}", "Tout voir") { activity.openTab(MainActivity.Tab.HOMEWORK) })
+        if (due.isEmpty()) {
+            root.addView(emptyCard(R.drawable.ic_sparkles, "Rien à rendre. Profites-en !"), UI.matchWidth())
+            return
+        }
+        val card = UI.card(ctx, padding = 14)
+        val shown = if (day in unfoldedDays) due.size else 4
+        due.take(shown).forEachIndexed { i, h ->
+            if (i > 0) card.addView(UI.divider(ctx))
+            card.addView(homeworkRow(h, compact = true), UI.matchWidth())
+        }
+        if (due.size > shown) {
+            // Unfolds the rest right here: the student stays on the day they were looking at.
+            val more = UI.text(ctx, "+ ${due.size - 4} autre${if (due.size > 5) "s" else ""}  ▾", 14f, R.color.accent_ink, 800).apply {
+                gravity = Gravity.CENTER
+                setPadding(0, dp(12), 0, dp(4))
+                contentDescription = "Voir les ${due.size - 4} autres devoirs"
+            }
+            more.setOnClickListener {
+                Motion.tap(more)
+                unfoldedDays += day
+                val at = card.indexOfChild(more)
+                card.removeView(more)
+                due.drop(4).forEachIndexed { i, h ->
+                    card.addView(UI.divider(ctx), at + 2 * i)
+                    val row = homeworkRow(h, compact = true)
+                    card.addView(row, at + 2 * i + 1, UI.matchWidth())
+                    Motion.fadeIn(row, 40L * i)
+                }
+            }
+            card.addView(more, UI.matchWidth())
+        }
+        root.addView(card, UI.matchWidth())
     }
 
     // ---- Shared ------------------------------------------------------------------

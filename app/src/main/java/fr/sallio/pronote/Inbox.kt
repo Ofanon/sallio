@@ -201,7 +201,7 @@ object Inbox {
      * survey stays unanswered. [wanted] maps [News.key] to the wanted state.
      * Returns the keys now settled: sent, or gone from PRONOTE.
      */
-    fun setNewsRead(logged: LoggedIn, wanted: Map<String, Boolean>): Set<String> {
+    fun setNewsRead(logged: LoggedIn, wanted: Map<String, Boolean>, log: (String) -> Unit = {}): Set<String> {
         if (wanted.isEmpty()) return emptySet()
         val session = logged.session
         val p = session.properties
@@ -216,7 +216,8 @@ object Inbox {
                 // The student, not the item's own audience (often the whole class): the
                 // read state is the student's, as in pronotepy's mark_as_read.
                 val audience = JSONObject().put("N", session.userResource?.optString("N").orEmpty()).put("G", 4)
-                session.call(
+                log("SaisieActualites lue=$read: list says lue=${item.opt("lue")}, item public=${item.opt("public")}, genrePublic=${item.opt("genrePublic")}")
+                val answer = session.call(
                     "SaisieActualites",
                     JSONObject()
                         .put(p.signature, JSONObject().put("onglet", 8))
@@ -234,6 +235,7 @@ object Inbox {
                                 .put("saisieActualite", false)))
                             .put("saisieActualite", false)),
                 )
+                log("SaisieActualites answer: ${answer.toString().take(400)}")
             }
             settled += key
         }

@@ -194,7 +194,7 @@ class Repo private constructor(private val context: Context) {
         if (wanted.size != pendingReads().size) prefs.edit().putStringSet("pendingRead", wanted).apply()
         if (wanted.isEmpty()) return
         val asked = wanted.associate { it.substring(1) to (it[0] == '+') }
-        val settled = runCatching { Inbox.setNewsRead(logged, asked) }
+        val settled = runCatching { Inbox.setNewsRead(logged, asked) { android.util.Log.i("Sallio", it) } }
             .onFailure { android.util.Log.w("Sallio", "SaisieActualites failed", it) }
             .getOrNull() ?: return
         android.util.Log.i("Sallio", "J'ai vu sent to PRONOTE: ${asked.filterKeys { it in settled }}")
@@ -209,6 +209,11 @@ class Repo private constructor(private val context: Context) {
     /** [list] with what this session sent laid over it; a later session's list is trusted as is. */
     private fun withSentReads(list: List<News>): List<News> {
         if (prefs.getLong("readSentSession", 0) != liveSince) {
+            // A new session: PRONOTE's list is current again, so it tells whether what was sent took.
+            prefs.getStringSet("readSent", emptySet())!!.forEach { sent ->
+                val now = list.firstOrNull { it.key == sent.substring(1) }?.read
+                android.util.Log.i("Sallio", "J'ai vu check after a new login: sent lue=${sent[0] == '+'}, PRONOTE now says lue=$now")
+            }
             prefs.edit().remove("readSent").remove("readSentSession").apply()
             return list
         }
