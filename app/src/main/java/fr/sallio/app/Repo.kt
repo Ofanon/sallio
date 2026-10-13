@@ -575,6 +575,8 @@ class Repo private constructor(private val context: Context) {
         try {
             runCatching { Canteen.get(context).disconnect() }
             vault.wipe()
+            LessonNotes.clear()
+            context.getSharedPreferences("bag", Context.MODE_PRIVATE).edit().clear().apply()
             cachedPhoto = null
             runCatching { Attachments.clear(context) }
             runCatching { Reminders.cancel(context) }

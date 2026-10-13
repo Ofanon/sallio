@@ -52,6 +52,11 @@ passe est gardé chiffré, ce que l'écran de connexion dit avant de le
 demander. Le QR code est fabriqué par `QrCode.kt`, sans bibliothèque, et
 vérifié avec OpenCV (`tools/check_qr.py`).
 
+**Notes sur un cours** : dans la fiche d'un cours, « À ne pas oublier » garde
+des notes à soi (« amener sa blouse »), chiffrées sur le téléphone. Elles
+s'affichent sur la carte du cours et sur l'accueil, et sont rappelées dans le
+cartable de la veille et dans le rappel 5 minutes avant.
+
 **Cartable du lendemain** : à 19 h la veille d'un jour de cours, une
 notification donne les matières du lendemain et les devoirs pas finis. La
 fiche « Cartable » (depuis la notification, ou dans Cours sur le prochain jour

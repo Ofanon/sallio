@@ -132,6 +132,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val subtitle = if (hasRoom) listOfNotNull(Agenda.pretty(focus.subject), teacher).joinToString(" · ") else teacher.orEmpty()
         if (subtitle.isNotEmpty()) col.addView(UI.oneLine(UI.text(ctx, subtitle, 16f, weight = 800)).apply { setTextColor(ink) })
         col.addView(UI.text(ctx, "${Agenda.time(focus.start)} – ${Agenda.time(focus.end)}", 13f).apply { setTextColor(ink); alpha = 0.85f })
+        LessonNotes.line(ctx, focus, ink, 14f)?.let { col.addView(it, UI.matchWidth()) }
         Agenda.alert(focus)?.let {
             col.addView(UI.gap(ctx, 10))
             col.addView(UI.chip(ctx, it, Color.WHITE, if (focus.canceled) 0xFFB3423A.toInt() else 0xFF9A6212.toInt(), 13f), UI.wrap())
@@ -313,6 +314,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val teacher = lesson.teachers.firstOrNull()?.let { Agenda.prettyName(it) }
         val subtitle = if (hasRoom) listOfNotNull(Agenda.pretty(lesson.subject), teacher).joinToString(" · ") else teacher ?: "Pas de salle indiquée"
         col.addView(UI.oneLine(UI.text(ctx, subtitle, 12f, R.color.text2)).apply { setPadding(0, dp(3), 0, 0) })
+        LessonNotes.line(ctx, lesson, color(R.color.accent_ink))?.let { col.addView(it, UI.matchWidth()) }
         card.addView(col, UI.weight())
         Agenda.alert(lesson)?.let { card.addView(UI.alertChip(ctx, it, lesson.canceled), UI.wrap().apply { marginStart = ctx.dp(6) }) }
         card.setOnClickListener { activity.showLesson(lesson, lastSnapshot!!) }

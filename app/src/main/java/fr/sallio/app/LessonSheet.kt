@@ -69,6 +69,9 @@ object LessonSheet {
             Motion.pressable(hero, 5)
             sheet.addView(hero, UI.matchWidth().apply { topMargin = ctx.dp(16) })
 
+            // The student's own reminders for this lesson.
+            sheet.addView(LessonNotes.section(activity, lesson), UI.matchWidth())
+
             // Facts.
             val subjectAverage = s.report?.subjects?.firstOrNull { fold(it.subject) == fold(lesson.subject) }
             val facts = buildList {

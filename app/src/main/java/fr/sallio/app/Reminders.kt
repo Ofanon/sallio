@@ -130,7 +130,7 @@ object Reminders {
             if (lesson.canceled) "prévu à ${Agenda.time(lesson.start)}, il n'aura pas lieu" else "à ${Agenda.time(lesson.start)}",
             alert?.takeIf { !lesson.canceled },
             lesson.teachers.firstOrNull()?.let { Agenda.prettyName(it) },
-        ).joinToString(" · ")
+        ).joinToString(" · ") + LessonNotes.of(context, lesson).joinToString("") { "\n📌 $it" }
         val startMs = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val notification = Notification.Builder(context, CHANNEL)
             .setSmallIcon(style.icon)

@@ -108,13 +108,15 @@ object Bag {
         val subjects = subjects(lessons, day)
         val dayLessons = lessons.filter { it.start.toLocalDate() == day && !it.canceled }.sortedBy { it.start }
         val todo = repo.homework().filter { it.due == day && !repo.isDone(it) }
+        val notes = LessonNotes.ofDay(context, lessons, day)
         // "Demain" alone: collapsed, the title shares its line with the time and the tile.
         val title = title(day, LocalDate.now())
         val list = subjects.joinToString(", ") { Agenda.pretty(it) }
         val summary = "${dayLessons.size} cours · $list"
         val hours = "${dayLessons.size} cours, de ${Agenda.time(dayLessons.first().start)} à ${Agenda.time(dayLessons.last().end)}"
-        val text = if (todo.isEmpty()) "$hours\n$list"
-        else "$hours\n$list\n${todo.size} devoir${if (todo.size > 1) "s" else ""} pas fini${if (todo.size > 1) "s" else ""} : ${todo.map { Agenda.pretty(it.subject) }.distinct().joinToString(", ")}"
+        val reminders = notes.joinToString("") { (l, n) -> "\n📌 $n (${Agenda.pretty(l.subject)})" }
+        val text = (if (todo.isEmpty()) "$hours\n$list"
+        else "$hours\n$list\n${todo.size} devoir${if (todo.size > 1) "s" else ""} pas fini${if (todo.size > 1) "s" else ""} : ${todo.map { Agenda.pretty(it.subject) }.distinct().joinToString(", ")}") + reminders
         val notification = Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_briefcase)
             .setColor(context.getColor(R.color.accent))
@@ -128,7 +130,7 @@ object Bag {
             .setContentIntent(Widgets.openSheet(context, MainActivity.OPEN_BAG, 70))
             .build()
         runCatching { nm.notify(NOTIFICATION_ID, notification) }
-        Analytics.event("cartable_notification", "matieres" to subjects.size, "devoirs" to todo.size)
+        Analytics.event("cartable_notification", "matieres" to subjects.size, "devoirs" to todo.size, "notes" to notes.size)
     }
 
     /** "Demain", or "Lundi" from a Saturday. */
@@ -174,6 +176,24 @@ object Bag {
                 }, UI.matchWidth())
             }
             sheet.addView(card, UI.matchWidth())
+            // The student's own notes on that day's lessons: what is easy to forget.
+            val notes = LessonNotes.ofDay(ctx, s.lessons, day)
+            if (notes.isNotEmpty()) {
+                sheet.addView(UI.section(ctx, "À ne pas oublier"))
+                val box = UI.card(ctx, padding = 12)
+                notes.forEachIndexed { i, (lesson, note) ->
+                    if (i > 0) box.addView(UI.divider(ctx))
+                    box.addView(UI.row(ctx).apply {
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding(0, ctx.dp(8), 0, ctx.dp(8))
+                        addView(UI.icon(ctx, R.drawable.ic_pin, R.color.accent_ink, 18))
+                        addView(UI.hgap(ctx, 10))
+                        addView(UI.text(ctx, note, 15f, R.color.text, 800), UI.weight())
+                        addView(UI.subjectChip(ctx, lesson.subject))
+                    }, UI.matchWidth())
+                }
+                sheet.addView(box, UI.matchWidth())
+            }
             val due = s.homework.filter { it.due == day }
             if (due.isNotEmpty()) {
                 sheet.addView(UI.section(ctx, "À rendre ${title(day, today).lowercase()}"))
