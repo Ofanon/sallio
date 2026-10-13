@@ -98,6 +98,8 @@ class MainActivity : Activity() {
             insets
         }
         setContentView(root)
+        // Android brought the app back after closing it in the background: no intro, it is not a new start.
+        if (savedInstanceState != null) homeIntroPlayed = true
         savedInstanceState?.let { state ->
             tab = runCatching { Tab.valueOf(state.getString("tab") ?: "") }.getOrDefault(Tab.HOME)
             selectedDay = state.getString("day")?.let { LocalDate.parse(it) }
@@ -187,7 +189,9 @@ class MainActivity : Activity() {
 
         // Pages appear instantly; only the home tab rises in, the first time it opens.
         entering = if (entering != Enter.NONE && tab == Tab.HOME && !homeIntroPlayed) Enter.ALL else Enter.NONE
-        if (entering == Enter.ALL) homeIntroPlayed = true
+        // Played once, and only if home is the first page shown: opened on another tab (a
+        // widget, a notification), coming back to home later must not replay it.
+        homeIntroPlayed = true
 
         val t1 = System.nanoTime()
         val column = UI.column(this)
@@ -328,6 +332,23 @@ class MainActivity : Activity() {
 
     fun isHomeworkSending(h: fr.sallio.pronote.Homework) = sending && repo.isPending(h)
     fun isNewsSending(n: fr.sallio.pronote.News) = sending && repo.isReadPending(n)
+
+    /**
+     * A long press on [view] asks Android to put [widget] on the home screen
+     * (Android shows its own preview and confirmation). One vibration: the
+     * home cards do not vibrate on release.
+     */
+    fun offerWidget(view: View, widget: Class<*>) {
+        view.setOnLongClickListener {
+            Motion.tap(it)
+            Analytics.event("widget_propose", "widget" to widget.simpleName)
+            val manager = getSystemService(AppWidgetManager::class.java)
+            val asked = manager.isRequestPinAppWidgetSupported &&
+                runCatching { manager.requestPinAppWidget(ComponentName(this, widget), null, null) }.getOrDefault(false)
+            if (!asked) android.widget.Toast.makeText(this, "Ajoute le widget Sallio depuis ton écran d'accueil (appui long, Widgets).", android.widget.Toast.LENGTH_LONG).show()
+            true
+        }
+    }
 
     fun pinWidget() {
         val manager = getSystemService(AppWidgetManager::class.java)

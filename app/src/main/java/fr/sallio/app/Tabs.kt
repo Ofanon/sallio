@@ -55,8 +55,9 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val view = Agenda.view(s.lessons, s.now)
         val today = s.now.toLocalDate()
 
-        root.addView(hero(view.focus, s), UI.matchWidth())
-        view.then?.let { root.addView(thenCard(it), UI.matchWidth().apply { topMargin = ctx.dp(12) }) }
+        // A long press on a card offers the real widget it looks like.
+        root.addView(hero(view.focus, s).also { activity.offerWidget(it, NextWidget::class.java) }, UI.matchWidth())
+        view.then?.let { root.addView(thenCard(it).also { c -> activity.offerWidget(c, DayWidget::class.java) }, UI.matchWidth().apply { topMargin = ctx.dp(12) }) }
 
         // What changed today and tomorrow: absent teachers, canceled lessons, room changes.
         val alerts = s.lessons.filter {
@@ -67,7 +68,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         if (alerts.isNotEmpty()) {
             root.addView(UI.section(ctx, "À savoir"))
             alerts.take(MAX_ALERTS).forEachIndexed { i, lesson ->
-                root.addView(alertBanner(lesson, today), UI.matchWidth().apply { if (i > 0) topMargin = ctx.dp(8) })
+                root.addView(alertBanner(lesson, today).also { activity.offerWidget(it, AlertsWidget::class.java) }, UI.matchWidth().apply { if (i > 0) topMargin = ctx.dp(8) })
             }
             if (alerts.size > MAX_ALERTS) root.addView(UI.text(ctx, "+ ${alerts.size - MAX_ALERTS} autre${if (alerts.size - MAX_ALERTS > 1) "s" else ""} dans Cours", 13f, R.color.accent_ink, 800).apply {
                 setPadding(ctx.dp(4), ctx.dp(8), 0, 0)
