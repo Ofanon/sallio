@@ -137,7 +137,14 @@ class Canteen private constructor(private val context: Context) {
             }
             return null
         } catch (e: Turboself.Failure.Server) {
-            return "Turboself a refusé : ${e.message?.substringAfter(": ")?.take(120)}"
+            DebugLog.i("Turboself refused a booking: ${e.code} ${e.body.take(300)}")
+            val reason = e.reason.orEmpty()
+            return when {
+                // TurboSelf's refusal when the balance does not cover the meal.
+                Regex("(?i)solde|insuffisant|cr[ée]dit").containsMatchIn(reason) -> INSUFFICIENT
+                reason.isNotEmpty() -> "Turboself n'a pas pu réserver : ${reason.trimEnd('.')}."
+                else -> "Turboself n'a pas pu réserver ce repas."
+            }
         } catch (e: Exception) {
             return "Pas de connexion à Turboself, réessaie."
         } finally {
@@ -146,7 +153,7 @@ class Canteen private constructor(private val context: Context) {
     }
 
     private fun fetch(s: Turboself.Session, first: Boolean) {
-        val host = Turboself.host(net, s)
+        val host = Turboself.host(net, s) { DebugLog.i(it) }
         val balances = Turboself.balances(net, s)
         // This week and the next, when TurboSelf opens it: a Friday evening looks at Monday.
         val days = runCatching { Turboself.bookings(net, s) }.getOrDefault(emptyList()).toMutableList()
@@ -154,7 +161,7 @@ class Canteen private constructor(private val context: Context) {
         val history = runCatching { Turboself.history(net, s) }.getOrDefault(emptyList())
         if (BuildConfig.DEBUG) {
             // Shapes still to confirm on a real account (units, day numbering), never the card number.
-            android.util.Log.i("Sallio", "Turboself mode=${host.mode} prixDej=${host.lunchPrice} " +
+            DebugLog.i("Turboself mode=${host.mode} prixDej=${host.lunchPrice} carte=${if (host.cardNumber != null) "présente" else "absente"} reservation=${host.canBook} " +
                 balances.joinToString { "solde ${it.label}=${it.amount}/${it.estimatedAmount} (${it.estimatedMessage})" } +
                 " jours=" + days.joinToString { "${it.year}-S${it.week} j${it.dayOfWeek} '${it.label}' r=${it.booked} ok=${it.allowed}" })
         }
@@ -204,26 +211,32 @@ class Canteen private constructor(private val context: Context) {
         }))
         .put("history", JSONArray(d.history.map { JSONObject().put("d", it.date).put("t", it.detail).put("a", it.amount) }))
         .put("at", d.updatedAt)
+        .put("euros", true)
 
     private fun decode(o: JSONObject): Data {
+        // Copies saved by 0.6.x builds kept TurboSelf's cents.
+        val k = if (o.optBoolean("euros")) 1.0 else 0.01
         fun JSONArray?.list() = if (this == null) emptyList() else (0 until length()).map { getJSONObject(it) }
         fun JSONObject.str(n: String) = if (isNull(n)) null else optString(n)
         return Data(
             o.optString("first"), o.optString("mode"),
-            if (o.isNull("price")) null else o.optDouble("price"),
+            if (o.isNull("price")) null else o.optDouble("price") * k,
             if (o.isNull("card")) null else o.optLong("card"),
             o.optBoolean("book"), o.optBoolean("neg"),
-            o.optJSONArray("balances").list().map { Turboself.Balance(it.optString("l"), it.optDouble("a"), it.optDouble("e"), it.str("m")) },
+            o.optJSONArray("balances").list().map { Turboself.Balance(it.optString("l"), it.optDouble("a") * k, it.optDouble("e") * k, it.str("m")) },
             o.optJSONArray("days").list().map {
                 Day(LocalDate.parse(it.getString("date")), Turboself.BookingDay(it.optString("w"), it.optString("t"), it.optInt("d"),
                     it.optString("l"), it.optInt("r"), it.optBoolean("ok"), it.str("m"), it.optInt("y"), it.optInt("n")))
             },
-            o.optJSONArray("history").list().map { Turboself.HistoryLine(it.optString("d"), it.optString("t"), it.optDouble("a")) },
+            o.optJSONArray("history").list().map { Turboself.HistoryLine(it.optString("d"), it.optString("t"), it.optDouble("a") * k) },
             o.optLong("at"),
         )
     }
 
     companion object {
+        /** The booking error that comes with a "Recharger" button. */
+        const val INSUFFICIENT = "Ton solde ne suffit pas pour ce repas. Recharge ton compte Turboself, puis réserve à nouveau."
+
         private const val ACCOUNT = "turboself"
         private const val DATA = "turboself_data"
         private const val LOW_LUNCHES = 3
@@ -245,7 +258,7 @@ class Canteen private constructor(private val context: Context) {
                 .with(DayOfWeek.MONDAY)
                 .plusDays((b.dayOfWeek - 1).toLong().coerceIn(0, 6))
 
-        /** "12,40 €": TurboSelf's amounts, in euros (to confirm: they may be cents). */
+        /** "12,40 €". */
         fun money(v: Double): String = String.format(java.util.Locale.FRANCE, "%.2f €", v)
     }
 }

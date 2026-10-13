@@ -208,6 +208,10 @@ retirée de cette version : Google interdit qu'une app se mette à jour seule.
 
 GPL-3.0, comme Pawnote dont le protocole est porté.
 
+Les logos de Pronote (Index Éducation) et de Turboself (INCB) sont des
+marques de leurs éditeurs : Sallio les affiche seulement pour désigner ces
+services, au moment de s'y connecter. Ils ne sont pas sous licence GPL.
+
 Polices Nunito et Fredoka : SIL Open Font License 1.1 (textes dans
 `app/src/main/assets/fonts/`). Icônes : Tabler Icons, licence MIT. Chaque
 langue a son badge (DE, EN, ES…), deux lettres de Fredoka converties en

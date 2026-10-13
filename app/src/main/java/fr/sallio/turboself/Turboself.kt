@@ -32,7 +32,7 @@ object Turboself {
         /** "Argent" (a balance in money) or "Forfait" (a meal plan). */
         val mode: String,
         val className: String?,
-        /** Price of one lunch, in the unit of the balances. */
+        /** Price of one lunch, in euros. */
         val lunchPrice: Double?,
         /** The canteen card number: the QR code shown at the terminal. */
         val cardNumber: Long?,
@@ -72,7 +72,13 @@ object Turboself {
         class Unreachable(cause: Throwable) : Failure("TurboSelf injoignable") {
             init { initCause(cause) }
         }
-        class Server(val code: Int, body: String) : Failure("TurboSelf $code : ${body.take(200)}")
+        class Server(val code: Int, val body: String) : Failure("TurboSelf $code : ${body.take(200)}") {
+            /** TurboSelf's own sentence, when its error body has one ("message", "msg", "error"). */
+            val reason: String? get() = runCatching {
+                val o = JSONObject(body)
+                listOf("message", "msg", "error", "detail").firstNotNullOfOrNull { k -> o.optString(k).trim().ifEmpty { null } }
+            }.getOrNull()
+        }
     }
 
     // ---- HTTP ------------------------------------------------------------------------
@@ -137,7 +143,13 @@ object Turboself {
         return Session(token, o.getLong("hoteId"), o.optLong("userId"))
     }
 
-    fun host(t: Transport, s: Session): Host = parseHost(JSONObject(call(t, "GET", "v1/hotes/${s.hostId}", token = s.token)))
+    fun host(t: Transport, s: Session, log: (String) -> Unit = {}): Host {
+        val o = JSONObject(call(t, "GET", "v1/hotes/${s.hostId}", token = s.token))
+        // What a card-less account looks like: the keys, and the card field's kind only.
+        log("Turboself host keys=${o.keys().asSequence().sorted().joinToString()} carteCodee=" +
+            when { !o.has("carteCodee") -> "absent"; o.isNull("carteCodee") -> "null"; else -> o.opt("carteCodee").let { if (it == 0 || it == "0") "0" else "valeur (${it.javaClass.simpleName})" } })
+        return parseHost(o)
+    }
 
     fun balances(t: Transport, s: Session): List<Balance> = parseBalances(JSONArray(call(t, "GET", "v1/comptes/hotes/${s.hostId}/3", token = s.token)))
 
@@ -163,6 +175,9 @@ object Turboself {
 
     private fun JSONObject.str(name: String): String? = if (isNull(name)) null else optString(name).trim().ifEmpty { null }
     private fun JSONObject.num(name: String): Double? = if (isNull(name) || !has(name)) null else optDouble(name).takeIf { !it.isNaN() }
+
+    /** TurboSelf counts money in cents: 420 is 4,20 € (seen on a real account, 2026-10-13). */
+    private fun JSONObject.euros(name: String): Double? = num(name)?.let { it / 100.0 }
     private fun JSONArray.objects(): List<JSONObject> = (0 until length()).mapNotNull { optJSONObject(it) }
 
     internal fun parseHost(o: JSONObject) = Host(
@@ -171,7 +186,7 @@ object Turboself {
         lastName = o.optString("nom"),
         mode = o.optString("mode"),
         className = o.str("division"),
-        lunchPrice = o.num("prixDej"),
+        lunchPrice = o.euros("prixDej"),
         cardNumber = if (o.has("carteCodee") && !o.isNull("carteCodee")) o.optLong("carteCodee").takeIf { it > 0 } else null,
         canBook = o.optBoolean("droitReservation"),
         canBookWithNegativeBalance = o.optBoolean("autoriseReservSoldeIns"),
@@ -180,8 +195,8 @@ object Turboself {
     internal fun parseBalances(a: JSONArray) = a.objects().map { b ->
         Balance(
             label = b.optJSONObject("appli")?.str("lib") ?: "Compte",
-            amount = b.num("montant") ?: 0.0,
-            estimatedAmount = b.num("montantEstime") ?: b.num("montant") ?: 0.0,
+            amount = b.euros("montant") ?: 0.0,
+            estimatedAmount = b.euros("montantEstime") ?: b.euros("montant") ?: 0.0,
             estimatedMessage = b.str("montantEstimeMsg"),
         )
     }
@@ -204,6 +219,6 @@ object Turboself {
     }
 
     internal fun parseHistory(a: JSONArray) = a.objects().map { h ->
-        HistoryLine(h.optString("date"), h.optString("detail"), (h.num("credit") ?: 0.0) - (h.num("debit") ?: 0.0))
+        HistoryLine(h.optString("date"), h.optString("detail"), (h.euros("credit") ?: 0.0) - (h.euros("debit") ?: 0.0))
     }
 }

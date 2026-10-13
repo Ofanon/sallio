@@ -44,12 +44,7 @@ object CanteenUI {
         val d = canteen.data()
         val card = UI.card(ctx, padding = 14)
         val row = UI.row(ctx)
-        row.addView(FrameLayout(ctx).apply {
-            background = UI.rounded(ctx.getColor(R.color.accent), ctx.dp(12).toFloat())
-            addView(UI.icon(ctx, R.drawable.ic_coin, R.color.on_accent, 20).apply {
-                layoutParams = FrameLayout.LayoutParams(ctx.dp(20), ctx.dp(20), Gravity.CENTER)
-            })
-        }, LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(40)))
+        row.addView(UI.logo(ctx, R.drawable.logo_turboself, 40))
         row.addView(UI.hgap(ctx, 12))
         val col = UI.column(ctx)
         val balance = d?.balance
@@ -129,7 +124,13 @@ object CanteenUI {
         Sheet.open(activity, activity.bottomInsetPx) { sheet, _ ->
             val d = canteen.data()
             val now = LocalDateTime.now()
-            Sheet.title(sheet, "Cantine", "Turboself · " + (d?.let { "mis à jour ${Agenda.ago(it.updatedAt, now)}" } ?: "pas encore chargé"))
+            sheet.addView(UI.row(ctx).apply {
+                addView(UI.logo(ctx, R.drawable.logo_turboself, 44))
+                addView(UI.hgap(ctx, 14))
+                val col = UI.column(ctx)
+                Sheet.title(col, "Cantine", "Turboself · " + (d?.let { "mis à jour ${Agenda.ago(it.updatedAt, now)}" } ?: "pas encore chargé"))
+                addView(col, UI.weight())
+            }, UI.matchWidth())
             canteen.error()?.let { sheet.addView(UI.text(ctx, it, 13f, R.color.alert, 800).apply { setPadding(0, ctx.dp(6), 0, 0) }) }
             if (d == null) {
                 sheet.addView(UI.text(ctx, "Tes infos de cantine arrivent à la prochaine mise à jour.", 15f, R.color.text2).apply { setPadding(0, ctx.dp(16), 0, 0) })
@@ -143,7 +144,14 @@ object CanteenUI {
                 hero.addView(UI.title(ctx, Canteen.money(b.estimatedAmount), 40f, R.color.on_accent))
                 val lines = listOfNotNull(
                     if (b.amount != b.estimatedAmount) "${Canteen.money(b.amount)} aujourd'hui, ${Canteen.money(b.estimatedAmount)} après tes réservations" else null,
-                    d.lunchesLeft?.let { "De quoi payer $it repas" + (d.lunchPrice?.let { p -> " à ${Canteen.money(p)}" } ?: "") },
+                    d.lunchesLeft?.let { n ->
+                        val price = d.lunchPrice?.let { " (${Canteen.money(it)} le repas)" } ?: ""
+                        when (n) {
+                            0 -> "Pas assez pour un repas$price"
+                            1 -> "De quoi payer 1 repas$price"
+                            else -> "De quoi payer $n repas$price"
+                        }
+                    },
                     b.estimatedMessage,
                 )
                 for (l in lines) hero.addView(UI.text(ctx, l, 13f, R.color.on_accent, 700).apply { alpha = 0.9f; setPadding(0, ctx.dp(3), 0, 0) })
@@ -151,8 +159,13 @@ object CanteenUI {
             }
 
             // Card.
-            d.cardNumber?.let { n ->
+            if (d.cardNumber != null) {
                 sheet.addView(UI.button(ctx, "Afficher ma carte (QR code)", R.drawable.ic_coin) { showCard(activity, d) }, UI.matchWidth().apply { topMargin = ctx.dp(12) })
+            } else {
+                // Some schools give no coded card to TurboSelf (a physical badge instead): say it, rather than hide it.
+                sheet.addView(UI.text(ctx, "Pas de carte en QR code : Turboself n'en fournit pas pour ton compte. Ton lycée utilise sans doute une carte ou un badge.", 13f, R.color.text2).apply {
+                    setPadding(0, ctx.dp(10), 0, 0)
+                }, UI.matchWidth())
             }
 
             // Bookings, rebuilt after each change.
@@ -161,17 +174,37 @@ object CanteenUI {
             sheet.addView(bookings, UI.matchWidth())
             fun fill(data: Canteen.Data, message: String?) {
                 bookings.removeAllViews()
-                message?.let { bookings.addView(UI.text(ctx, it, 13f, R.color.alert, 800).apply { setPadding(0, 0, 0, ctx.dp(8)) }) }
+                // A refusal as a calm card, with the way out when it is the balance.
+                message?.let { text ->
+                    val box = UI.card(ctx, R.color.warn_bg, R.color.warn_edge, padding = 14)
+                    box.addView(UI.row(ctx).apply {
+                        gravity = Gravity.TOP
+                        addView(UI.icon(ctx, R.drawable.ic_warning, R.color.warn, 22))
+                        addView(UI.hgap(ctx, 12))
+                        addView(UI.text(ctx, text, 14f, R.color.text, 700), UI.weight())
+                    }, UI.matchWidth())
+                    if (text == Canteen.INSUFFICIENT) box.addView(UI.ghostButton(ctx, "Recharger sur Turboself") {
+                        runCatching { activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ESPACE))) }
+                    }, UI.matchWidth().apply { topMargin = ctx.dp(12) })
+                    bookings.addView(box, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
+                }
                 val upcoming = data.days.filter { it.date >= LocalDate.now() }
                 if (!data.canBook) bookings.addView(UI.text(ctx, "Ton établissement ne permet pas de réserver en ligne.", 14f, R.color.text2))
                 else if (upcoming.isEmpty()) bookings.addView(UI.text(ctx, "Pas de jour à réserver pour l'instant.", 14f, R.color.text2))
                 else for ((week, days) in upcoming.groupBy { it.booking.week }) {
+                    // "Semaine du 19 oct. · Chaine 1, Chaine 2": the terminal once, not on every day.
+                    val monday = days.first().date.with(java.time.DayOfWeek.MONDAY)
+                    val terminal = days.first().booking.terminal.trim().trimEnd(',').trim()
+                    bookings.addView(UI.text(ctx, listOf(
+                        if (monday <= LocalDate.now()) "Cette semaine" else "Semaine du ${monday.dayOfMonth} ${monday.month.getDisplayName(TextStyle.SHORT, fr)}",
+                        terminal,
+                    ).filter { it.isNotEmpty() }.joinToString(" · "), 13f, R.color.text2, 800).apply { setPadding(ctx.dp(4), 0, 0, ctx.dp(6)) })
                     val card = UI.card(ctx, padding = 12)
                     days.forEachIndexed { i, day ->
                         if (i > 0) card.addView(UI.divider(ctx))
                         val label = "${dayName(day.date, LocalDate.now())} ${if (day.date == LocalDate.now() || day.date == LocalDate.now().plusDays(1)) "${day.date.dayOfMonth} ${day.date.month.getDisplayName(TextStyle.SHORT, fr)}" else ""}".trim()
                         if (day.booking.allowed) {
-                            card.addView(UI.check(ctx, "$label · ${day.booking.terminal}", { day.booking.booked > 0 }) { want ->
+                            card.addView(UI.check(ctx, label, { day.booking.booked > 0 }) { want ->
                                 activity.worker.execute {
                                     val error = canteen.book(day, want)
                                     activity.runOnUiThread {
@@ -223,7 +256,13 @@ object CanteenUI {
     fun showLogin(activity: MainActivity, onDone: () -> Unit) {
         val ctx = activity
         Sheet.open(activity, activity.bottomInsetPx) { sheet, dialog ->
-            Sheet.title(sheet, "Connecter Turboself", "La cantine dans Sallio : ta carte, ton solde, tes réservations")
+            sheet.addView(UI.row(ctx).apply {
+                addView(UI.logo(ctx, R.drawable.logo_turboself, 44))
+                addView(UI.hgap(ctx, 14))
+                val col = UI.column(ctx)
+                Sheet.title(col, "Connecter Turboself", "Ta carte, ton solde, tes réservations")
+                addView(col, UI.weight())
+            }, UI.matchWidth())
             sheet.addView(UI.text(ctx, "Turboself ne donne pas de connexion durable : pour se mettre à jour tout seul, Sallio garde ton mot de passe Turboself chiffré sur ce téléphone. Il n'est envoyé qu'à Turboself, et « Déconnecter Turboself » (Réglages, Cantine) l'efface.", 13f, R.color.text2).apply {
                 setPadding(0, ctx.dp(8), 0, ctx.dp(14))
             }, UI.matchWidth())

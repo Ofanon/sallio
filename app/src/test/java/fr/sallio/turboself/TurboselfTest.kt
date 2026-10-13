@@ -12,7 +12,7 @@ class TurboselfTest {
     @Test
     fun host() {
         val h = Turboself.parseHost(JSONObject("""{"id":1,"idOrig":2,"nom":"FANON","prenom":"Oscar","mode":"Argent","division":"1G06",
-            "prixDej":3.5,"droitReservation":true,"autoriseReservSoldeIns":false,"carteCodee":123456789}"""))
+            "prixDej":350,"droitReservation":true,"autoriseReservSoldeIns":false,"carteCodee":123456789}"""))
         assertEquals("Argent", h.mode)
         assertEquals("1G06", h.className)
         assertEquals(3.5, h.lunchPrice!!, 1e-9)
@@ -24,7 +24,7 @@ class TurboselfTest {
     @Test
     fun balances() {
         val b = Turboself.parseBalances(JSONArray("""[{"id":1,"compte":2,"appli":{"id":3,"idOrig":4,"lib":"Self"},"hote":{"id":5},
-            "montant":12.4,"montantEstime":8.9,"montantEstimeMsg":"Solde estimé au 24/10/2026"}]""")).single()
+            "montant":1240,"montantEstime":890,"montantEstimeMsg":"Solde estimé au 24/10/2026"}]""")).single()
         assertEquals("Self", b.label)
         assertEquals(12.4, b.amount, 1e-9)
         assertEquals(8.9, b.estimatedAmount, 1e-9)

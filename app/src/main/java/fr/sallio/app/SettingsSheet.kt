@@ -71,7 +71,7 @@ object SettingsSheet {
             foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, ctx.dp(16).toFloat()))
         }
         val danger = item is Item.Action && item.danger
-        val tile = FrameLayout(ctx).apply {
+        val tile = if (item.icon in UI.LOGOS) UI.logo(ctx, item.icon, 40) else FrameLayout(ctx).apply {
             background = UI.rounded(ctx.getColor(if (danger) R.color.alert_bg else R.color.accent_container), ctx.dp(12).toFloat())
             addView(UI.icon(ctx, item.icon, if (danger) R.color.alert else R.color.on_accent_container, 20).apply {
                 layoutParams = FrameLayout.LayoutParams(ctx.dp(20), ctx.dp(20), Gravity.CENTER)

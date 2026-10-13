@@ -576,19 +576,19 @@ class MainActivity : Activity() {
         }
 
         val canteen = Canteen.get(this)
-        val canteenPage = SettingsSheet.Item.Page(R.drawable.ic_coin, "Cantine",
+        val canteenPage = SettingsSheet.Item.Page(R.drawable.logo_turboself, "Cantine",
             if (canteen.connected()) "Turboself connecté" else "Relier ton compte Turboself",
             "Turboself : ta carte, ton solde, tes réservations",
         ) {
             listOf(SettingsSheet.Section("", if (canteen.connected()) listOf(
-                SettingsSheet.Item.Action(R.drawable.ic_coin, "Ouvrir la cantine", "Ta carte en QR code, ton solde, tes réservations.") {
+                SettingsSheet.Item.Action(R.drawable.logo_turboself, "Ouvrir la cantine", "Ta carte en QR code, ton solde, tes réservations.") {
                     CanteenUI.showSheet(this)
                 },
                 SettingsSheet.Item.Action(R.drawable.ic_logout, "Déconnecter Turboself", "Efface le mot de passe et les données Turboself de ce téléphone.", danger = true) {
                     worker.execute { canteen.disconnect(); runOnUiThread { render() } }
                 },
             ) else listOf(
-                SettingsSheet.Item.Action(R.drawable.ic_coin, "Connecter Turboself", "Avec ton e-mail et ton mot de passe Turboself.") {
+                SettingsSheet.Item.Action(R.drawable.logo_turboself, "Connecter Turboself", "Avec ton e-mail et ton mot de passe Turboself.") {
                     CanteenUI.showLogin(this) { render() }
                 },
             )))
@@ -600,7 +600,7 @@ class MainActivity : Activity() {
         ) {
             listOf(
                 SettingsSheet.Section("", listOf(
-                    SettingsSheet.Item.Action(R.drawable.ic_open, "Ouvrir Pronote", "Répondre aux messages, justifier une absence, bulletins…") { openPronote() },
+                    SettingsSheet.Item.Action(R.drawable.logo_pronote, "Ouvrir Pronote", "Répondre aux messages, justifier une absence, bulletins…") { openPronote() },
                     SettingsSheet.Item.Action(R.drawable.ic_shield, "Tes données", "Ce que Sallio garde, et où.") { privacyDialog() },
                     SettingsSheet.Item.Action(R.drawable.ic_refresh, "Rechercher une mise à jour", "Version installée : ${BuildConfig.VERSION_NAME}") { checkUpdateNow() },
                 ) + if (BuildConfig.DEBUG) listOf(
@@ -717,7 +717,15 @@ class MainActivity : Activity() {
         content.addView(UI.gap(this, 26))
 
         val card = UI.card(this, padding = 18)
-        card.addView(UI.title(this, "Trouve ton lycée", 20f))
+        // PRONOTE's own logo: the student sees at once which account Sallio asks for.
+        card.addView(UI.row(this).apply {
+            addView(UI.logo(context, R.drawable.logo_pronote, 34))
+            addView(UI.hgap(context, 12))
+            val col = UI.column(context)
+            col.addView(UI.title(context, "Trouve ton lycée", 20f))
+            col.addView(UI.text(context, "pour relier ton compte Pronote", 13f, R.color.text2))
+            addView(col, UI.weight())
+        }, UI.matchWidth())
         card.addView(UI.gap(this, 14))
         card.addView(UI.button(this, "Autour de moi", R.drawable.ic_place) { findNearby() }, UI.matchWidth())
         card.addView(UI.text(this, "Tu connais le code de ton lycée (ex. 0782924E) ou l'adresse de son Pronote ?", 13f, R.color.text2).apply { setPadding(0, dp(16), 0, dp(8)) })

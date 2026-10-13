@@ -30,6 +30,10 @@ import java.util.concurrent.locks.ReentrantLock
  */
 class Repo private constructor(private val context: Context) {
 
+    init {
+        DebugLog.init(context)
+    }
+
     private val vault = Vault(context)
     private val prefs = context.getSharedPreferences("sync", Context.MODE_PRIVATE)
     private val lock = ReentrantLock()
@@ -194,10 +198,10 @@ class Repo private constructor(private val context: Context) {
         if (wanted.size != pendingReads().size) prefs.edit().putStringSet("pendingRead", wanted).apply()
         if (wanted.isEmpty()) return
         val asked = wanted.associate { it.substring(1) to (it[0] == '+') }
-        val settled = runCatching { Inbox.setNewsRead(logged, asked) { android.util.Log.i("Sallio", it) } }
-            .onFailure { android.util.Log.w("Sallio", "SaisieActualites failed", it) }
+        val settled = runCatching { Inbox.setNewsRead(logged, asked) { DebugLog.i(it) } }
+            .onFailure { DebugLog.i("SaisieActualites failed", it) }
             .getOrNull() ?: return
-        android.util.Log.i("Sallio", "J'ai vu sent to PRONOTE: ${asked.filterKeys { it in settled }}")
+        DebugLog.i("J'ai vu sent to PRONOTE: ${asked.filterKeys { it in settled }}")
         val sent = if (prefs.getLong("readSentSession", 0) == liveSince) prefs.getStringSet("readSent", emptySet())!! else emptySet()
         prefs.edit()
             .putStringSet("pendingRead", pendingReads().filterNot { it.substring(1) in settled }.toSet())
@@ -212,7 +216,7 @@ class Repo private constructor(private val context: Context) {
             // A new session: PRONOTE's list is current again, so it tells whether what was sent took.
             prefs.getStringSet("readSent", emptySet())!!.forEach { sent ->
                 val now = list.firstOrNull { it.key == sent.substring(1) }?.read
-                android.util.Log.i("Sallio", "J'ai vu check after a new login: sent lue=${sent[0] == '+'}, PRONOTE now says lue=$now")
+                DebugLog.i("J'ai vu check after a new login: sent lue=${sent[0] == '+'}, PRONOTE now says lue=$now")
             }
             prefs.edit().remove("readSent").remove("readSentSession").apply()
             return list

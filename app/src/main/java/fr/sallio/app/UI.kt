@@ -193,6 +193,18 @@ internal object UI {
         layoutParams = LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp))
     }
 
+    /** Logos of the services Sallio talks to: drawn as they are, never tinted. */
+    val LOGOS = setOf(R.drawable.logo_turboself, R.drawable.logo_pronote)
+
+    /** A service's logo in a rounded tile of [sizeDp]. */
+    fun logo(context: Context, res: Int, sizeDp: Int): View = ImageView(context).apply {
+        setImageResource(res)
+        scaleType = ImageView.ScaleType.CENTER_CROP
+        background = rounded(Color.TRANSPARENT, context.dp(sizeDp * 12 / 40).toFloat())
+        clipToOutline = true
+        layoutParams = LinearLayout.LayoutParams(context.dp(sizeDp), context.dp(sizeDp))
+    }
+
     /** Rounded square holding a subject icon. */
     fun subjectTile(context: Context, subject: String, sizeDp: Int = 40): View {
         val style = Subjects.style(subject)
