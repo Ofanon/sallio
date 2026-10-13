@@ -135,8 +135,12 @@ object CanteenUI {
                 return@open
             }
 
-            // Balance.
-            d.balance?.let { b ->
+            // Balance, redrawn after each booking: TurboSelf's estimate moves with them.
+            val balanceSlot = UI.column(ctx)
+            sheet.addView(balanceSlot, UI.matchWidth())
+            fun showBalance(d: Canteen.Data) {
+                balanceSlot.removeAllViews()
+                val b = d.balance ?: return
                 val hero = UI.card(ctx, R.color.accent, R.color.accent_edge, padding = 18)
                 hero.addView(UI.text(ctx, "SOLDE", 12f, R.color.on_accent, 900).apply { letterSpacing = 0.06f; alpha = 0.8f })
                 hero.addView(UI.title(ctx, Canteen.money(b.estimatedAmount), 40f, R.color.on_accent))
@@ -154,8 +158,9 @@ object CanteenUI {
                 )
                 for (l in lines) hero.addView(UI.text(ctx, l, 13f, R.color.on_accent, 700).apply { alpha = 0.9f; setPadding(0, ctx.dp(3), 0, 0) })
                 activity.offerWidget(hero, CanteenWidget::class.java)
-                sheet.addView(hero, UI.matchWidth().apply { topMargin = ctx.dp(12) })
+                balanceSlot.addView(hero, UI.matchWidth().apply { topMargin = ctx.dp(12) })
             }
+            showBalance(d)
 
             // Card.
             if (d.cardNumber != null) {
@@ -224,8 +229,9 @@ object CanteenUI {
                                             Motion.failure(bookings)
                                             showNotice(error)
                                             UI.refreshChecks()
+                                            canteen.data()?.let { showBalance(it) }
                                         } else {
-                                            canteen.data()?.let { fill(it) }
+                                            canteen.data()?.let { fill(it); showBalance(it) }
                                             activity.refreshScreen()
                                         }
                                     }
