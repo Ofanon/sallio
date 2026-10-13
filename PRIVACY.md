@@ -11,6 +11,7 @@ Sallio n'a **aucun serveur**. Personne d'autre que l'élève et son
 | Emploi du temps et devoirs des deux prochaines semaines, notes de la période, actualités, messages, vie scolaire de l'année (absences, retards, punitions, dispenses), avatar choisi | téléphone, stockage privé de l'app | chiffré, même clé |
 | Si la cantine est reliée : e-mail et **mot de passe Turboself**, numéro de carte de cantine, solde, réservations, derniers passages | téléphone, stockage privé de l'app | chiffré, même clé. Turboself ne donne pas de connexion durable : sans le mot de passe, l'app ne pourrait pas se mettre à jour seule. C'est le seul mot de passe que Sallio garde, et seulement si l'élève relie Turboself |
 | Devoirs cochés en attente d'envoi, notes déjà vues | téléphone | clés techniques (date, matière, empreinte de la consigne) |
+| Matières cochées dans le cartable (jours à venir seulement) | téléphone | jamais envoyées, pas même à Pronote |
 | Heure de la dernière mise à jour, dernier message d'erreur | téléphone | aucune donnée personnelle |
 
 Le **mot de passe** de l'élève n'est jamais vu par l'app : il est tapé dans la

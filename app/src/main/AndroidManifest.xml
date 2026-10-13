@@ -121,6 +121,26 @@
         </receiver>
 
         <receiver
+            android:name=".CanteenWidget"
+            android:exported="false"
+            android:label="@string/widget_canteen">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_canteen_info" />
+        </receiver>
+
+        <receiver
+            android:name=".BagReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".CanteenActions"
+            android:exported="false" />
+
+        <receiver
             android:name=".HomeworkWidget"
             android:exported="false"
             android:label="@string/widget_homework">

@@ -35,6 +35,16 @@ object CanteenUI {
         else -> "${Agenda.dayName(date)} ${date.dayOfMonth}"
     }
 
+    /** "Demain midi : réservé", for the home card and the widget. */
+    fun nextLunchLine(d: Canteen.Data, now: LocalDateTime): String? = nextLunch(d, now)?.let { day ->
+        val name = dayName(day.date, now.toLocalDate()).let { if (it == "Aujourd'hui" || it == "Demain") "$it midi" else it }
+        when {
+            day.booking.booked > 0 -> "$name : réservé"
+            !day.booking.allowed -> "$name : ${day.booking.message ?: "fermé"}"
+            else -> "$name : pas réservé"
+        }
+    }
+
     // ---- Home card -------------------------------------------------------------------
 
     /** The canteen in one line on the home tab: logo, balance, the next lunch; the card when there is one. */
@@ -47,14 +57,7 @@ object CanteenUI {
         val row = UI.row(ctx)
         row.addView(UI.logo(ctx, R.drawable.logo_turboself, 32))
         row.addView(UI.hgap(ctx, 12))
-        val lunch = d?.let { nextLunch(it, now) }?.let { day ->
-            val name = dayName(day.date, now.toLocalDate()).let { if (it == "Aujourd'hui" || it == "Demain") "$it midi" else it }
-            when {
-                day.booking.booked > 0 -> "$name : réservé"
-                !day.booking.allowed -> "$name : ${day.booking.message ?: "fermé"}"
-                else -> "$name : pas réservé"
-            }
-        }
+        val lunch = d?.let { nextLunchLine(it, now) }
         val line = listOfNotNull(d?.balance?.let { Canteen.money(it.estimatedAmount) }, lunch).joinToString(" · ").ifEmpty { "Cantine · chargement…" }
         row.addView(UI.oneLine(UI.text(ctx, line, 15f, if (canteen.error() != null) R.color.alert else R.color.text, 800)), UI.weight())
         if (d?.cardNumber != null) {

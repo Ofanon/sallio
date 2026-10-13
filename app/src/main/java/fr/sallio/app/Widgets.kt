@@ -47,6 +47,12 @@ class HomeworkWidget : AppWidgetProvider() {
 }
 
 /** Clock tick (redraw at the next lesson boundary), the refresh button and homework ticks. */
+/** "Cantine": the TurboSelf balance and the next lunch, booked or not. */
+class CanteenWidget : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = Widgets.refreshAll(context)
+    override fun onEnabled(context: Context) = Widgets.refreshAll(context)
+}
+
 /** "Moyenne générale": the period's overall average, the class's, and the latest grade. */
 class AverageWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = Widgets.refreshAll(context)
@@ -93,6 +99,7 @@ object Widgets {
         RoomTile.refresh(context)
         runCatching { Wallpaper.update(context) }
         runCatching { Reminders.schedule(context) }
+        runCatching { Bag.schedule(context) }
         val manager = AppWidgetManager.getInstance(context)
         fun ids(cls: Class<*>) = manager.getAppWidgetIds(ComponentName(context, cls))
         val nextIds = ids(NextWidget::class.java)
@@ -101,7 +108,8 @@ object Widgets {
         val alertIds = ids(AlertsWidget::class.java)
         val homeworkIds = ids(HomeworkWidget::class.java)
         val averageIds = ids(AverageWidget::class.java)
-        if (listOf(nextIds, dayIds, tomorrowIds, alertIds, homeworkIds, averageIds).all { it.isEmpty() }) return
+        val canteenIds = ids(CanteenWidget::class.java)
+        if (listOf(nextIds, dayIds, tomorrowIds, alertIds, homeworkIds, averageIds, canteenIds).all { it.isEmpty() }) return
 
         val repo = Repo.get(context)
         val loggedIn = repo.account() != null
@@ -116,6 +124,7 @@ object Widgets {
         if (alertIds.isNotEmpty()) manager.updateAppWidget(alertIds, renderAlerts(context, loggedIn, lessons, status, now))
         if (homeworkIds.isNotEmpty()) manager.updateAppWidget(homeworkIds, renderHomework(context, loggedIn, repo, lessons, status, now))
         if (averageIds.isNotEmpty()) manager.updateAppWidget(averageIds, renderAverage(context, loggedIn, repo.report(), status, now))
+        if (canteenIds.isNotEmpty()) manager.updateAppWidget(canteenIds, renderCanteen(context, now))
         scheduleTick(context, Agenda.nextChange(lessons, now))
     }
 
@@ -135,6 +144,16 @@ object Widgets {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 .putExtra(MainActivity.EXTRA_TAB, tab.name)
                 .apply { inbox?.let { putExtra(MainActivity.EXTRA_INBOX, it.name) } },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
+    /** Opens the app with one of its sheets over it ([MainActivity.OPEN_BAG], [MainActivity.OPEN_CANTEEN]). */
+    fun openSheet(context: Context, what: String, code: Int): PendingIntent =
+        PendingIntent.getActivity(
+            context, code,
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .putExtra(MainActivity.EXTRA_OPEN, what),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
@@ -342,6 +361,36 @@ object Widgets {
         val rv = listCard(context, Agenda.dayTitle(date, now.toLocalDate()), MainActivity.Tab.TIMETABLE, footer(status, now), null)
         val day = lessons.filter { it.start.toLocalDate() == date }.sortedBy { it.start }
         fill(context, rv, day.map { Row(lessonRow(context, it, now)) }, openTemplate(context, MainActivity.Tab.TIMETABLE, 4))
+        return rv
+    }
+
+    /** A green sticker (coral when the balance runs low): the balance big, the next lunch under it. */
+    private fun renderCanteen(context: Context, now: LocalDateTime): RemoteViews {
+        val rv = RemoteViews(context.packageName, R.layout.widget_next)
+        rv.setViewVisibility(R.id.badge, View.GONE)
+        rv.setViewVisibility(R.id.then, View.GONE)
+        val canteen = Canteen.get(context)
+        val d = canteen.data()
+        val low = d?.lunchesLeft?.let { it <= 3 } == true
+        val family = if (low) Subjects.CORAL else Subjects.GREEN
+        paintNext(context, rv, Subjects.solid(family), Subjects.edge(context, family), Subjects.onSolid(family), R.drawable.ic_coin)
+        rv.setOnClickPendingIntent(R.id.root, openSheet(context, MainActivity.OPEN_CANTEEN, 72))
+        rv.setTextViewText(R.id.label, "Cantine")
+        rv.setTextViewTextSize(R.id.room, android.util.TypedValue.COMPLEX_UNIT_SP, 40f)
+        if (!canteen.connected() || d == null) {
+            rv.setTextViewText(R.id.room, "—")
+            rv.setTextViewText(R.id.subject, if (!canteen.connected()) "Relie Turboself dans Réglages › Cantine" else "Ton solde arrive")
+            rv.setTextViewText(R.id.footer, "")
+            if (!canteen.connected()) rv.setOnClickPendingIntent(R.id.root, openApp(context))
+            return rv
+        }
+        rv.setTextViewText(R.id.room, d.balance?.let { Canteen.money(it.estimatedAmount) } ?: "—")
+        rv.setTextViewText(R.id.subject, d.lunchesLeft?.let { if (it <= 0) "plus de repas sur ta carte" else "encore $it repas" } ?: "solde estimé")
+        CanteenUI.nextLunchLine(d, now)?.let {
+            rv.setTextViewText(R.id.then, it)
+            rv.setViewVisibility(R.id.then, View.VISIBLE)
+        }
+        rv.setTextViewText(R.id.footer, canteen.error() ?: "Mis à jour ${Agenda.ago(d.updatedAt, now)}")
         return rv
     }
 

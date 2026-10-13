@@ -109,6 +109,7 @@ class MainActivity : Activity() {
         if (savedInstanceState == null) intent?.getStringExtra(EXTRA_TAB)?.let { name -> runCatching { tab = Tab.valueOf(name) } }
         if (savedInstanceState == null) intent?.let(::inboxModeFrom)
         if (savedInstanceState == null) intent?.let(::lessonFrom)
+        if (savedInstanceState == null) intent?.let(::sheetFrom)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -120,6 +121,16 @@ class MainActivity : Activity() {
         }
         if (inboxModeFrom(intent) && tab == Tab.INBOX) { entering = Enter.TAB; render() }
         if (lessonFrom(intent)) render()
+        if (sheetFrom(intent)) render()
+    }
+
+    /** The sheet a notification or a widget asked for, opened by the next render. */
+    private var sheetToOpen: String? = null
+
+    private fun sheetFrom(intent: Intent): Boolean {
+        sheetToOpen = intent.getStringExtra(EXTRA_OPEN) ?: return false
+        intent.removeExtra(EXTRA_OPEN)
+        return true
     }
 
     /** The lesson a widget asked to open, shown by the next render. */
@@ -253,6 +264,15 @@ class MainActivity : Activity() {
                 homeIntroPlayed = false
                 scroll = null
                 render()
+            }
+        }
+        sheetToOpen?.let { what ->
+            sheetToOpen = null
+            root.post {
+                if (!isFinishing) when (what) {
+                    OPEN_BAG -> Bag.showSheet(this, s)
+                    OPEN_CANTEEN -> if (Canteen.get(this).connected()) CanteenUI.showSheet(this)
+                }
             }
         }
         lessonToOpen?.let { (start, subject) ->
@@ -598,6 +618,8 @@ class MainActivity : Activity() {
             "widget_a_savoir" to placed(AlertsWidget::class.java),
             "widget_devoirs" to placed(HomeworkWidget::class.java),
             "widget_moyenne" to placed(AverageWidget::class.java),
+            "widget_cantine" to placed(CanteenWidget::class.java),
+            "cartable" to (Bag.isEnabled(this) && notificationsAllowed()),
             "ecran_verrouille" to Wallpaper.isEnabled(this),
             "alertes" to (Alerts.isEnabled(this) && notificationsAllowed()),
             "rappels" to (Reminders.isEnabled(this) && notificationsAllowed()),
@@ -660,7 +682,7 @@ class MainActivity : Activity() {
         val widgets = getSystemService(AppWidgetManager::class.java)
         fun placed(cls: Class<*>) = widgets.getAppWidgetIds(ComponentName(this, cls)).isNotEmpty()
 
-        val allWidgets = listOf(NextWidget::class.java, DayWidget::class.java, TomorrowWidget::class.java, AlertsWidget::class.java, HomeworkWidget::class.java, AverageWidget::class.java)
+        val allWidgets = listOf(NextWidget::class.java, DayWidget::class.java, TomorrowWidget::class.java, AlertsWidget::class.java, HomeworkWidget::class.java, AverageWidget::class.java, CanteenWidget::class.java)
 
         // Each page is built when it opens, so "Ajouté" and the switches show the state of that moment.
         val quick = SettingsSheet.Item.Page(R.drawable.ic_widgets, "Widgets et accès rapide",
@@ -678,6 +700,7 @@ class MainActivity : Activity() {
                         Quad(TomorrowWidget::class.java, R.drawable.ic_calendar, "Demain", "Les cours du prochain jour, pour préparer ton sac la veille."),
                         Quad(AlertsWidget::class.java, R.drawable.ic_warning, "À savoir", "Profs absents, cours annulés, salles changées : aujourd'hui et demain."),
                         Quad(HomeworkWidget::class.java, R.drawable.ic_tasks, "Devoirs", "Les devoirs du prochain jour de cours, à cocher depuis l'écran d'accueil."),
+                        Quad(CanteenWidget::class.java, R.drawable.ic_coin, "Cantine", "Ton solde Turboself et ton prochain repas, réservé ou non."),
                         Quad(AverageWidget::class.java, R.drawable.ic_star, "Moyenne générale", "Ta moyenne de la période, celle de la classe et ta dernière note. Visible par qui voit ton écran."),
                     )) {
                         add(SettingsSheet.Item.Action(icon, "Widget « $title »", description, badge = if (placed(cls)) "Ajouté" else null) {
@@ -713,6 +736,7 @@ class MainActivity : Activity() {
                 else -> listOfNotNull(
                     if (Alerts.isEnabled(this)) "alertes" else null,
                     if (Reminders.isEnabled(this)) "rappels" else null,
+                    if (Bag.isEnabled(this)) "cartable" else null,
                 ).joinToString(" et ").replaceFirstChar { it.uppercase() }.ifEmpty { "Aucune" }
             },
             "Ce que Sallio peut te dire",
@@ -730,6 +754,15 @@ class MainActivity : Activity() {
                     SettingsSheet.Item.Action(R.drawable.ic_clock, "Tester le rappel", "Dans 10 secondes, le rappel de ton prochain cours, comme 5 min avant.") {
                         withNotifications(true, { Reminders.test(applicationContext) }) {
                             if (notificationsAllowed()) android.widget.Toast.makeText(this@MainActivity, "Rappel dans 10 secondes…", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    SettingsSheet.Item.Toggle(R.drawable.ic_briefcase, "Cartable du lendemain",
+                        "À 19 h la veille d'un jour de cours : les matières de demain et les devoirs pas finis.", { Bag.isEnabled(this@MainActivity) && notificationsAllowed() }) { on, done ->
+                        withNotifications(on, { Bag.setEnabled(this@MainActivity, it) }, done)
+                    },
+                    SettingsSheet.Item.Action(R.drawable.ic_briefcase, "Tester le cartable", "Dans 5 secondes, la notification de ton prochain jour de cours.") {
+                        withNotifications(true, { Bag.test(applicationContext) }) {
+                            if (notificationsAllowed()) android.widget.Toast.makeText(this@MainActivity, "Cartable dans 5 secondes…", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     },
                 )),
@@ -1293,6 +1326,10 @@ class MainActivity : Activity() {
         /** A lesson to open (its start, ISO), from the room widget. */
         const val EXTRA_LESSON = "lesson"
         const val EXTRA_LESSON_SUBJECT = "lessonSubject"
+        /** A sheet to open over the page, from a notification or a widget. */
+        const val EXTRA_OPEN = "open"
+        const val OPEN_BAG = "bag"
+        const val OPEN_CANTEEN = "canteen"
         private const val REQ_LOCATION = 1
         private const val REQ_NOTIFICATIONS = 2
 

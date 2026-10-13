@@ -181,6 +181,8 @@ class Canteen private constructor(private val context: Context) {
             System.currentTimeMillis())
         vault.write(DATA, encode(data).toString())
         if (!first) runCatching { Alerts.post(context, alerts(before, data, LocalDateTime.now())) }
+        // The canteen syncs after PRONOTE, which already drew the widgets: the balance widget follows.
+        runCatching { Widgets.refreshAll(context) }
     }
 
     // ---- Alerts ----------------------------------------------------------------------
@@ -201,7 +203,7 @@ class Canteen private constructor(private val context: Context) {
         if (now.hour >= REMIND_FROM_HOUR && lunch != null && lunch.allowed && lunch.booked == 0 && after.canBook && reminded != tomorrow.toString()) {
             prefs.edit().putString("reminded", tomorrow.toString()).apply()
             items += Changes.Item(Changes.Kind.CANTEEN, "canteen|book|$tomorrow", "Pas encore réservé pour demain midi",
-                "Touche pour réserver ton repas sur Turboself.")
+                "Réserve d'ici, ou touche pour choisir dans Sallio.")
         }
         return items
     }

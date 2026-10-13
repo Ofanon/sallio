@@ -11,6 +11,8 @@
     <string name="widget_homework">Devoirs</string>
     <string name="widget_average">Moyenne générale</string>
     <string name="widget_average_desc">Ta moyenne générale de la période, celle de la classe et ta dernière note</string>
+    <string name="widget_canteen">Cantine</string>
+    <string name="widget_canteen_desc">Ton solde Turboself et ton prochain repas, réservé ou non</string>
     <string name="widget_homework_desc">Les devoirs du prochain jour de cours, à cocher d\'ici</string>
     <string name="shortcut_cours">Cours</string>
     <string name="shortcut_devoirs">Devoirs</string>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Static green sticker for the widget picker preview (canteen). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:top="5dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#5BA67C" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    <item android:bottom="5dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#7CC49A" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+</layer-list>

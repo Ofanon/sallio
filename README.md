@@ -43,12 +43,21 @@ carte de cantine en QR code, qui marche sans réseau (écran au maximum de
 luminosité, pour la borne), le solde et le nombre de repas qu'il paie
 encore, les réservations de la semaine et de la suivante, à cocher ou
 décocher, et les derniers passages. Alertes « solde bas » et « pas encore
-réservé pour demain midi » (à partir de 17 h). L'API est celle que
+réservé pour demain midi » (à partir de 17 h), avec un bouton « Réserver »
+dans la notification même : il réserve sur Turboself et dit dans la même
+notification si c'est fait ou pourquoi non. L'API est celle que
 `turboself-api` (raphckrman, GPL-3.0) emploie pour Papillon, réécrite en
 Kotlin (`fr.sallio.turboself`). Turboself n'a pas de jeton durable : le mot de
 passe est gardé chiffré, ce que l'écran de connexion dit avant de le
 demander. Le QR code est fabriqué par `QrCode.kt`, sans bibliothèque, et
 vérifié avec OpenCV (`tools/check_qr.py`).
+
+**Cartable du lendemain** : à 19 h la veille d'un jour de cours, une
+notification donne les matières du lendemain et les devoirs pas finis. La
+fiche « Cartable » (depuis la notification, ou dans Cours sur le prochain jour
+de cours) a une case par matière à cocher quand elle est dans le sac ; ces
+cases restent sur le téléphone. Réglage dans Notifications, avec « Tester le
+cartable ».
 
 Pour tout le reste (répondre à un message, justifier une absence, bulletins),
 « Ouvrir Pronote ».
@@ -64,7 +73,9 @@ rapide, Notifications, Apparence, Compte et données, chacun ouvrant sa page.
 Accès le plus rapide possible, sans même ouvrir l'app :
 
 - **Widgets** « Prochaine salle » (aux couleurs de la matière), « Ma journée »,
-  « Demain », « À savoir » et « Devoirs ».
+  « Demain », « À savoir », « Devoirs », « Moyenne générale » et « Cantine »
+  (solde et prochain repas). Un appui long sur une carte de l'accueil ou sur la
+  moyenne propose le widget qui lui ressemble.
 - **Tuile des réglages rapides** « Ma salle » : un glissement vers le bas,
   depuis n'importe où, affiche la prochaine salle (ajout en un clic depuis le
   menu du profil, Android 13+).

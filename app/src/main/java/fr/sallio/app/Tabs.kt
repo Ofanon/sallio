@@ -82,7 +82,10 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         if (dueToday.any { !activity.isHomeworkDone(it) }) homeworkBlock(root, today, today, dueToday)
         else homeworkBlock(root, nextDay, today, s.homework.filter { it.due == nextDay })
 
-        CanteenUI.homeCard(activity, s.now)?.let { root.addView(it, UI.matchWidth().apply { topMargin = ctx.dp(14) }) }
+        CanteenUI.homeCard(activity, s.now)?.let {
+            activity.offerWidget(it, CanteenWidget::class.java)
+            root.addView(it, UI.matchWidth().apply { topMargin = ctx.dp(14) })
+        }
 
         root.addView(footer(s))
         return root
@@ -243,6 +246,8 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
 
         val title = Agenda.dayTitle(day, today).let { if (day <= today.plusDays(1)) "$it · ${day.dayOfMonth} ${day.month.getDisplayName(TextStyle.FULL, fr)}" else it }
         root.addView(UI.section(ctx, title))
+        // The next school day: its bag, to pack the evening before.
+        Bag.entry(activity, s, day)?.let { root.addView(it, UI.matchWidth().apply { bottomMargin = ctx.dp(10) }) }
         val lessons = s.lessons.filter { it.start.toLocalDate() == day }
         if (lessons.isEmpty()) {
             root.addView(emptyCard(R.drawable.ic_sparkles, "Pas cours ce jour-là."), UI.matchWidth())

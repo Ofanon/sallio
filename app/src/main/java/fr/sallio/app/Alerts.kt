@@ -66,6 +66,7 @@ object Alerts {
             val open = Widgets.openApp(context, channel.tab)
             fun openFor(item: Changes.Item) = when {
                 kind == Changes.Kind.SCHOOL_LIFE -> Widgets.openApp(context, channel.tab, InboxTab.Mode.LIFE)
+                kind == Changes.Kind.CANTEEN -> Widgets.openSheet(context, MainActivity.OPEN_CANTEEN, 73)
                 item.key.startsWith("message|") -> Widgets.openApp(context, channel.tab, InboxTab.Mode.MESSAGES)
                 item.key.startsWith("news|") -> Widgets.openApp(context, channel.tab, InboxTab.Mode.NEWS)
                 else -> open
@@ -90,6 +91,10 @@ object Alerts {
                         .setSmallIcon(style?.icon ?: channel.icon)
                         .setContentTitle(title)
                         .build())
+                }
+                // "Pas encore réservé pour demain midi": book from the notification itself.
+                if (item.key.startsWith("canteen|book|")) runCatching {
+                    builder.addAction(CanteenActions.book(context, java.time.LocalDate.parse(item.key.substringAfterLast('|')), item.key.hashCode()))
                 }
                 runCatching { nm.notify(item.key.hashCode(), builder.build()) }
             }
