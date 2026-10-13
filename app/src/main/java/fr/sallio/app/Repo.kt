@@ -152,7 +152,24 @@ class Repo private constructor(private val context: Context) {
             runCatching { JSONArray(text).let { a -> (0 until a.length()).map { decode(a.getJSONObject(it)) } } }.getOrNull()
         }
 
-    private fun <T> readList(name: String, decode: (JSONObject) -> T): List<T> = storedList(name, decode).orEmpty()
+    /** Lists already decoded, by vault entry, with the text they came from. */
+    private val decoded = HashMap<String, Pair<String, List<*>>>()
+
+    /**
+     * The stored list, decoded once per version of its text: every redraw asks
+     * for news and discussions (the tab badge too), and decoding forty
+     * actualités each time made the Infos tab lag (55-70 ms, 2026-10-13).
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> readList(name: String, decode: (JSONObject) -> T): List<T> {
+        val text = vault.read(name) ?: return emptyList()
+        synchronized(decoded) {
+            decoded[name]?.let { (raw, list) -> if (raw === text || raw == text) return list as List<T> }
+        }
+        val list = runCatching { JSONArray(text).let { a -> (0 until a.length()).map { decode(a.getJSONObject(it)) } } }.getOrDefault(emptyList())
+        synchronized(decoded) { decoded[name] = text to list }
+        return list
+    }
 
     fun news(): List<News> = readList(NEWS) { News.fromJson(it) }
 

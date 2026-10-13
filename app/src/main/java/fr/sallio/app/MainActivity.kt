@@ -165,6 +165,7 @@ class MainActivity : Activity() {
     fun refreshScreen() = render()
 
     fun render() {
+        val t0 = System.nanoTime()
         val keepScroll = scroll?.scrollY ?: 0
         for (i in root.childCount - 1 downTo 0) if (root.getChildAt(i) !== celebration) root.removeViewAt(i)
         val account = repo.account()
@@ -186,6 +187,7 @@ class MainActivity : Activity() {
         entering = if (entering != Enter.NONE && tab == Tab.HOME && !homeIntroPlayed) Enter.ALL else Enter.NONE
         if (entering == Enter.ALL) homeIntroPlayed = true
 
+        val t1 = System.nanoTime()
         val column = UI.column(this)
         val content = UI.column(this).apply { setPadding(dp(16), topInset + dp(8), dp(16), dp(28)) }
         content.addView(header(s), UI.matchWidth())
@@ -200,6 +202,8 @@ class MainActivity : Activity() {
             Tab.INBOX -> inboxTab.build(s, inboxMode) { inboxMode = it; render() }
         }
         content.addView(body, UI.matchWidth())
+        val t2 = System.nanoTime()
+        DebugLog.i("render $tab: snapshot ${(t1 - t0) / 1_000_000} ms, page ${(t2 - t1) / 1_000_000} ms")
         when (entering) {
             Enter.ALL -> { Motion.cascade(content); (body as? ViewGroup)?.let { Motion.cascade(it, 120) } }
             Enter.TAB -> (body as? ViewGroup)?.let { Motion.cascade(it) }

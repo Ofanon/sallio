@@ -24,6 +24,10 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
 
     enum class Mode { NEWS, MESSAGES, LIFE }
 
+    /** Read actualités shown before "Voir plus". */
+    private val READ_SHOWN = 10
+    private var allNews = false
+
     fun build(s: Snapshot, mode: Mode, onMode: (Mode) -> Unit): View {
         val root = UI.column(ctx)
         val news = repo.news()
@@ -68,7 +72,10 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
                         root.addView(card, UI.matchWidth().apply { topMargin = ctx.dp(10) })
                     }
                 }
-                for ((title, items) in news.filter { repo.isRead(it) }.groupBy { section(it.date, s.now) }) {
+                // The read ones, the most recent first; older ones on demand, so the tab opens at once.
+                val read = news.filter { repo.isRead(it) }
+                val shown = if (allNews) read else read.take(READ_SHOWN)
+                for ((title, items) in shown.groupBy { section(it.date, s.now) }) {
                     root.addView(UI.section(ctx, if (unread.isEmpty()) title else "Déjà vu · ${title.replaceFirstChar { it.lowercase() }}"))
                     val card = UI.card(ctx, padding = 6)
                     items.forEachIndexed { i, n ->
@@ -77,6 +84,10 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
                     }
                     root.addView(card, UI.matchWidth())
                 }
+                if (read.size > shown.size) root.addView(UI.ghostButton(ctx, "Voir les ${read.size - shown.size} plus anciennes") {
+                    allNews = true
+                    onMode(Mode.NEWS)
+                }, UI.matchWidth().apply { topMargin = ctx.dp(12) })
             }
             Mode.MESSAGES -> {
                 if (discussions.isEmpty()) root.addView(empty(R.drawable.ic_chat, if (s.status.lastSuccess == 0L) "Tes messages arrivent à la prochaine mise à jour." else "Aucun message."), UI.matchWidth().apply { topMargin = ctx.dp(14) })
