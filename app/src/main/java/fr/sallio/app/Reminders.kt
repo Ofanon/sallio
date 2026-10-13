@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.app.Notification
+import fr.sallio.pronote.Lesson
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -82,30 +83,77 @@ object Reminders {
             .minByOrNull { it.start }
         if (lesson != null) {
             context.getSharedPreferences("ui", Context.MODE_PRIVATE).edit().putString("remindedLesson", lesson.start.toString()).apply()
-            channel(context)
-            val minutes = Duration.between(now, lesson.start).toMinutes().coerceAtLeast(0)
-            val alert = Agenda.alert(lesson)
-            val title = if (lesson.canceled) "${Agenda.pretty(lesson.subject)} : ${alert ?: "cours annulé"}"
-            else "${Agenda.room(lesson)} · ${Agenda.pretty(lesson.subject)}"
-            val text = if (lesson.canceled) "Prévu à ${Agenda.time(lesson.start)}, il n'aura pas lieu."
-            else (if (minutes == 0L) "Maintenant, à ${Agenda.time(lesson.start)}" else "Dans $minutes min, à ${Agenda.time(lesson.start)}") + (alert?.let { " · $it" } ?: "") +
-                (lesson.teachers.firstOrNull()?.let { " · ${Agenda.prettyName(it)}" } ?: "")
-            val notification = Notification.Builder(context, CHANNEL)
-                .setSmallIcon(Subjects.style(lesson.subject).icon)
-                .setColor(Subjects.solid(Subjects.style(lesson.subject).family))
-                .setContentTitle(title)
-                .setContentText(text)
-                .setCategory(Notification.CATEGORY_REMINDER)
-                .setAutoCancel(true)
-                .setTimeoutAfter(Duration.between(now, lesson.end).toMillis().coerceAtLeast(60_000L))
-                .setContentIntent(Widgets.openApp(context, MainActivity.Tab.TIMETABLE))
-                .build()
-            runCatching { context.getSystemService(NotificationManager::class.java).notify(1, notification) }
+            show(context, lesson, lesson.start, now)
         }
         schedule(context)
+    }
+
+    /**
+     * The reminder as it looks [BEFORE_MIN] minutes before the next lesson, in
+     * [TEST_DELAY_S] seconds, through the same alarm and receiver as the real
+     * one: proves both the alarm and the look. Nothing is marked as reminded.
+     */
+    fun test(context: Context) {
+        val alarms = context.getSystemService(AlarmManager::class.java)
+        val at = System.currentTimeMillis() + TEST_DELAY_S * 1000
+        val intent = PendingIntent.getBroadcast(
+            context, 41, Intent(context, ReminderReceiver::class.java).putExtra(EXTRA_TEST, true),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        if (android.os.Build.VERSION.SDK_INT < 31 || alarms.canScheduleExactAlarms()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, intent)
+        else alarms.set(AlarmManager.RTC_WAKEUP, at, intent)
+    }
+
+    internal fun notifyTest(context: Context) {
+        val now = LocalDateTime.now()
+        val lesson = Repo.get(context).lessons().filter { it.start > now }.minByOrNull { it.start } ?: return
+        // Shown as if it started in five minutes, counting down to that moment.
+        show(context, lesson, now.plusMinutes(BEFORE_MIN), now, test = true)
+    }
+
+    private const val TEST_DELAY_S = 10L
+    internal const val EXTRA_TEST = "test"
+
+    /**
+     * "B204" big, the subject on its coloured tile, a live countdown to [start]
+     * in the header, and the teacher or the change in the text.
+     */
+    private fun show(context: Context, lesson: Lesson, start: LocalDateTime, now: LocalDateTime, test: Boolean = false) {
+        channel(context)
+        val style = Subjects.style(lesson.subject)
+        val alert = Agenda.alert(lesson)
+        val subject = Agenda.pretty(lesson.subject)
+        // The header line also holds the countdown: the room alone fits, the subject goes below.
+        val title = if (lesson.canceled) "${alert ?: "Cours annulé"}" else Agenda.room(lesson)
+        val details = listOfNotNull(
+            subject,
+            if (lesson.canceled) "prévu à ${Agenda.time(lesson.start)}, il n'aura pas lieu" else "à ${Agenda.time(lesson.start)}",
+            alert?.takeIf { !lesson.canceled },
+            lesson.teachers.firstOrNull()?.let { Agenda.prettyName(it) },
+        ).joinToString(" · ")
+        val startMs = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val notification = Notification.Builder(context, CHANNEL)
+            .setSmallIcon(style.icon)
+            .setColor(Subjects.solid(style.family))
+            .setLargeIcon(NotificationLook.subjectTile(context, lesson.subject))
+            .setContentTitle(title)
+            .setContentText(details)
+            .setStyle(Notification.BigTextStyle().bigText(details))
+            // The header counts down to the start: "4:59", "4:58"…
+            .setWhen(startMs)
+            .setShowWhen(true)
+            .setUsesChronometer(!lesson.canceled)
+            .setChronometerCountDown(true)
+            .setCategory(Notification.CATEGORY_REMINDER)
+            .setAutoCancel(true)
+            .setTimeoutAfter(Duration.between(now, if (test) now.plusMinutes(BEFORE_MIN) else lesson.end).toMillis().coerceAtLeast(60_000L))
+            .setContentIntent(Widgets.openApp(context, MainActivity.Tab.TIMETABLE))
+            .build()
+        runCatching { context.getSystemService(NotificationManager::class.java).notify(1, notification) }
     }
 }
 
 class ReminderReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) = Reminders.notifyNext(context)
+    override fun onReceive(context: Context, intent: Intent) =
+        if (intent.getBooleanExtra(Reminders.EXTRA_TEST, false)) Reminders.notifyTest(context) else Reminders.notifyNext(context)
 }

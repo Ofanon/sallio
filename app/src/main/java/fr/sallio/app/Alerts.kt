@@ -75,6 +75,7 @@ object Alerts {
                 val style = item.subject?.let { Subjects.style(it) }
                 val builder = Notification.Builder(context, channel.id)
                     .setSmallIcon(style?.icon ?: channel.icon)
+                    .setLargeIcon(item.subject?.let { NotificationLook.subjectTile(context, it) } ?: NotificationLook.appTile(context, channel.icon))
                     .setContentTitle(item.title)
                     .setContentText(item.text)
                     .setStyle(Notification.BigTextStyle().bigText(item.text))

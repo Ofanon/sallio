@@ -678,6 +678,11 @@ class MainActivity : Activity() {
                         "Une notification 5 min avant : la salle, le prof, ou s'il est annulé.", { Reminders.isEnabled(this@MainActivity) && notificationsAllowed() }) { on, done ->
                         withNotifications(on, { Reminders.setEnabled(this@MainActivity, it) }, done)
                     },
+                    SettingsSheet.Item.Action(R.drawable.ic_clock, "Tester le rappel", "Dans 10 secondes, le rappel de ton prochain cours, comme 5 min avant.") {
+                        withNotifications(true, { Reminders.test(applicationContext) }) {
+                            if (notificationsAllowed()) android.widget.Toast.makeText(this@MainActivity, "Rappel dans 10 secondes…", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
                 )),
                 SettingsSheet.Section("Dans Android", listOf(
                     SettingsSheet.Item.Action(R.drawable.ic_open, "Choisir les types d'alertes", "Couper les notes et garder l'emploi du temps, changer le son…") {

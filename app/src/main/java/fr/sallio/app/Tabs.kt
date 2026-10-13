@@ -229,6 +229,9 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
                 val centered = (chip.left - (scroller.width - chip.width) / 2).coerceIn(0, max)
                 if (restore < 0) {
                     scroller.scrollTo(centered, 0)
+                    // Recorded even when it did not move (first days, at 0): otherwise the
+                    // first tap on a day found no position and jumped without sliding.
+                    activity.stripScroll = centered
                 } else {
                     scroller.scrollTo(restore.coerceIn(0, max), 0)
                     if (kotlin.math.abs(centered - restore) > ctx.dp(4)) scroller.smoothScrollTo(centered, 0)
