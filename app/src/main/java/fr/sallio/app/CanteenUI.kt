@@ -186,7 +186,7 @@ object CanteenUI {
                     addView(UI.hgap(ctx, 12))
                     addView(UI.text(ctx, text, 14f, R.color.text, 700), UI.weight())
                 }, UI.matchWidth())
-                if (text == Canteen.INSUFFICIENT) box.addView(UI.ghostButton(ctx, "Recharger sur Turboself") {
+                if (text == Canteen.INSUFFICIENT || text == Canteen.CANCEL_BLOCKED) box.addView(UI.ghostButton(ctx, if (text == Canteen.INSUFFICIENT) "Recharger sur Turboself" else "Ouvrir Turboself") {
                     runCatching { activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ESPACE))) }
                 }, UI.matchWidth().apply { topMargin = ctx.dp(12) })
                 notice.addView(box, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
@@ -211,7 +211,8 @@ object CanteenUI {
                         val label = "${dayName(day.date, LocalDate.now())} ${if (day.date == LocalDate.now() || day.date == LocalDate.now().plusDays(1)) "${day.date.dayOfMonth} ${day.date.month.getDisplayName(TextStyle.SHORT, fr)}" else ""}".trim()
                         val key = day.date.toString()
                         if (day.booking.allowed) {
-                            card.addView(UI.check(ctx, label, { day.booking.booked > 0 }, isBusy = { key in busy }) { want ->
+                            // Read from the latest copy: after a refusal TurboSelf's real state is fetched again.
+                            card.addView(UI.check(ctx, label, { (canteen.data()?.day(day.date) ?: day).booking.booked > 0 }, isBusy = { key in busy }) { want ->
                                 busy += key
                                 showNotice(null)
                                 activity.worker.execute {

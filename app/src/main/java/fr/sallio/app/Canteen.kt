@@ -147,9 +147,20 @@ class Canteen private constructor(private val context: Context) {
             DebugLog.i("Turboself refused ${if (booked) "a booking" else "a cancellation"}: ${e.code} ${e.body.take(300)}")
             val reason = e.reason.orEmpty()
             val poor = Regex("(?i)solde|insuffisant|cr[ée]dit").containsMatchIn(reason)
+            // TurboSelf may say no and do it anyway: a booking that leaves the estimated balance
+            // under a lunch's price answers 422 "Solde insuffisant" and is saved all the same
+            // (seen 2026-10-13). What counts is what it has now.
+            val now = runCatching { withSession { s -> fetch(s, first = false) }; data()?.day(day.date)?.booking?.booked }.getOrNull()
+            DebugLog.i("Turboself after the refusal: ${day.date} booked=$now")
+            if (now != null && (now > 0) == booked) {
+                Analytics.event("cantine_reservation", "reserver" to booked, "resultat" to "ok_malgre_refus", "http" to e.code)
+                return null
+            }
             Analytics.event("cantine_reservation", "reserver" to booked, "resultat" to if (poor) "solde_insuffisant" else "refus", "http" to e.code)
             return when {
-                // Cancelling never costs money: TurboSelf's reason as it is, without "recharge".
+                // Cancelling costs nothing, yet TurboSelf refuses it while the estimated balance is
+                // under a lunch's price (seen 2026-10-13): say so, without "recharge".
+                !booked && poor -> CANCEL_BLOCKED
                 !booked -> "Turboself refuse d'annuler ce repas${reason.takeIf { it.isNotEmpty() }?.let { " : ${it.trimEnd('.')}" } ?: ""}."
                 // TurboSelf's refusal when the balance does not cover the meal.
                 Regex("(?i)solde|insuffisant|cr[ée]dit").containsMatchIn(reason) -> INSUFFICIENT
@@ -250,6 +261,9 @@ class Canteen private constructor(private val context: Context) {
     companion object {
         /** The booking error that comes with a "Recharger" button. */
         const val INSUFFICIENT = "Ton solde ne suffit pas pour ce repas. Recharge ton compte Turboself, puis réserve à nouveau."
+
+        /** TurboSelf's refusal to cancel while the estimated balance is under a lunch's price. */
+        const val CANCEL_BLOCKED = "Turboself refuse d'annuler : il répond « solde insuffisant » tant que ton solde estimé est sous le prix d'un repas. Essaie depuis le site Turboself."
 
         private const val ACCOUNT = "turboself"
         private const val DATA = "turboself_data"
