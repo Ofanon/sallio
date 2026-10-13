@@ -418,6 +418,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         })
         overview.setOnClickListener { Motion.tap(overview); GradesSheets.showOverview(activity, report, activity.bottomInsetPx) }
         Motion.pressable(overview, haptic = false)
+        activity.offerWidget(overview, AverageWidget::class.java)
         root.addView(overview, UI.matchWidth())
 
         val seg = UI.row(ctx).apply {

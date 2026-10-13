@@ -12,6 +12,7 @@ import android.graphics.Color
 import android.view.View
 import android.widget.RemoteViews
 import fr.sallio.pronote.Lesson
+import fr.sallio.pronote.Report
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -46,6 +47,12 @@ class HomeworkWidget : AppWidgetProvider() {
 }
 
 /** Clock tick (redraw at the next lesson boundary), the refresh button and homework ticks. */
+/** "Moyenne générale": the period's overall average, the class's, and the latest grade. */
+class AverageWidget : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = Widgets.refreshAll(context)
+    override fun onEnabled(context: Context) = Widgets.refreshAll(context)
+}
+
 class WidgetEvents : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Widgets.ACTION_REFRESH) SyncJob.runNow(context)
@@ -93,7 +100,8 @@ object Widgets {
         val tomorrowIds = ids(TomorrowWidget::class.java)
         val alertIds = ids(AlertsWidget::class.java)
         val homeworkIds = ids(HomeworkWidget::class.java)
-        if (listOf(nextIds, dayIds, tomorrowIds, alertIds, homeworkIds).all { it.isEmpty() }) return
+        val averageIds = ids(AverageWidget::class.java)
+        if (listOf(nextIds, dayIds, tomorrowIds, alertIds, homeworkIds, averageIds).all { it.isEmpty() }) return
 
         val repo = Repo.get(context)
         val loggedIn = repo.account() != null
@@ -107,6 +115,7 @@ object Widgets {
         if (tomorrowIds.isNotEmpty()) manager.updateAppWidget(tomorrowIds, renderTomorrow(context, loggedIn, lessons, status, now))
         if (alertIds.isNotEmpty()) manager.updateAppWidget(alertIds, renderAlerts(context, loggedIn, lessons, status, now))
         if (homeworkIds.isNotEmpty()) manager.updateAppWidget(homeworkIds, renderHomework(context, loggedIn, repo, lessons, status, now))
+        if (averageIds.isNotEmpty()) manager.updateAppWidget(averageIds, renderAverage(context, loggedIn, repo.report(), status, now))
         scheduleTick(context, Agenda.nextChange(lessons, now))
     }
 
@@ -320,6 +329,36 @@ object Widgets {
         val rv = listCard(context, Agenda.dayTitle(date, now.toLocalDate()), MainActivity.Tab.TIMETABLE, footer(status, now), null)
         val day = lessons.filter { it.start.toLocalDate() == date }.sortedBy { it.start }
         fill(context, rv, day.map { Row(lessonRow(context, it, now)) }, openTemplate(context, MainActivity.Tab.TIMETABLE, 4))
+        return rv
+    }
+
+    /** The yellow sticker of the Notes tab: the average big, the class's and the latest grade under it. */
+    private fun renderAverage(context: Context, loggedIn: Boolean, report: Report?, status: Repo.Status, now: LocalDateTime): RemoteViews {
+        val rv = RemoteViews(context.packageName, R.layout.widget_next)
+        rv.setOnClickPendingIntent(R.id.root, openApp(context, if (loggedIn) MainActivity.Tab.GRADES else MainActivity.Tab.HOME))
+        rv.setViewVisibility(R.id.badge, View.GONE)
+        rv.setViewVisibility(R.id.then, View.GONE)
+        paintNext(context, rv, context.getColor(R.color.accent), context.getColor(R.color.accent_edge), context.getColor(R.color.on_accent), R.drawable.ic_star)
+        rv.setTextViewText(R.id.label, listOfNotNull("Moyenne générale", report?.periodName?.takeIf { it.isNotBlank() }).joinToString(" · "))
+        rv.setTextViewTextSize(R.id.room, android.util.TypedValue.COMPLEX_UNIT_SP, 40f)
+        val overall = report?.overall
+        if (!loggedIn || overall == null) {
+            rv.setTextViewText(R.id.room, "—")
+            rv.setTextViewText(R.id.subject, when {
+                !loggedIn -> "Touche ici pour relier ton compte Pronote"
+                report == null -> "Tes notes arrivent à la prochaine mise à jour"
+                else -> "Pas encore de moyenne sur cette période"
+            })
+            rv.setTextViewText(R.id.footer, if (loggedIn) footer(status, now) else "")
+            return rv
+        }
+        rv.setTextViewText(R.id.room, UI.number(overall))
+        rv.setTextViewText(R.id.subject, listOfNotNull("sur 20", report.classOverall?.let { "classe ${UI.number(it)}" }).joinToString(" · "))
+        report.grades.filter { it.points != null }.maxByOrNull { it.date }?.let { g ->
+            rv.setTextViewText(R.id.then, "Dernière : ${g.value}${g.outOf?.let { "/${UI.number(it)}" } ?: ""} en ${Agenda.pretty(g.subject)}")
+            rv.setViewVisibility(R.id.then, View.VISIBLE)
+        }
+        rv.setTextViewText(R.id.footer, footer(status, now))
         return rv
     }
 

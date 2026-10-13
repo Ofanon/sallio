@@ -339,6 +339,8 @@ class MainActivity : Activity() {
      * home cards do not vibrate on release.
      */
     fun offerWidget(view: View, widget: Class<*>) {
+        // Android vibrates on its own when a long press is handled: ours only, or it buzzes twice.
+        view.isHapticFeedbackEnabled = false
         view.setOnLongClickListener {
             Motion.tap(it)
             Analytics.event("widget_propose", "widget" to widget.simpleName)
@@ -571,6 +573,7 @@ class MainActivity : Activity() {
             "widget_demain" to placed(TomorrowWidget::class.java),
             "widget_a_savoir" to placed(AlertsWidget::class.java),
             "widget_devoirs" to placed(HomeworkWidget::class.java),
+            "widget_moyenne" to placed(AverageWidget::class.java),
             "ecran_verrouille" to Wallpaper.isEnabled(this),
             "alertes" to (Alerts.isEnabled(this) && notificationsAllowed()),
             "rappels" to (Reminders.isEnabled(this) && notificationsAllowed()),
@@ -633,7 +636,7 @@ class MainActivity : Activity() {
         val widgets = getSystemService(AppWidgetManager::class.java)
         fun placed(cls: Class<*>) = widgets.getAppWidgetIds(ComponentName(this, cls)).isNotEmpty()
 
-        val allWidgets = listOf(NextWidget::class.java, DayWidget::class.java, TomorrowWidget::class.java, AlertsWidget::class.java, HomeworkWidget::class.java)
+        val allWidgets = listOf(NextWidget::class.java, DayWidget::class.java, TomorrowWidget::class.java, AlertsWidget::class.java, HomeworkWidget::class.java, AverageWidget::class.java)
 
         // Each page is built when it opens, so "Ajouté" and the switches show the state of that moment.
         val quick = SettingsSheet.Item.Page(R.drawable.ic_widgets, "Widgets et accès rapide",
@@ -651,6 +654,7 @@ class MainActivity : Activity() {
                         Quad(TomorrowWidget::class.java, R.drawable.ic_calendar, "Demain", "Les cours du prochain jour, pour préparer ton sac la veille."),
                         Quad(AlertsWidget::class.java, R.drawable.ic_warning, "À savoir", "Profs absents, cours annulés, salles changées : aujourd'hui et demain."),
                         Quad(HomeworkWidget::class.java, R.drawable.ic_tasks, "Devoirs", "Les devoirs du prochain jour de cours, à cocher depuis l'écran d'accueil."),
+                        Quad(AverageWidget::class.java, R.drawable.ic_star, "Moyenne générale", "Ta moyenne de la période, celle de la classe et ta dernière note. Visible par qui voit ton écran."),
                     )) {
                         add(SettingsSheet.Item.Action(icon, "Widget « $title »", description, badge = if (placed(cls)) "Ajouté" else null) {
                             widgets.requestPinAppWidget(ComponentName(this@MainActivity, cls), null, null)

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Static yellow sticker for the widget picker preview (overall average). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:top="5dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#D49A1C" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    <item android:bottom="5dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFD66B" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+</layer-list>

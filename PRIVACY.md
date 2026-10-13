@@ -89,7 +89,9 @@ l'emploi du temps, le compte Turboself et la clé de chiffrement.
 ## Ce qui reste visible
 
 Les widgets affichent salles, matières et noms de professeurs sur l'écran
-d'accueil : toute personne qui voit l'écran les voit aussi.
+d'accueil : toute personne qui voit l'écran les voit aussi. Le widget
+« Moyenne générale », si l'élève le pose, y montre aussi sa moyenne, celle de
+la classe et sa dernière note.
 
 Les alertes de changement sont des notifications Android ordinaires. Sur
 l'écran verrouillé, une nouvelle note, un message ou un événement de vie
