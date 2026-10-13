@@ -24,177 +24,75 @@ import android.widget.ScrollView
  */
 object Sheet {
 
-    /** The sheet on screen: what opens from it becomes a page inside it, not a sheet over it. */
-    private var top: Host? = null
-
-    /**
-     * Opens a sheet; [build] fills the column under the handle. From an open
-     * sheet (a lesson's homework, a subject's grade, a settings page), the
-     * same sheet turns to a new page with a back button instead of stacking a
-     * second sheet over the first. The [Dialog] given to [build] and returned
-     * stands for that page: dismissing it goes back to the previous one.
-     */
+    /** Opens a sheet; [build] fills the column under the handle. */
     fun open(activity: MainActivity, bottomInset: Int, build: (LinearLayout, Dialog) -> Unit): Dialog {
-        top?.takeIf { it.activity === activity && it.isShowing && !it.closing }?.let { return it.push(build) }
-        return Host(activity).also { top = it; it.start(build) }
-    }
+        val ctx = activity
+        // A full screen, non-floating theme: a floating dialog is always laid out above
+        // the navigation bar, which left a strip of the page visible under the sheet.
+        val dialog = Dialog(ctx, android.R.style.Theme_Translucent_NoTitleBar)
 
-    private fun page(ctx: Context) = UI.column(ctx).apply { setPadding(ctx.dp(18), 0, ctx.dp(18), ctx.dp(22)) }
+        val column = UI.column(ctx).apply {
+            setPadding(ctx.dp(18), 0, ctx.dp(18), ctx.dp(22))
+        }
+        build(column, dialog)
 
-    // A full screen, non-floating theme: a floating dialog is always laid out above
-    // the navigation bar, which left a strip of the page visible under the sheet.
-    private class Host(val activity: MainActivity) : Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar) {
-        class Page(val column: LinearLayout, val handle: Dialog, var scrollY: Int = 0)
-
-        var closing = false
-        private val pages = ArrayList<Page>()
-        private val scroll = ScrollView(activity).apply {
+        val scroll = ScrollView(ctx).apply {
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
+            addView(column)
         }
-        private lateinit var container: DragLayout
-        private lateinit var back: View
+        // The handle above the scroll view: a long actualité scrolls under it, it stays in sight.
+        val body = UI.column(ctx).apply {
+            addView(View(ctx).apply { background = UI.rounded(ctx.getColor(R.color.text3), ctx.dp(3).toFloat()) },
+                LinearLayout.LayoutParams(ctx.dp(40), ctx.dp(5)).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = ctx.dp(12); bottomMargin = ctx.dp(14) })
+            addView(scroll, LinearLayout.LayoutParams(-1, -2))
+        }
+        val container = DragLayout(ctx, scroll) { dialog.dismiss() }.apply {
+            // Rounded on top only: the sheet sits on the bottom edge of the screen.
+            val r = ctx.dp(30).toFloat()
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(ctx.getColor(R.color.bg))
+                cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
+            }
+            outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+            clipToOutline = true
+            addView(body, FrameLayout.LayoutParams(-1, -2))
+        }
+        val maxHeight = (ctx.resources.displayMetrics.heightPixels * 0.92f).toInt()
+        container.maxHeight = maxHeight
 
-        fun start(build: (LinearLayout, Dialog) -> Unit) {
-            val ctx = activity
-            val column = page(ctx)
-            build(column, this)
-            pages += Page(column, this)
-            scroll.addView(column)
-
-            // The handle above the scroll view: a long actualité scrolls under it, it stays in sight.
-            // The back button shares its strip, so a page inside the sheet costs no height.
-            back = UI.row(ctx).apply {
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(ctx.dp(12), ctx.dp(6), ctx.dp(14), ctx.dp(4))
-                addView(UI.icon(ctx, R.drawable.ic_back, R.color.text2, 20))
-                addView(UI.text(ctx, "Retour", 14f, R.color.text2, 800).apply { setPadding(ctx.dp(2), 0, 0, 0) })
-                visibility = View.INVISIBLE
-                contentDescription = "Retour"
-                setOnClickListener { Motion.tick(this); pages.lastOrNull()?.handle?.dismiss() }
-            }
-            val strip = FrameLayout(ctx).apply {
-                addView(View(ctx).apply { background = UI.rounded(ctx.getColor(R.color.text3), ctx.dp(3).toFloat()) },
-                    FrameLayout.LayoutParams(ctx.dp(40), ctx.dp(5), Gravity.CENTER_HORIZONTAL or Gravity.TOP).apply { topMargin = ctx.dp(12) })
-                addView(back, FrameLayout.LayoutParams(-2, -2, Gravity.START or Gravity.TOP).apply { topMargin = ctx.dp(4) })
-            }
-            val body = UI.column(ctx).apply {
-                addView(strip, LinearLayout.LayoutParams(-1, ctx.dp(31)))
-                addView(scroll, LinearLayout.LayoutParams(-1, -2))
-            }
-            container = DragLayout(ctx, scroll) { dismiss() }.apply {
-                // Rounded on top only: the sheet sits on the bottom edge of the screen.
-                val r = ctx.dp(30).toFloat()
-                background = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(ctx.getColor(R.color.bg))
-                    cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
-                }
-                outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
-                clipToOutline = true
-                addView(body, FrameLayout.LayoutParams(-1, -2))
-            }
-            container.maxHeight = (ctx.resources.displayMetrics.heightPixels * 0.92f).toInt()
-
-            // The window covers the whole screen, navigation bar included, so the sheet's
-            // own colour runs to the bottom edge: nothing of the page behind shows there.
-            // A tap above the sheet closes it, like a normal dialog.
-            val screen = FrameLayout(ctx).apply {
-                setBackgroundColor(0x73000000)
-                setOnClickListener { dismiss() }
-                addView(container, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
-            }
-            container.isClickable = true
-            container.setOnApplyWindowInsetsListener { v, insets ->
-                val nav = if (android.os.Build.VERSION.SDK_INT >= 30) {
-                    insets.getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.ime()).bottom
-                } else @Suppress("DEPRECATION") insets.systemWindowInsetBottom
-                v.setPadding(0, 0, 0, nav)
-                insets
-            }
-
-            setContentView(screen)
-            window?.apply {
-                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-                setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                setWindowAnimations(android.R.style.Animation_InputMethod)
-                if (android.os.Build.VERSION.SDK_INT >= 30) setDecorFitsSystemWindows(false)
-                @Suppress("DEPRECATION")
-                addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
-                @Suppress("DEPRECATION")
-                navigationBarColor = Color.TRANSPARENT
-                @Suppress("DEPRECATION")
-                statusBarColor = Color.TRANSPARENT
-            }
-            show()
+        // The window covers the whole screen, navigation bar included, so the sheet's
+        // own colour runs to the bottom edge: nothing of the page behind shows there.
+        // A tap above the sheet closes it, like a normal dialog.
+        val screen = FrameLayout(ctx).apply {
+            setBackgroundColor(0x73000000)
+            setOnClickListener { dialog.dismiss() }
+            addView(container, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        }
+        container.isClickable = true
+        container.setOnApplyWindowInsetsListener { v, insets ->
+            val nav = if (android.os.Build.VERSION.SDK_INT >= 30) {
+                insets.getInsets(android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.ime()).bottom
+            } else @Suppress("DEPRECATION") insets.systemWindowInsetBottom
+            v.setPadding(0, 0, 0, nav)
+            insets
         }
 
-        /** A new page inside this sheet, sliding in from the right. */
-        fun push(build: (LinearLayout, Dialog) -> Unit): Dialog {
-            val column = page(activity)
-            val handle = PageHandle(this)
-            build(column, handle)
-            pages.lastOrNull()?.scrollY = scroll.scrollY
-            pages += Page(column, handle)
-            show(column, forward = true, y = 0)
-            return handle
+        dialog.setContentView(screen)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            setWindowAnimations(android.R.style.Animation_InputMethod)
+            if (android.os.Build.VERSION.SDK_INT >= 30) setDecorFitsSystemWindows(false)
+            @Suppress("DEPRECATION")
+            addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+            @Suppress("DEPRECATION")
+            navigationBarColor = Color.TRANSPARENT
+            @Suppress("DEPRECATION")
+            statusBarColor = Color.TRANSPARENT
         }
-
-        /** Back from [handle]'s page to the one under it. */
-        fun pop(handle: PageHandle) {
-            val i = pages.indexOfFirst { it.handle === handle }
-            if (i <= 0) return
-            pages.removeAt(i)
-            handle.gone()
-            if (i == pages.size) pages.last().let { show(it.column, forward = false, y = it.scrollY) }
-        }
-
-        private fun show(column: LinearLayout, forward: Boolean, y: Int) {
-            back.visibility = if (pages.size > 1) View.VISIBLE else View.INVISIBLE
-            val animate = android.animation.ValueAnimator.areAnimatorsEnabled() && container.isLaidOut
-            // The sheet's height follows the new page smoothly instead of jumping.
-            if (animate) android.transition.TransitionManager.beginDelayedTransition(container.parent as ViewGroup,
-                android.transition.ChangeBounds().setDuration(240).setInterpolator(DecelerateInterpolator(2f)))
-            scroll.removeAllViews()
-            (column.parent as? ViewGroup)?.removeView(column)
-            scroll.addView(column)
-            scroll.post { scroll.scrollTo(0, y) }
-            if (animate) {
-                column.alpha = 0f
-                column.translationX = container.width * (if (forward) 0.3f else -0.3f)
-                column.animate().alpha(1f).translationX(0f).setDuration(260).setInterpolator(DecelerateInterpolator(2f)).start()
-            }
-        }
-
-        @Deprecated("Dialog API")
-        override fun onBackPressed() {
-            val last = pages.lastOrNull()
-            if (pages.size > 1 && last != null) last.handle.dismiss() else @Suppress("DEPRECATION") super.onBackPressed()
-        }
-
-        /** Closes the whole sheet: every page inside it hears it, last first. */
-        override fun dismiss() {
-            if (closing) return
-            closing = true
-            if (top === this) top = null
-            pages.drop(1).reversed().forEach { (it.handle as PageHandle).gone() }
-            super.dismiss()
-        }
-    }
-
-    /** Stands for a page inside a sheet: dismissing it goes back; its dismiss listener hears either. */
-    private class PageHandle(private val host: Host) : Dialog(host.context) {
-        private var listener: android.content.DialogInterface.OnDismissListener? = null
-        private var closed = false
-
-        override fun setOnDismissListener(listener: android.content.DialogInterface.OnDismissListener?) { this.listener = listener }
-        override fun dismiss() { if (!closed) host.pop(this) }
-        override fun isShowing() = !closed && host.isShowing
-
-        fun gone() {
-            if (closed) return
-            closed = true
-            listener?.onDismiss(this)
-        }
+        dialog.show()
+        return dialog
     }
 
     /** Header used by most sheets: big title and an optional subtitle. */
