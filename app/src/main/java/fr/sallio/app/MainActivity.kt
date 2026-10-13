@@ -362,13 +362,18 @@ class MainActivity : Activity() {
         view.isHapticFeedbackEnabled = false
         view.setOnLongClickListener {
             Motion.tap(it)
-            Analytics.event("widget_propose", "widget" to widget.simpleName)
-            val manager = getSystemService(AppWidgetManager::class.java)
-            val asked = manager.isRequestPinAppWidgetSupported &&
-                runCatching { manager.requestPinAppWidget(ComponentName(this, widget), null, null) }.getOrDefault(false)
-            if (!asked) android.widget.Toast.makeText(this, "Ajoute le widget Sallio depuis ton écran d'accueil (appui long, Widgets).", android.widget.Toast.LENGTH_LONG).show()
+            askWidget(widget)
             true
         }
+    }
+
+    /** Android's own "add to home screen" dialog for [widget], or how to do it by hand. */
+    fun askWidget(widget: Class<*>) {
+        Analytics.event("widget_propose", "widget" to widget.simpleName)
+        val manager = getSystemService(AppWidgetManager::class.java)
+        val asked = manager.isRequestPinAppWidgetSupported &&
+            runCatching { manager.requestPinAppWidget(ComponentName(this, widget), null, null) }.getOrDefault(false)
+        if (!asked) android.widget.Toast.makeText(this, "Ajoute le widget Sallio depuis ton écran d'accueil (appui long, Widgets).", android.widget.Toast.LENGTH_LONG).show()
     }
 
     fun pinWidget() {

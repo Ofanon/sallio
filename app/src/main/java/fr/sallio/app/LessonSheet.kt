@@ -64,6 +64,9 @@ object LessonSheet {
                 heroCol.addView(UI.chip(ctx, it, Color.WHITE, if (lesson.canceled) 0xFFB3423A.toInt() else 0xFF9A6212.toInt(), 13f), UI.wrap())
             }
             hero.addView(heroCol, FrameLayout.LayoutParams(-1, -2))
+            // The room card looks like the "Prochaine salle" widget: a tap offers to put it on the home screen.
+            hero.setOnClickListener { activity.askWidget(NextWidget::class.java) }
+            Motion.pressable(hero, 5)
             sheet.addView(hero, UI.matchWidth().apply { topMargin = ctx.dp(16) })
 
             // Facts.
