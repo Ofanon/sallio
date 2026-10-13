@@ -37,6 +37,18 @@ Cinq onglets, pour l'essentiel de Pronote au quotidien sans le charger :
   punitions et sanctions, absences, retards et dispenses, chacun avec sa fiche
   (`PagePresence`, onglet 19, toute l'année scolaire).
 
+**Cantine** (Turboself), si l'élève relie son compte dans Réglages : la
+carte de cantine en QR code, qui marche sans réseau (écran au maximum de
+luminosité, pour la borne), le solde et le nombre de repas qu'il paie
+encore, les réservations de la semaine et de la suivante, à cocher ou
+décocher, et les derniers passages. Alertes « solde bas » et « pas encore
+réservé pour demain midi » (à partir de 17 h). L'API est celle que
+`turboself-api` (raphckrman, GPL-3.0) emploie pour Papillon, réécrite en
+Kotlin (`fr.sallio.turboself`). Turboself n'a pas de jeton durable : le mot de
+passe est gardé chiffré, ce que l'écran de connexion dit avant de le
+demander. Le QR code est fabriqué par `QrCode.kt`, sans bibliothèque, et
+vérifié avec OpenCV (`tools/check_qr.py`).
+
 Pour tout le reste (répondre à un message, justifier une absence, bulletins),
 « Ouvrir Pronote ».
 

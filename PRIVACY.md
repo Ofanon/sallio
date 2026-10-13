@@ -9,6 +9,7 @@ Sallio n'a **aucun serveur**. Personne d'autre que l'élève et son
 | --- | --- | --- |
 | Jeton d'appareil Pronote, identifiant Pronote, adresse du Pronote | téléphone, stockage privé de l'app | chiffré (AES-256-GCM, clé dans le Keystore Android, qui ne sort jamais du téléphone) |
 | Emploi du temps et devoirs des deux prochaines semaines, notes de la période, actualités, messages, vie scolaire de l'année (absences, retards, punitions, dispenses), avatar choisi | téléphone, stockage privé de l'app | chiffré, même clé |
+| Si la cantine est reliée : e-mail et **mot de passe Turboself**, numéro de carte de cantine, solde, réservations, derniers passages | téléphone, stockage privé de l'app | chiffré, même clé. Turboself ne donne pas de connexion durable : sans le mot de passe, l'app ne pourrait pas se mettre à jour seule. C'est le seul mot de passe que Sallio garde, et seulement si l'élève relie Turboself |
 | Devoirs cochés en attente d'envoi, notes déjà vues | téléphone | clés techniques (date, matière, empreinte de la consigne) |
 | Heure de la dernière mise à jour, dernier message d'erreur | téléphone | aucune donnée personnelle |
 
@@ -23,6 +24,7 @@ la fin de chaque connexion.
 
 - **Le Pronote de l'établissement**, et l'ENT pendant la connexion. C'est tout
   pour l'emploi du temps.
+- **Turboself** (`api-rest-prod.incb.fr`, la société INCB), seulement si l'élève relie sa cantine : le mot de passe Turboself ne part que là, pour ouvrir une session.
 - **Index Éducation** (l'éditeur de Pronote), seulement si l'élève touche
   « Chercher autour de moi » : la position, arrondie à environ 1 km, est
   envoyée au service de recherche d'établissements qu'utilise l'app officielle.
@@ -45,7 +47,8 @@ la fin de chaque connexion.
 ## Tout effacer
 
 « Se déconnecter et tout effacer », dans l'app, supprime le jeton,
-l'emploi du temps et la clé de chiffrement. Désinstaller l'app a le même effet.
+l'emploi du temps, le compte Turboself et la clé de chiffrement.
+« Déconnecter Turboself » (Réglages, Cantine) n'efface que la cantine. Désinstaller l'app a le même effet.
 
 ## Ce qui reste visible
 

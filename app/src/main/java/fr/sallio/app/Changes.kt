@@ -17,7 +17,7 @@ import java.time.LocalDateTime
  */
 object Changes {
 
-    enum class Kind { LESSON, GRADE, INBOX, SCHOOL_LIFE }
+    enum class Kind { LESSON, GRADE, INBOX, SCHOOL_LIFE, CANTEEN }
 
     class Item(
         val kind: Kind,

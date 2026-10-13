@@ -461,7 +461,11 @@ class Repo private constructor(private val context: Context) {
     /** Opening the app reads PRONOTE again sooner than the background job does. */
     fun syncOnOpen(): SyncResult = sync(manual = false, openGap = true)
 
-    fun sync(manual: Boolean, openGap: Boolean = false): SyncResult {
+    /** PRONOTE, then the canteen if one is connected (each failing on its own). */
+    fun sync(manual: Boolean, openGap: Boolean = false): SyncResult =
+        syncPronote(manual, openGap).also { runCatching { Canteen.get(context).sync(force = manual) } }
+
+    private fun syncPronote(manual: Boolean, openGap: Boolean): SyncResult {
         account() ?: return SyncResult.SKIPPED
         if (!lock.tryLock()) return SyncResult.SKIPPED
         try {
@@ -533,6 +537,7 @@ class Repo private constructor(private val context: Context) {
     fun logout() {
         lock.lock()
         try {
+            runCatching { Canteen.get(context).disconnect() }
             vault.wipe()
             cachedPhoto = null
             runCatching { Attachments.clear(context) }

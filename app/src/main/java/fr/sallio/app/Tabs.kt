@@ -67,6 +67,11 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             }
         }
 
+        CanteenUI.homeCard(activity, s.now)?.let {
+            root.addView(UI.section(ctx, "Cantine"))
+            root.addView(it, UI.matchWidth())
+        }
+
         // Today's homework first while there is any (handed in during the day), then the next school day's.
         val dueToday = s.homework.filter { it.due == today }
         if (dueToday.isNotEmpty()) homeworkBlock(root, today, today, dueToday)

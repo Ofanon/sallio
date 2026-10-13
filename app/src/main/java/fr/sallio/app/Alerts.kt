@@ -27,6 +27,8 @@ object Alerts {
             "Un nouveau message ou une nouvelle actualité.", MainActivity.Tab.INBOX, R.drawable.ic_news),
         Changes.Kind.SCHOOL_LIFE to Channel("school_life", "Vie scolaire",
             "Une absence, un retard, une punition ou une dispense enregistrés sur Pronote.", MainActivity.Tab.INBOX, R.drawable.ic_absent),
+        Changes.Kind.CANTEEN to Channel("canteen", "Cantine",
+            "Solde Turboself bas, ou repas de demain pas encore réservé.", MainActivity.Tab.HOME, R.drawable.ic_coin),
     )
 
     /** On unless the student turned them off; Android's permission still decides. */

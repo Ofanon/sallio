@@ -46,7 +46,8 @@ class MainActivity : Activity() {
     }
 
     private lateinit var root: FrameLayout
-    private val worker = Executors.newSingleThreadExecutor()
+    /** Background work of the screens (network, files): one at a time. */
+    val worker = Executors.newSingleThreadExecutor()
     val repo by lazy { Repo.get(applicationContext) }
     private val tabs by lazy { Tabs(this, repo) }
 
@@ -159,6 +160,9 @@ class MainActivity : Activity() {
      * instead of being wiped with the rest.
      */
     private var celebration: View? = null
+
+    /** Redraws the current tab, from a sheet that changed something behind it. */
+    fun refreshScreen() = render()
 
     fun render() {
         val keepScroll = scroll?.scrollY ?: 0
@@ -571,6 +575,25 @@ class MainActivity : Activity() {
             )))
         }
 
+        val canteen = Canteen.get(this)
+        val canteenPage = SettingsSheet.Item.Page(R.drawable.ic_coin, "Cantine",
+            if (canteen.connected()) "Turboself connecté" else "Relier ton compte Turboself",
+            "Turboself : ta carte, ton solde, tes réservations",
+        ) {
+            listOf(SettingsSheet.Section("", if (canteen.connected()) listOf(
+                SettingsSheet.Item.Action(R.drawable.ic_coin, "Ouvrir la cantine", "Ta carte en QR code, ton solde, tes réservations.") {
+                    CanteenUI.showSheet(this)
+                },
+                SettingsSheet.Item.Action(R.drawable.ic_logout, "Déconnecter Turboself", "Efface le mot de passe et les données Turboself de ce téléphone.", danger = true) {
+                    worker.execute { canteen.disconnect(); runOnUiThread { render() } }
+                },
+            ) else listOf(
+                SettingsSheet.Item.Action(R.drawable.ic_coin, "Connecter Turboself", "Avec ton e-mail et ton mot de passe Turboself.") {
+                    CanteenUI.showLogin(this) { render() }
+                },
+            )))
+        }
+
         val account = SettingsSheet.Item.Page(R.drawable.ic_shield, "Compte et données",
             "Version ${BuildConfig.VERSION_NAME} · tes données restent sur le téléphone",
             Schools.prettySchool(s.account.schoolName),
@@ -593,7 +616,7 @@ class MainActivity : Activity() {
 
         SettingsSheet.show(
             this, who,
-            listOf(SettingsSheet.Section("Réglages", listOf(quick, notifications, look, account))),
+            listOf(SettingsSheet.Section("Réglages", listOf(quick, notifications, look, canteenPage, account))),
             "Sallio ${BuildConfig.VERSION_NAME} · code source sur GitHub",
             { runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/${Updater.REPO}"))) } },
             bottomInset,
@@ -1053,7 +1076,8 @@ class MainActivity : Activity() {
 
         private val PRIVACY = listOf(
             "Sallio n'a aucun serveur : ton téléphone parle directement à Pronote.",
-            "Tu te connectes sur la vraie page de ton ENT. L'app ne voit jamais ton mot de passe, seulement le jeton que Pronote donne à ce téléphone.",
+            "Tu te connectes sur la vraie page de ton ENT. L'app ne voit jamais ton mot de passe Pronote, seulement le jeton que Pronote donne à ce téléphone.",
+            "Si tu relies la cantine, ton mot de passe Turboself est gardé chiffré : Turboself ne donne pas de connexion durable. Il n'est envoyé qu'à Turboself.",
             "Le jeton, ton emploi du temps, tes devoirs, tes notes, tes messages et ta vie scolaire sont chiffrés sur le téléphone et exclus des sauvegardes.",
             "Aucune pub, aucun traqueur, aucune statistique.",
             "Sur Pronote, l'app ne modifie que deux choses, et seulement quand tu le demandes : cocher un devoir, et marquer une actualité « J'ai vu ».",
