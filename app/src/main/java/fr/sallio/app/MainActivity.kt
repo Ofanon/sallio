@@ -757,6 +757,11 @@ class MainActivity : Activity() {
                     SettingsSheet.Item.Action(R.drawable.ic_warning, "Tester les alertes (debug)", "Invente des changements sur les données du téléphone, sans Pronote.") {
                         worker.execute { Alerts.demo(applicationContext) }
                     },
+                    // Lets "erreur" exist in PostHog before a real one, to build its insight.
+                    SettingsSheet.Item.Action(R.drawable.ic_warning, "Envoyer une erreur de test (debug)", "Un événement « erreur » avec ou = test, envoyé tout de suite.") {
+                        Analytics.error("test", IllegalStateException())
+                        Analytics.flushSoon()
+                    },
                 ) else emptyList()),
                 SettingsSheet.Section("", listOf(
                     SettingsSheet.Item.Action(R.drawable.ic_logout, "Se déconnecter et tout effacer", danger = true) { confirmLogout() },
