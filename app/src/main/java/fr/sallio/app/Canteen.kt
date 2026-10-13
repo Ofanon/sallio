@@ -262,8 +262,11 @@ class Canteen private constructor(private val context: Context) {
         /** The booking error that comes with a "Recharger" button. */
         const val INSUFFICIENT = "Ton solde ne suffit pas pour ce repas. Recharge ton compte Turboself, puis réserve à nouveau."
 
-        /** TurboSelf's refusal to cancel while the estimated balance is under a lunch's price. */
-        const val CANCEL_BLOCKED = "Turboself refuse d'annuler : il répond « solde insuffisant » tant que ton solde estimé est sous le prix d'un repas. Essaie depuis le site Turboself."
+        /**
+         * TurboSelf's API refuses to cancel while the estimated balance is under a lunch's
+         * price; its own website (a separate ASP.NET app) accepts it (Oscar, 2026-10-13).
+         */
+        const val CANCEL_BLOCKED = "Turboself bloque l'annulation depuis les applis tant que ton solde estimé est sous le prix d'un repas. Son site, lui, l'accepte."
 
         private const val ACCOUNT = "turboself"
         private const val DATA = "turboself_data"

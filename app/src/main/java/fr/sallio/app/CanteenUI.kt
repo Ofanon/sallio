@@ -186,7 +186,7 @@ object CanteenUI {
                     addView(UI.hgap(ctx, 12))
                     addView(UI.text(ctx, text, 14f, R.color.text, 700), UI.weight())
                 }, UI.matchWidth())
-                if (text == Canteen.INSUFFICIENT || text == Canteen.CANCEL_BLOCKED) box.addView(UI.ghostButton(ctx, if (text == Canteen.INSUFFICIENT) "Recharger sur Turboself" else "Ouvrir Turboself") {
+                if (text == Canteen.INSUFFICIENT || text == Canteen.CANCEL_BLOCKED) box.addView(UI.ghostButton(ctx, if (text == Canteen.INSUFFICIENT) "Recharger sur Turboself" else "Annuler sur le site Turboself") {
                     runCatching { activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ESPACE))) }
                 }, UI.matchWidth().apply { topMargin = ctx.dp(12) })
                 notice.addView(box, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
