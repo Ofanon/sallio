@@ -168,8 +168,13 @@ class Canteen private constructor(private val context: Context) {
                 else -> "Turboself n'a pas pu réserver ce repas."
             }
         } catch (e: Exception) {
+            DebugLog.i("Turboself ${if (booked) "booking" else "cancellation"} failed", e)
             Analytics.error("turboself_reservation", e)
-            return "Pas de connexion à Turboself, réessaie."
+            // A request that timed out or answered oddly may still have been applied: same check.
+            val now = runCatching { withSession { s -> fetch(s, first = false) }; data()?.day(day.date)?.booking?.booked }.getOrNull()
+            DebugLog.i("Turboself after the failure: ${day.date} booked=$now")
+            if (now != null && (now > 0) == booked) return null
+            return if (now == null) "Pas de connexion à Turboself, réessaie." else "Turboself n'a pas répondu comme prévu, rien n'a changé. Réessaie."
         } finally {
             lock.unlock()
         }
