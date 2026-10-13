@@ -91,6 +91,7 @@ object CanteenUI {
 
     /** The card alone, big and bright, for the terminal. */
     fun showCard(activity: MainActivity, d: Canteen.Data) {
+        Analytics.event("fiche_ouverte", "fiche" to "carte_cantine")
         val number = d.cardNumber ?: return
         val window = activity.window
         val before = window.attributes.screenBrightness
@@ -112,6 +113,7 @@ object CanteenUI {
     // ---- Sheet -----------------------------------------------------------------------
 
     fun showSheet(activity: MainActivity) {
+        Analytics.event("fiche_ouverte", "fiche" to "cantine")
         val ctx = activity
         val canteen = Canteen.get(ctx)
         Sheet.open(activity, activity.bottomInsetPx) { sheet, _ ->

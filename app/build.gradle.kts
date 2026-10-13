@@ -12,6 +12,13 @@ val signing = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
+// PostHog's project key (write only), set by hand in local.properties, never committed.
+// Without it the build sends no statistics and never asks.
+val local = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
 android {
     namespace = "fr.sallio.app"
     compileSdk = 36
@@ -23,6 +30,7 @@ android {
         // Bump both for every GitHub release: the in-app updater compares versionCode.
         versionCode = 8
         versionName = "0.6.1"
+        buildConfigField("String", "POSTHOG_KEY", "\"${local.getProperty("posthog.key", "").trim()}\"")
     }
 
     signingConfigs {

@@ -348,6 +348,7 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
     // ---- Sheets ------------------------------------------------------------------
 
     private fun showNews(n: News) {
+        Analytics.event("fiche_ouverte", "fiche" to "actualite")
         Sheet.open(activity, activity.bottomInsetPx) { sheet, dialog ->
             val family = Subjects.familyFor(category(n))
             sheet.addView(UI.chip(ctx, category(n), Subjects.tint(ctx, family), Subjects.ink(ctx, family), 12f), UI.wrap())
@@ -392,6 +393,7 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
     }
 
     private fun showEvent(e: SchoolEvent) {
+        Analytics.event("fiche_ouverte", "fiche" to "vie_scolaire")
         Sheet.open(activity, activity.bottomInsetPx) { sheet, _ ->
             statusChip(e)?.let { sheet.addView(it, UI.wrap()) }
             sheet.addView(UI.title(ctx, SchoolLifeText.title(e), 23f).apply { setPadding(0, ctx.dp(10), 0, 0) })
@@ -415,6 +417,7 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
     }
 
     private fun showDiscussion(d: Discussion) {
+        Analytics.event("fiche_ouverte", "fiche" to "message")
         Sheet.open(activity, activity.bottomInsetPx) { sheet, _ ->
             sheet.addView(UI.title(ctx, d.subject, 22f))
             sheet.addView(UI.text(ctx, d.with, 13f, R.color.text2).apply { setPadding(0, ctx.dp(4), 0, ctx.dp(12)) })

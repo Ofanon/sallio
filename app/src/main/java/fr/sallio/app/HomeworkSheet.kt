@@ -15,6 +15,7 @@ import java.util.Locale
 object HomeworkSheet {
 
     fun show(activity: MainActivity, h: Homework, s: Snapshot, bottomInset: Int) {
+        Analytics.event("fiche_ouverte", "fiche" to "devoir")
         val ctx = activity
         val fr = Locale.FRANCE
         val style = Subjects.style(h.subject)

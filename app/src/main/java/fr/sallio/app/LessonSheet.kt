@@ -24,6 +24,7 @@ object LessonSheet {
         Normalizer.normalize(text, Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").lowercase().replace(Regex("[^a-z0-9]"), "")
 
     fun show(activity: MainActivity, lesson: Lesson, s: Snapshot, bottomInset: Int) {
+        Analytics.event("fiche_ouverte", "fiche" to "cours")
         val ctx = activity
         val fr = Locale.FRANCE
         val style = Subjects.style(lesson.subject)

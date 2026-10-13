@@ -59,6 +59,7 @@ object SettingsSheet {
 
     /** A topic's page, over the hub. Its actions that leave the settings close both. */
     private fun openPage(activity: MainActivity, page: Item.Page, bottomInset: Int, closeHub: () -> Unit) {
+        Analytics.event("fiche_ouverte", "fiche" to "reglages", "page" to page.title)
         Sheet.open(activity, bottomInset) { sheet, dialog ->
             Sheet.title(sheet, page.title, page.subtitle)
             addSections(activity, sheet, page.sections(), bottomInset) { dialog.dismiss(); closeHub() }

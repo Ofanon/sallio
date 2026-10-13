@@ -32,6 +32,7 @@ class Repo private constructor(private val context: Context) {
 
     init {
         DebugLog.init(context)
+        Analytics.init(context)
     }
 
     private val vault = Vault(context)
@@ -215,8 +216,12 @@ class Repo private constructor(private val context: Context) {
         if (wanted.size != pendingReads().size) prefs.edit().putStringSet("pendingRead", wanted).apply()
         if (wanted.isEmpty()) return
         val asked = wanted.associate { it.substring(1) to (it[0] == '+') }
-        val settled = runCatching { Inbox.setNewsRead(logged, asked) { DebugLog.i(it) } }
-            .onFailure { DebugLog.i("SaisieActualites failed", it) }
+        val settled = runCatching {
+            Inbox.setNewsRead(logged, asked, { DebugLog.i(it) }) { variant, accepted ->
+                Analytics.event("jai_vu_resultat", "variante" to variant, "accepte" to accepted)
+            }
+        }
+            .onFailure { DebugLog.i("SaisieActualites failed", it); Analytics.error("jai_vu", it) }
             .getOrNull() ?: return
         DebugLog.i("J'ai vu sent to PRONOTE: ${asked.filterKeys { it in settled }}")
         val sent = if (prefs.getLong("readSentSession", 0) == liveSince) prefs.getStringSet("readSent", emptySet())!! else emptySet()
@@ -234,6 +239,8 @@ class Repo private constructor(private val context: Context) {
             prefs.getStringSet("readSent", emptySet())!!.forEach { sent ->
                 val now = list.firstOrNull { it.key == sent.substring(1) }?.read
                 DebugLog.i("J'ai vu check after a new login: sent lue=${sent[0] == '+'}, PRONOTE now says lue=$now")
+                // The real answer: did PRONOTE keep it once a new session reads the list again?
+                Analytics.event("jai_vu_verifie", "pris" to (now == (sent[0] == '+')), "trouvee" to (now != null))
             }
             prefs.edit().remove("readSent").remove("readSentSession").apply()
             return list
@@ -409,6 +416,7 @@ class Repo private constructor(private val context: Context) {
 
     private fun onFailure(e: PronoteException) {
         live = null
+        Analytics.error("pronote", e)
         val now = System.currentTimeMillis()
         val edit = prefs.edit().putString("error", explain(e)).putInt("fails", prefs.getInt("fails", 0) + 1)
         if (e.needsNewLogin || (e is PronoteException.TokenRefused && prefs.getInt("fails", 0) >= 1)) edit.putBoolean("needsLogin", true)
@@ -506,6 +514,7 @@ class Repo private constructor(private val context: Context) {
             return SyncResult.FAILED
         } catch (e: Exception) {
             live = null
+            Analytics.error("pronote_inattendue", e)
             prefs.edit().putString("error", "Erreur inattendue (${e.javaClass.simpleName})").apply()
             return SyncResult.FAILED
         } finally {

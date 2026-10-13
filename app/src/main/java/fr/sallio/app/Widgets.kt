@@ -55,6 +55,8 @@ class WidgetEvents : BroadcastReceiver() {
             val h = repo.homework().firstOrNull { it.key == key } ?: return Widgets.refreshAll(context)
             // Saved at once and drawn ticked; sent to PRONOTE in the background, like a tick in the app.
             repo.setDone(h, !repo.isDone(h))
+            Analytics.event("devoir_coche", "fait" to repo.isDone(h), "depuis" to "widget")
+            Analytics.flushSoon()
             Widgets.refreshAll(context)
             val done = goAsync()
             Thread {

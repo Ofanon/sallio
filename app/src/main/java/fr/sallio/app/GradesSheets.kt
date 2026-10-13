@@ -61,6 +61,7 @@ object GradesSheets {
     // ---- Moyenne générale --------------------------------------------------------
 
     fun showOverview(activity: MainActivity, report: Report, bottomInset: Int) {
+        Analytics.event("fiche_ouverte", "fiche" to "moyenne_generale")
         val ctx = activity
         Sheet.open(activity, bottomInset) { sheet, _ ->
             Sheet.title(sheet, "Tes statistiques", report.periodName)
@@ -161,6 +162,7 @@ object GradesSheets {
     // ---- Une matière -------------------------------------------------------------
 
     fun showSubject(activity: MainActivity, sub: SubjectAverage, report: Report, bottomInset: Int) {
+        Analytics.event("fiche_ouverte", "fiche" to "moyenne_matiere")
         val ctx = activity
         val style = Subjects.style(sub.subject)
         // Grades of sub-services ("Allemand LV2 > ecrit", "> oral") count for their subject.

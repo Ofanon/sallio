@@ -138,9 +138,25 @@ widgets).
 
 ## Données des élèves
 
-Voir [PRIVACY.md](PRIVACY.md). En résumé : pas de serveur, pas de traqueur,
+Voir [PRIVACY.md](PRIVACY.md). En résumé : pas de serveur, pas de traqueur
+(statistiques de test anonymes uniquement si l'élève dit oui, voir ci-dessous),
 pas de sauvegarde cloud, jeton chiffré par le Keystore Android, HTTPS
 obligatoire avec les seules autorités de certification du système.
+
+## Statistiques de test
+
+Pendant les tests, l'app peut envoyer des événements anonymes à PostHog (cloud
+EU) : fonctions utilisées, erreurs, plantages. La question est posée une fois
+après la connexion, et se change dans Réglages › Compte et données. Pour
+l'activer dans un build, mets la clé du projet (`phc_…`) dans
+`local.properties` :
+
+```properties
+posthog.key=phc_...
+```
+
+Sans cette ligne, l'app n'envoie rien et ne demande rien. Les événements
+envoyés sont décrits dans [PRIVACY.md](PRIVACY.md#statistiques-de-test).
 
 ## Compiler
 

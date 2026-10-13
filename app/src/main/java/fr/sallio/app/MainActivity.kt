@@ -135,6 +135,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         render()
+        if (repo.account() != null) Analytics.event("app_ouverte", *usage())
         if (repo.account() != null) refresh(manual = false, onOpen = true)
         worker.execute {
             val found = Updater.check(applicationContext)
@@ -151,6 +152,7 @@ class MainActivity : Activity() {
         if (tab == Tab.GRADES) repo.markGradesSeen()
         // Leaving the app: send the ticks now rather than in 1.5 s.
         if (pushScheduled) { handler.removeCallbacks(pushNow); pushNow.run() }
+        Analytics.flushSoon()
         super.onPause()
     }
 
@@ -235,6 +237,10 @@ class MainActivity : Activity() {
                 render()
             }
         }
+        if (celebration == null && !consentShown && Analytics.shouldAsk()) {
+            consentShown = true
+            root.postDelayed({ if (!isFinishing) consentDialog() }, 700)
+        }
         if (entering == Enter.NONE && keepScroll > 0) {
             sv.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
                 override fun onPreDraw(): Boolean {
@@ -254,6 +260,7 @@ class MainActivity : Activity() {
             entering = Enter.ALL
             switched = true
             root.let { Motion.tick(it) }
+            Analytics.event("onglet", "onglet" to target.name.lowercase())
         }
         tab = target
         scroll = null
@@ -304,6 +311,7 @@ class MainActivity : Activity() {
     /** "J'ai vu" from an actualité: saved at once, sent to PRONOTE shortly after with any ticks. */
     fun setNewsRead(n: fr.sallio.pronote.News) {
         repo.setRead(n)
+        Analytics.event("jai_vu")
         schedulePush()
         render()
         UI.refreshChecks()
@@ -312,6 +320,7 @@ class MainActivity : Activity() {
     /** Ticks from a sheet: saved at once, sent to PRONOTE shortly after, page redrawn behind. */
     fun setHomeworkDone(h: fr.sallio.pronote.Homework, done: Boolean) {
         repo.setDone(h, done)
+        Analytics.event("devoir_coche", "fait" to done, "depuis" to "app")
         schedulePush()
         render()
         UI.refreshChecks()
@@ -463,7 +472,124 @@ class MainActivity : Activity() {
     }
 
     /** Everything in one place: faster access, preferences, account. */
+    private var consentShown = false
+
+    /**
+     * Asked once after the first login: share anonymous statistics during the
+     * test phase or not. Says exactly what leaves and what never does; the
+     * answer can be changed in Compte et données.
+     */
+    private fun consentDialog() {
+        val dialog = android.app.Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setCancelable(false)
+        val box = UI.column(this).apply {
+            background = UI.rounded(getColor(R.color.bg), dp(28).toFloat())
+            setPadding(dp(22), dp(22), dp(22), dp(18))
+        }
+        box.addView(UI.icon(this, R.drawable.ic_sparkles, R.color.accent_ink, 30))
+        box.addView(UI.title(this, "Tu aides à tester Sallio ?", 22f).apply { setPadding(0, dp(10), 0, 0) })
+        box.addView(UI.text(this, "Pendant les tests, Sallio peut m'envoyer des statistiques anonymes pour savoir ce qui sert et ce qui plante.", 14f, R.color.text2).apply {
+            setPadding(0, dp(6), 0, dp(14))
+            setLineSpacing(0f, 1.1f)
+        }, UI.matchWidth())
+        fun list(title: String, icon: Int, tint: Int, lines: List<String>) {
+            box.addView(UI.text(this, title, 13f, R.color.text2, 800).apply { setPadding(0, 0, 0, dp(6)) })
+            for (line in lines) box.addView(UI.row(this).apply {
+                gravity = Gravity.TOP
+                setPadding(0, 0, 0, dp(6))
+                addView(UI.icon(context, icon, tint, 18))
+                addView(UI.hgap(context, 10))
+                addView(UI.text(context, line, 14f, R.color.text), UI.weight())
+            }, UI.matchWidth())
+            box.addView(UI.gap(this, 8))
+        }
+        list("Ce qui part", R.drawable.ic_check, R.color.success, listOf(
+            "Les onglets et les boutons que tu utilises",
+            "Les erreurs et les plantages, sans leur contenu",
+            "Les versions de Sallio et d'Android",
+        ))
+        list("Ce qui ne part jamais", R.drawable.ic_close, R.color.alert, listOf(
+            "Ton nom, ta classe, ton lycée",
+            "Tes cours, notes, devoirs, messages",
+            "Ta cantine, ton solde, tes mots de passe",
+        ))
+        box.addView(UI.text(this, "Un numéro tiré au hasard à chaque ouverture, rien qui te suive. Hébergé en Europe. Tu peux changer d'avis dans Réglages › Compte et données.", 12f, R.color.text3).apply {
+            setPadding(0, 0, 0, dp(14))
+            setLineSpacing(0f, 1.1f)
+        }, UI.matchWidth())
+        val buttons = UI.row(this)
+        buttons.addView(UI.ghostButton(this, "Non merci") {
+            Analytics.setEnabled(false)
+            dialog.dismiss()
+        }, UI.weight())
+        buttons.addView(UI.hgap(this, 10))
+        buttons.addView(UI.button(this, "Partager") {
+            Analytics.setEnabled(true)
+            Analytics.event("consentement", "accepte" to true)
+            Analytics.event("app_ouverte", *usage())
+            dialog.dismiss()
+        }, UI.weight())
+        box.addView(buttons, UI.matchWidth())
+        dialog.setContentView(ScrollView(this).apply { addView(box) })
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout((resources.displayMetrics.widthPixels - dp(32)), ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+        dialog.show()
+        Motion.appear(box, "consent", 0)
+    }
+
+    /** What is set up, for "app_ouverte": counts and yes/no, nothing about the student. */
+    private fun usage(): Array<Pair<String, Any?>> {
+        val widgets = getSystemService(AppWidgetManager::class.java)
+        fun placed(cls: Class<*>) = runCatching { widgets.getAppWidgetIds(ComponentName(this, cls)).size }.getOrDefault(0)
+        return arrayOf(
+            "widget_prochaine_salle" to placed(NextWidget::class.java),
+            "widget_journee" to placed(DayWidget::class.java),
+            "widget_demain" to placed(TomorrowWidget::class.java),
+            "widget_a_savoir" to placed(AlertsWidget::class.java),
+            "widget_devoirs" to placed(HomeworkWidget::class.java),
+            "ecran_verrouille" to Wallpaper.isEnabled(this),
+            "alertes" to (Alerts.isEnabled(this) && notificationsAllowed()),
+            "rappels" to (Reminders.isEnabled(this) && notificationsAllowed()),
+            "cantine" to Canteen.get(this).connected(),
+            "couleurs_pronote" to repo.pronoteColors(),
+            "theme" to if ((resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES) "sombre" else "clair",
+        )
+    }
+
+    /** A plain text the student reads and sends where they want: versions, sync state, last errors. */
+    private fun sendTestReport() {
+        val status = repo.status()
+        val text = buildString {
+            appendLine("Rapport de test Sallio")
+            appendLine("Version : ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}${if (BuildConfig.DEBUG) ", debug" else ""})")
+            appendLine("Android : ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}")
+            appendLine("Dernière synchro réussie : ${if (status.lastSuccess > 0) java.time.Instant.ofEpochMilli(status.lastSuccess).toString().take(16) else "jamais"}")
+            appendLine("État : ${status.error ?: if (status.needsLogin) "connexion à refaire" else "ok"}")
+            appendLine("En attente d'envoi à Pronote : ${repo.pendingTotal()}")
+            appendLine("Cantine reliée : ${if (Canteen.get(this@MainActivity).connected()) "oui" else "non"}")
+            appendLine("Statistiques partagées : ${if (Analytics.enabled()) "oui" else "non"}")
+            appendLine()
+            appendLine("Dernières erreurs :")
+            appendLine(Analytics.recentErrors().ifEmpty { "aucune" })
+            Analytics.lastCrash()?.let { appendLine(); appendLine("Dernier plantage :"); appendLine(it) }
+            appendLine()
+            appendLine("Ce qui s'est passé (à compléter) :")
+        }
+        Analytics.event("rapport_de_test")
+        runCatching {
+            startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "Rapport de test Sallio ${BuildConfig.VERSION_NAME}")
+                putExtra(Intent.EXTRA_TEXT, text)
+            }, "Envoyer le rapport"))
+        }
+    }
+
     private fun settingsSheet(s: Snapshot) {
+        Analytics.event("fiche_ouverte", "fiche" to "reglages")
         val first = firstName(s.account.studentName)
         val who = UI.row(this)
         // Tapping the avatar changes it: a photo, an emoji, a colour. This header follows.
@@ -617,6 +743,16 @@ class MainActivity : Activity() {
                     SettingsSheet.Item.Action(R.drawable.logo_pronote, "Ouvrir Pronote", "Répondre aux messages, justifier une absence, bulletins…") { openPronote() },
                     SettingsSheet.Item.Action(R.drawable.ic_shield, "Tes données", "Ce que Sallio garde, et où.") { privacyDialog() },
                     SettingsSheet.Item.Action(R.drawable.ic_refresh, "Rechercher une mise à jour", "Version installée : ${BuildConfig.VERSION_NAME}") { checkUpdateNow() },
+                ) + (if (Analytics.available()) listOf(
+                    SettingsSheet.Item.Toggle(R.drawable.ic_sparkles, "Statistiques anonymes",
+                        "Les fonctions utilisées et les erreurs, sans rien sur toi ni tes cours. Pour améliorer Sallio pendant les tests.", { Analytics.enabled() }) { on, done ->
+                        if (!on) Analytics.event("consentement", "accepte" to false)
+                        Analytics.setEnabled(on)
+                        if (on) Analytics.event("consentement", "accepte" to true)
+                        done()
+                    },
+                ) else emptyList()) + listOf(
+                    SettingsSheet.Item.Action(R.drawable.ic_mail, "Envoyer un rapport de test", "Un petit texte à relire : versions, état de la synchro, dernières erreurs.") { sendTestReport() },
                 ) + if (BuildConfig.DEBUG) listOf(
                     SettingsSheet.Item.Action(R.drawable.ic_warning, "Tester les alertes (debug)", "Invente des changements sur les données du téléphone, sans Pronote.") {
                         worker.execute { Alerts.demo(applicationContext) }
@@ -995,6 +1131,7 @@ class MainActivity : Activity() {
             return
         }
         updateStatus = "Téléchargement…"
+        Analytics.event("mise_a_jour", "vers" to u.versionCode)
         render()
         worker.execute {
             val error = runCatching {
@@ -1027,6 +1164,7 @@ class MainActivity : Activity() {
         if (manual) render()
         worker.execute {
             val result = if (onOpen) repo.syncOnOpen() else repo.sync(manual)
+            if (result != Repo.SyncResult.SKIPPED) Analytics.event("synchro", "manuelle" to manual, "resultat" to result.name.lowercase())
             runOnUiThread {
                 syncing = false
                 if (manual) when (result) {
@@ -1101,7 +1239,7 @@ class MainActivity : Activity() {
             "Tu te connectes sur la vraie page de ton ENT. L'app ne voit jamais ton mot de passe Pronote, seulement le jeton que Pronote donne à ce téléphone.",
             "Si tu relies la cantine, ton mot de passe Turboself est gardé chiffré : Turboself ne donne pas de connexion durable. Il n'est envoyé qu'à Turboself.",
             "Le jeton, ton emploi du temps, tes devoirs, tes notes, tes messages et ta vie scolaire sont chiffrés sur le téléphone et exclus des sauvegardes.",
-            "Aucune pub, aucun traqueur, aucune statistique.",
+            "Aucune pub, aucun traqueur. Pendant les tests, des statistiques anonymes seulement si tu as dit oui : les fonctions utilisées et les erreurs, jamais ton nom, tes cours, tes notes ni ta cantine. Réglable ici.",
             "Sur Pronote, l'app ne modifie que deux choses, et seulement quand tu le demandes : cocher un devoir, et marquer une actualité « J'ai vu ».",
         )
 

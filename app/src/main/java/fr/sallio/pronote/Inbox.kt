@@ -201,7 +201,12 @@ object Inbox {
      * survey stays unanswered. [wanted] maps [News.key] to the wanted state.
      * Returns the keys now settled: sent, or gone from PRONOTE.
      */
-    fun setNewsRead(logged: LoggedIn, wanted: Map<String, Boolean>, log: (String) -> Unit = {}): Set<String> {
+    fun setNewsRead(
+        logged: LoggedIn,
+        wanted: Map<String, Boolean>,
+        log: (String) -> Unit = {},
+        onAnswer: (variant: String, accepted: Boolean) -> Unit = { _, _ -> },
+    ): Set<String> {
         if (wanted.isEmpty()) return emptySet()
         val session = logged.session
         val p = session.properties
@@ -244,6 +249,7 @@ object Inbox {
                 )
                 val refused = answer.optJSONObject("RapportSaisie")?.optBoolean("_erreurSaisie_") == true
                 log("SaisieActualites $name lue=$read: ${if (refused) "refusé" else "accepté"} ${answer.toString().take(200)}")
+                onAnswer(name, !refused)
                 if (!refused) break
             }
             settled += key

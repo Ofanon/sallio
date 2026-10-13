@@ -18,6 +18,7 @@ import java.util.Locale
 object GradeSheet {
 
     fun show(activity: MainActivity, g: Grade, report: Report?, bottomInset: Int) {
+        Analytics.event("fiche_ouverte", "fiche" to "note")
         val ctx = activity
         val fr = Locale.FRANCE
         val style = Subjects.style(g.subject)

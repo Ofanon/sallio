@@ -29,20 +29,56 @@ la fin de chaque connexion.
   « Chercher autour de moi » : la position, arrondie à environ 1 km, est
   envoyée au service de recherche d'établissements qu'utilise l'app officielle.
   Rien n'est envoyé sans ce geste.
+- **PostHog** (`eu.i.posthog.com`, hébergé à Francfort), **seulement si l'élève
+  a dit oui** à « Tu aides à tester Sallio ? ». La question est posée une fois,
+  après la connexion ; la réponse se change dans Réglages › Compte et données
+  (« Statistiques anonymes »). Voir « Statistiques de test » plus bas.
 - **GitHub**, à chaque ouverture de l'app (ou sur demande dans les réglages), pour savoir
   s'il existe une nouvelle version. GitHub voit l'adresse IP du téléphone, et
   rien d'autre : aucune donnée de compte ni d'emploi du temps n'est envoyée.
 
 ## Ce que l'app ne fait pas
 
-- Pas de publicité, de statistiques, de rapport de plantage, de bibliothèque
-  tierce : l'APK ne contient que le code de l'app.
+- Pas de publicité ni de bibliothèque tierce : l'APK ne contient que le code
+  de l'app. Les statistiques de test passent par l'API web de PostHog,
+  appelée par le code de Sallio, sans leur SDK.
 - Pas de sauvegarde : la sauvegarde Google et le transfert vers un nouveau
   téléphone sont désactivés. Un nouveau téléphone demande une nouvelle connexion.
 - Pas de HTTP en clair : toutes les connexions sont en HTTPS, et seules les
   autorités de certification livrées avec Android sont acceptées (un
   certificat installé par un tiers ne permet pas d'espionner le trafic).
 - Les statistiques d'usage du navigateur intégré (WebView) sont désactivées.
+
+## Statistiques de test
+
+Pendant la phase de test, et seulement avec l'accord de l'élève, l'app envoie
+des événements anonymes pour savoir quelles fonctions servent et ce qui plante.
+
+**Ce qui part** : le nom de l'événement (onglet ouvert, fiche ouverte, devoir
+coché, « J'ai vu », réservation de cantine, synchro, mise à jour, erreur,
+plantage), quelques mots ou nombres fixes qui le décrivent (« depuis le
+widget », « solde insuffisant », le nombre de widgets posés, oui/non pour les
+alertes), les versions de Sallio et d'Android. Une erreur ne part que par son
+type (`Unreachable`, `SocketTimeoutException`…). Un plantage part avec son type
+et les lignes du code de Sallio qu'il a traversées, jamais son message.
+
+**Ce qui ne part jamais** : nom, classe, établissement, adresse du Pronote,
+cours, salles, professeurs, notes, devoirs, actualités, messages, vie
+scolaire, cantine (solde, carte, réservations), jetons et mots de passe,
+position.
+
+**Pas de suivi** : chaque lancement de l'app tire un identifiant au hasard,
+gardé nulle part ; deux lancements ne peuvent pas être reliés. Les événements
+sont envoyés sans profil de personne (`$process_person_profile: false`) et
+sans localisation (`$geoip_disable: true`), et le projet PostHog supprime
+l'adresse IP à la réception.
+
+**Sans clé, rien** : la clé du projet PostHog n'est pas dans le dépôt. Un APK
+compilé sans elle n'envoie rien et ne pose pas la question.
+
+**Rapport de test** : « Envoyer un rapport de test » (Compte et données) prépare
+un texte que l'élève relit et envoie où il veut : versions, état de la
+synchro, types des dernières erreurs. Rien ne part sans ce geste.
 
 ## Tout effacer
 

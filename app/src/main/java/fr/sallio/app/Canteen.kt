@@ -66,12 +66,16 @@ class Canteen private constructor(private val context: Context) {
             vault.write(ACCOUNT, JSONObject().put("u", username.trim()).put("p", password).put("h", s.hostId).toString())
             prefs.edit().clear().apply()
             fetch(s, first = true)
+            Analytics.event("cantine_connexion", "resultat" to "ok")
             return null
         } catch (e: Turboself.Failure.BadCredentials) {
+            Analytics.event("cantine_connexion", "resultat" to "refusee")
             return "E-mail ou mot de passe refusé par Turboself."
         } catch (e: Turboself.Failure) {
+            Analytics.error("turboself_connexion", e)
             return "Turboself ne répond pas, réessaie dans un moment."
         } catch (e: Exception) {
+            Analytics.error("turboself_connexion", e)
             return "Réponse de Turboself inattendue."
         } finally {
             lock.unlock()
@@ -119,8 +123,10 @@ class Canteen private constructor(private val context: Context) {
             withSession { fetch(it, first = false) }
             prefs.edit().remove("error").apply()
         } catch (e: Turboself.Failure.BadCredentials) {
+            Analytics.error("turboself", e)
             prefs.edit().putString("error", "Turboself refuse le mot de passe enregistré : reconnecte-toi dans Réglages.").apply()
         } catch (e: Exception) {
+            Analytics.error("turboself", e)
             prefs.edit().putString("error", "Turboself injoignable, données de ${Agenda.ago(data()?.updatedAt ?: 0, LocalDateTime.now())}").apply()
         } finally {
             lock.unlock()
@@ -135,10 +141,13 @@ class Canteen private constructor(private val context: Context) {
                 Turboself.book(net, s, day.booking, if (booked) 1 else 0)
                 fetch(s, first = false)
             }
+            Analytics.event("cantine_reservation", "reserver" to booked, "resultat" to "ok")
             return null
         } catch (e: Turboself.Failure.Server) {
             DebugLog.i("Turboself refused a booking: ${e.code} ${e.body.take(300)}")
             val reason = e.reason.orEmpty()
+            val poor = Regex("(?i)solde|insuffisant|cr[ée]dit").containsMatchIn(reason)
+            Analytics.event("cantine_reservation", "reserver" to booked, "resultat" to if (poor) "solde_insuffisant" else "refus", "http" to e.code)
             return when {
                 // TurboSelf's refusal when the balance does not cover the meal.
                 Regex("(?i)solde|insuffisant|cr[ée]dit").containsMatchIn(reason) -> INSUFFICIENT
@@ -146,6 +155,7 @@ class Canteen private constructor(private val context: Context) {
                 else -> "Turboself n'a pas pu réserver ce repas."
             }
         } catch (e: Exception) {
+            Analytics.error("turboself_reservation", e)
             return "Pas de connexion à Turboself, réessaie."
         } finally {
             lock.unlock()
