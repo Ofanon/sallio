@@ -78,6 +78,10 @@ object LessonNotes {
 
     // ---- Views -------------------------------------------------------------------------
 
+    /** "📌 Amener sa blouse · +1", for widgets and tiles; null without a note. */
+    fun text(context: Context, lesson: Lesson): String? =
+        of(context, lesson).takeIf { it.isNotEmpty() }?.let { n -> "📌 " + n.first() + if (n.size > 1) " · +${n.size - 1}" else "" }
+
     /** "📌 Amener sa blouse", one line, for the lesson cards; null without a note. */
     fun line(context: Context, lesson: Lesson, color: Int, sizeSp: Float = 12f): View? {
         val notes = of(context, lesson)
@@ -137,20 +141,21 @@ object LessonNotes {
             setTextColor(ctx.getColor(R.color.text))
             setHintTextColor(ctx.getColor(R.color.text3))
         }
-        fun submit() {
+        fun submit(fromKeyboard: Boolean) {
             if (field.text.isBlank()) return
             add(ctx, lesson, field.text.toString())
             field.setText("")
-            Motion.success(field)
+            // The "Ajouter" button vibrates on its own: a second buzz only for the keyboard's Done.
+            if (fromKeyboard) Motion.tap(field)
             fill()
             activity.refreshScreen()
             Widgets.refreshAll(ctx.applicationContext)
         }
-        field.setOnEditorActionListener { _, _, _ -> submit(); true }
+        field.setOnEditorActionListener { _, _, _ -> submit(fromKeyboard = true); true }
         val row = UI.row(ctx).apply { setPadding(0, ctx.dp(6), 0, 0) }
         row.addView(field, UI.weight())
         row.addView(UI.hgap(ctx, 8))
-        row.addView(UI.button(ctx, "Ajouter") { submit() })
+        row.addView(UI.button(ctx, "Ajouter") { submit(fromKeyboard = false) })
         card.addView(row, UI.matchWidth())
         box.addView(UI.text(ctx, "Seulement sur ton téléphone, rappelé la veille avec le cartable.", 12f, R.color.text3).apply { setPadding(ctx.dp(4), ctx.dp(6), 0, 0) })
         return box

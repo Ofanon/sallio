@@ -166,7 +166,8 @@ object Wallpaper {
         val sub = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFB0A79A.toInt(); typeface = body; textSize = dp(11.5f) }
         val avail = (textRight - textLeft).coerceAtLeast(dp(40f))
         val roomText = if (lesson.rooms.isNotEmpty()) Agenda.room(lesson) else Agenda.pretty(lesson.subject)
-        val subText = if (lesson.rooms.isNotEmpty()) Agenda.pretty(lesson.subject) else lesson.teachers.firstOrNull()?.let { Agenda.prettyName(it) } ?: ""
+        val subText = (if (lesson.rooms.isNotEmpty()) Agenda.pretty(lesson.subject) else lesson.teachers.firstOrNull()?.let { Agenda.prettyName(it) } ?: "") +
+            (LessonNotes.text(context, lesson)?.let { " · $it" } ?: "")
         c.drawText(TextUtils.ellipsize(roomText, room, avail, TextUtils.TruncateAt.END).toString(), textLeft, cy + dp(1f), room)
         c.drawText(TextUtils.ellipsize(subText, sub, avail, TextUtils.TruncateAt.END).toString(), textLeft, cy + dp(16f), sub)
     }

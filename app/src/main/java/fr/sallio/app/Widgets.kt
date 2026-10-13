@@ -198,6 +198,7 @@ object Widgets {
         val rv = RemoteViews(context.packageName, R.layout.widget_next)
         rv.setOnClickPendingIntent(R.id.root, openApp(context, MainActivity.Tab.TIMETABLE))
         rv.setViewVisibility(R.id.badge, View.GONE)
+        rv.setViewVisibility(R.id.note, View.GONE)
         rv.setViewVisibility(R.id.then, View.GONE)
         val accent = context.getColor(R.color.accent)
         val accentEdge = context.getColor(R.color.accent_edge)
@@ -231,6 +232,11 @@ object Widgets {
         rv.setTextViewText(R.id.room, room)
         rv.setTextViewTextSize(R.id.room, android.util.TypedValue.COMPLEX_UNIT_SP, if (hasRoom) 40f else 28f)
         rv.setTextViewText(R.id.subject, if (hasRoom) describe(focus) else focus.teachers.firstOrNull()?.let { Agenda.prettyName(it) } ?: "")
+        LessonNotes.text(context, focus)?.let {
+            rv.setTextViewText(R.id.note, it)
+            rv.setTextColor(R.id.note, ink)
+            rv.setViewVisibility(R.id.note, View.VISIBLE)
+        }
         Agenda.alert(focus)?.let {
             rv.setTextViewText(R.id.badge, it)
             rv.setTextColor(R.id.badge, context.getColor(if (focus.canceled) R.color.alert else R.color.warn))
@@ -283,6 +289,10 @@ object Widgets {
         // No room (sport, outing): the subject is already the title, show the teacher instead.
         val subject = if (hasRoom) Agenda.pretty(lesson.subject) else lesson.teachers.firstOrNull()?.let { Agenda.prettyName(it) } ?: ""
         row.setTextViewText(R.id.subject, listOfNotNull(prefix, subject.ifEmpty { null }).joinToString(" · "))
+        LessonNotes.text(context, lesson)?.let {
+            row.setTextViewText(R.id.note, it)
+            row.setViewVisibility(R.id.note, View.VISIBLE)
+        }
         if (past) {
             for (id in intArrayOf(R.id.time, R.id.room, R.id.subject)) row.setTextColor(id, context.getColor(R.color.text3))
         }

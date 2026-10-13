@@ -32,7 +32,7 @@ class RoomTile : TileService() {
             val alert = Agenda.alert(focus)
             tile.label = if (focus.rooms.isNotEmpty()) Agenda.room(focus) else Agenda.pretty(focus.subject)
             if (Build.VERSION.SDK_INT >= 29) {
-                tile.subtitle = alert ?: "${Agenda.time(focus.start)} · ${Agenda.pretty(focus.subject)}"
+                tile.subtitle = alert ?: LessonNotes.text(this, focus) ?: "${Agenda.time(focus.start)} · ${Agenda.pretty(focus.subject)}"
             }
             tile.icon = Icon.createWithResource(this, style.icon)
             tile.state = Tile.STATE_ACTIVE

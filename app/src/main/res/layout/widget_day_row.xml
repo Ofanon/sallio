@@ -65,6 +65,18 @@
             android:maxLines="1"
             android:textColor="@color/text2"
             android:textSize="11sp" />
+
+        <!-- The student's own note on the lesson ("amener sa blouse"), when there is one. -->
+        <TextView
+            android:id="@+id/note"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:textColor="@color/accent_ink"
+            android:textSize="11sp"
+            android:visibility="gone" />
     </LinearLayout>
 
     <TextView
