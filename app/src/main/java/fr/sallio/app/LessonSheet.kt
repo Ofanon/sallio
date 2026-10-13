@@ -70,6 +70,7 @@ object LessonSheet {
             sheet.addView(hero, UI.matchWidth().apply { topMargin = ctx.dp(16) })
 
             // Facts.
+            val subjectAverage = s.report?.subjects?.firstOrNull { fold(it.subject) == fold(lesson.subject) }
             val facts = buildList {
                 val minutes = Duration.between(lesson.start, lesson.end).toMinutes()
                 add("Durée" to if (minutes >= 60) "${minutes / 60} h ${(minutes % 60).toString().padStart(2, '0')}" else "$minutes min")
@@ -80,10 +81,14 @@ object LessonSheet {
                     Lesson.Kind.ACTIVITY -> add("Type" to "Sortie pédagogique")
                     Lesson.Kind.LESSON -> Unit
                 }
-                s.report?.subjects?.firstOrNull { fold(it.subject) == fold(lesson.subject) }?.student?.let { add("Ta moyenne" to UI.number(it)) }
+                subjectAverage?.student?.let { add("Ta moyenne" to UI.number(it)) }
             }
             sheet.addView(UI.section(ctx, "Infos"))
-            sheet.addView(factsCard(activity, facts), UI.matchWidth())
+            // "Ta moyenne" opens the subject's sheet: its grades and the class's average.
+            val report = s.report
+            val actions = if (subjectAverage != null && report != null)
+                mapOf("Ta moyenne" to { GradesSheets.showSubject(activity, subjectAverage, report, bottomInset) }) else emptyMap()
+            sheet.addView(factsCard(activity, facts, actions), UI.matchWidth())
 
             // Homework for this subject, due on this lesson's day.
             val homework = s.homework.filter { it.due == date && fold(it.subject) == fold(lesson.subject) }
@@ -118,14 +123,20 @@ object LessonSheet {
         }
     }
 
-    private fun factsCard(ctx: MainActivity, facts: List<Pair<String, String>>): View {
+    /** Label and value rows; a row in [actions] gets a chevron and opens what it says. */
+    private fun factsCard(ctx: MainActivity, facts: List<Pair<String, String>>, actions: Map<String, () -> Unit> = emptyMap()): View {
         val card = UI.card(ctx, padding = 14)
         facts.forEachIndexed { i, (label, value) ->
             if (i > 0) card.addView(UI.divider(ctx))
+            val action = actions[label]
             card.addView(UI.row(ctx).apply {
                 setPadding(0, ctx.dp(10), 0, ctx.dp(10))
                 addView(UI.text(ctx, label, 14f, R.color.text2), UI.weight())
                 addView(UI.title(ctx, value, 16f))
+                if (action != null) {
+                    addView(UI.text(ctx, "›", 22f, R.color.text3, 700).apply { setPadding(ctx.dp(8), 0, 0, ctx.dp(3)) })
+                    setOnClickListener { Motion.tap(this); action() }
+                }
             }, UI.matchWidth())
         }
         return card

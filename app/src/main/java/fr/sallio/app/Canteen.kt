@@ -144,11 +144,13 @@ class Canteen private constructor(private val context: Context) {
             Analytics.event("cantine_reservation", "reserver" to booked, "resultat" to "ok")
             return null
         } catch (e: Turboself.Failure.Server) {
-            DebugLog.i("Turboself refused a booking: ${e.code} ${e.body.take(300)}")
+            DebugLog.i("Turboself refused ${if (booked) "a booking" else "a cancellation"}: ${e.code} ${e.body.take(300)}")
             val reason = e.reason.orEmpty()
             val poor = Regex("(?i)solde|insuffisant|cr[ée]dit").containsMatchIn(reason)
             Analytics.event("cantine_reservation", "reserver" to booked, "resultat" to if (poor) "solde_insuffisant" else "refus", "http" to e.code)
             return when {
+                // Cancelling never costs money: TurboSelf's reason as it is, without "recharge".
+                !booked -> "Turboself refuse d'annuler ce repas${reason.takeIf { it.isNotEmpty() }?.let { " : ${it.trimEnd('.')}" } ?: ""}."
                 // TurboSelf's refusal when the balance does not cover the meal.
                 Regex("(?i)solde|insuffisant|cr[ée]dit").containsMatchIn(reason) -> INSUFFICIENT
                 reason.isNotEmpty() -> "Turboself n'a pas pu réserver : ${reason.trimEnd('.')}."

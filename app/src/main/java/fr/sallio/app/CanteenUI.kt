@@ -153,6 +153,7 @@ object CanteenUI {
                     b.estimatedMessage,
                 )
                 for (l in lines) hero.addView(UI.text(ctx, l, 13f, R.color.on_accent, 700).apply { alpha = 0.9f; setPadding(0, ctx.dp(3), 0, 0) })
+                activity.offerWidget(hero, CanteenWidget::class.java)
                 sheet.addView(hero, UI.matchWidth().apply { topMargin = ctx.dp(12) })
             }
 
