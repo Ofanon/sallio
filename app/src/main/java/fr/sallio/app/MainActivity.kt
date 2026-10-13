@@ -108,6 +108,7 @@ class MainActivity : Activity() {
         // A widget, shortcut or tile asking for a tab wins over the restored one.
         if (savedInstanceState == null) intent?.getStringExtra(EXTRA_TAB)?.let { name -> runCatching { tab = Tab.valueOf(name) } }
         if (savedInstanceState == null) intent?.let(::inboxModeFrom)
+        if (savedInstanceState == null) intent?.let(::lessonFrom)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -118,6 +119,19 @@ class MainActivity : Activity() {
             }
         }
         if (inboxModeFrom(intent) && tab == Tab.INBOX) { entering = Enter.TAB; render() }
+        if (lessonFrom(intent)) render()
+    }
+
+    /** The lesson a widget asked to open, shown by the next render. */
+    private var lessonToOpen: Pair<String, String?>? = null
+
+    private fun lessonFrom(intent: Intent): Boolean {
+        val start = intent.getStringExtra(EXTRA_LESSON) ?: return false
+        lessonToOpen = start to intent.getStringExtra(EXTRA_LESSON_SUBJECT)
+        runCatching { selectedDay = LocalDateTime.parse(start).toLocalDate() }
+        // Consumed: rotating or coming back must not open it again.
+        intent.removeExtra(EXTRA_LESSON)
+        return true
     }
 
     /** A notification can open Infos on its view (messages, vie scolaire). True when it did. */
@@ -240,6 +254,11 @@ class MainActivity : Activity() {
                 scroll = null
                 render()
             }
+        }
+        lessonToOpen?.let { (start, subject) ->
+            lessonToOpen = null
+            s.lessons.firstOrNull { it.start.toString() == start && (subject == null || it.subject == subject) }
+                ?.let { lesson -> root.post { if (!isFinishing) LessonSheet.show(this, lesson, s, bottomInset) } }
         }
         if (celebration == null && !consentShown && Analytics.shouldAsk()) {
             consentShown = true
@@ -1266,6 +1285,9 @@ class MainActivity : Activity() {
 
         const val EXTRA_TAB = "tab"
         const val EXTRA_INBOX = "inbox"
+        /** A lesson to open (its start, ISO), from the room widget. */
+        const val EXTRA_LESSON = "lesson"
+        const val EXTRA_LESSON_SUBJECT = "lessonSubject"
         private const val REQ_LOCATION = 1
         private const val REQ_NOTIFICATIONS = 2
 

@@ -138,6 +138,18 @@ object Widgets {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
+    /** Opens the app on Cours, the lesson's day, with the lesson's sheet open over it. */
+    fun openLesson(context: Context, lesson: Lesson): PendingIntent =
+        PendingIntent.getActivity(
+            context, 60,
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .putExtra(MainActivity.EXTRA_TAB, MainActivity.Tab.TIMETABLE.name)
+                .putExtra(MainActivity.EXTRA_LESSON, lesson.start.toString())
+                .putExtra(MainActivity.EXTRA_LESSON_SUBJECT, lesson.subject),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
     private fun broadcast(context: Context, action: String, code: Int): PendingIntent =
         PendingIntent.getBroadcast(
             context, code,
@@ -189,6 +201,7 @@ object Widgets {
             return rv
         }
 
+        rv.setOnClickPendingIntent(R.id.root, openLesson(context, focus))
         val style = Subjects.style(focus.subject)
         val ink = Subjects.onSolid(style.family)
         paintNext(context, rv, Subjects.solid(style.family), Subjects.edge(context, style.family), ink, style.icon)
