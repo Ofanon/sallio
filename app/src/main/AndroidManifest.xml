@@ -8,6 +8,10 @@
     <!-- Optional features, both off until the student turns them on in Réglages. -->
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Lesson reminders and widget redraws on time: inexact alarms may come 10 minutes late,
+         after the lesson started. USE_EXACT_ALARM is granted to calendar-like apps (Android 13+). -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <!-- Only for "Chercher autour de moi", asked at that moment, never in the background. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Updates from GitHub releases; Android still asks the student to confirm each one. -->

@@ -21,6 +21,7 @@ object Reminders {
     private const val PREF = "reminders"
     private const val CHANNEL = "rooms"
     private const val BEFORE_MIN = 5L
+    private const val LATE_MARGIN_MIN = 15L
 
     fun isEnabled(context: Context) = context.getSharedPreferences("ui", Context.MODE_PRIVATE).getBoolean(PREF, false)
 
@@ -39,16 +40,28 @@ object Reminders {
         context.getSystemService(NotificationManager::class.java).cancel(1)
     }
 
-    /** Arms the alarm for the next lesson start (inexact, within a few minutes). */
+    private fun reminded(context: Context) = context.getSharedPreferences("ui", Context.MODE_PRIVATE).getString("remindedLesson", null)
+
+    /**
+     * Arms the alarm for the next lesson not reminded yet: exact, [BEFORE_MIN]
+     * minutes before. Without exact alarms Android may deliver up to 10 minutes
+     * late (seen on the Pixel: a 15h34 alarm allowed until 15h44, after a 15h40
+     * lesson), so it is then set 15 minutes before, its window ending before the
+     * lesson starts.
+     */
     fun schedule(context: Context) {
         if (!isEnabled(context)) return
         val now = LocalDateTime.now()
+        val done = reminded(context)
         val next = Repo.get(context).lessons()
-            .filter { it.start.minusMinutes(BEFORE_MIN) > now }
+            .filter { it.start > now.plusMinutes(1) && it.start.toString() != done }
             .minByOrNull { it.start } ?: return
-        val at = next.start.minusMinutes(BEFORE_MIN + 1).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        context.getSystemService(AlarmManager::class.java)
-            .setWindow(AlarmManager.RTC_WAKEUP, at, 2 * 60_000L, pending(context))
+        val alarms = context.getSystemService(AlarmManager::class.java)
+        val exact = android.os.Build.VERSION.SDK_INT < 31 || alarms.canScheduleExactAlarms()
+        val at = next.start.minusMinutes(if (exact) BEFORE_MIN else LATE_MARGIN_MIN).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            .coerceAtLeast(System.currentTimeMillis() + 1_000)
+        if (exact) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending(context))
+        else alarms.setWindow(AlarmManager.RTC_WAKEUP, at, 10 * 60_000L, pending(context))
     }
 
     fun channel(context: Context) {
@@ -62,17 +75,20 @@ object Reminders {
 
     internal fun notifyNext(context: Context) {
         val now = LocalDateTime.now()
+        // Up to the start itself: an alarm a little late still beats no reminder.
         val lesson = Repo.get(context).lessons()
-            .filter { it.start > now && Duration.between(now, it.start).toMinutes() <= BEFORE_MIN + 3 }
+            .filter { it.start > now.minusMinutes(1) && Duration.between(now, it.start).toMinutes() <= LATE_MARGIN_MIN + 1 }
+            .filter { it.start.toString() != reminded(context) }
             .minByOrNull { it.start }
         if (lesson != null) {
+            context.getSharedPreferences("ui", Context.MODE_PRIVATE).edit().putString("remindedLesson", lesson.start.toString()).apply()
             channel(context)
-            val minutes = Duration.between(now, lesson.start).toMinutes().coerceAtLeast(1)
+            val minutes = Duration.between(now, lesson.start).toMinutes().coerceAtLeast(0)
             val alert = Agenda.alert(lesson)
             val title = if (lesson.canceled) "${Agenda.pretty(lesson.subject)} : ${alert ?: "cours annulé"}"
             else "${Agenda.room(lesson)} · ${Agenda.pretty(lesson.subject)}"
             val text = if (lesson.canceled) "Prévu à ${Agenda.time(lesson.start)}, il n'aura pas lieu."
-            else "Dans $minutes min, à ${Agenda.time(lesson.start)}" + (alert?.let { " · $it" } ?: "") +
+            else (if (minutes == 0L) "Maintenant, à ${Agenda.time(lesson.start)}" else "Dans $minutes min, à ${Agenda.time(lesson.start)}") + (alert?.let { " · $it" } ?: "") +
                 (lesson.teachers.firstOrNull()?.let { " · ${Agenda.prettyName(it)}" } ?: "")
             val notification = Notification.Builder(context, CHANNEL)
                 .setSmallIcon(Subjects.style(lesson.subject).icon)

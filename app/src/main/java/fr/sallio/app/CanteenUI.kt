@@ -37,37 +37,30 @@ object CanteenUI {
 
     // ---- Home card -------------------------------------------------------------------
 
+    /** The canteen in one line on the home tab: logo, balance, the next lunch; the card when there is one. */
     fun homeCard(activity: MainActivity, now: LocalDateTime): View? {
         val ctx = activity
         val canteen = Canteen.get(ctx)
         if (!canteen.connected()) return null
         val d = canteen.data()
-        val card = UI.card(ctx, padding = 14)
+        val card = UI.card(ctx, padding = 10)
         val row = UI.row(ctx)
-        row.addView(UI.logo(ctx, R.drawable.logo_turboself, 40))
+        row.addView(UI.logo(ctx, R.drawable.logo_turboself, 32))
         row.addView(UI.hgap(ctx, 12))
-        val col = UI.column(ctx)
-        val balance = d?.balance
-        col.addView(UI.title(ctx, balance?.let { Canteen.money(it.estimatedAmount) } ?: "Cantine", 18f))
-        val sub = listOfNotNull(
-            d?.lunchesLeft?.let { if (it > 1) "$it repas" else if (it == 1) "1 repas" else "à recharger" },
-            d?.let { nextLunch(it, now) }?.let { day ->
-                val name = dayName(day.date, now.toLocalDate()).let { if (it == "Aujourd'hui" || it == "Demain") "$it midi" else it }
-                when {
-                    day.booking.booked > 0 -> "$name : réservé"
-                    !day.booking.allowed -> "$name : ${day.booking.message ?: "pas de réservation"}"
-                    else -> "$name : pas réservé"
-                }
-            },
-            if (d == null) "Chargement…" else null,
-        ).joinToString(" · ")
-        col.addView(UI.oneLine(UI.text(ctx, sub, 13f, R.color.text2)).apply { setPadding(0, ctx.dp(2), 0, 0) })
-        canteen.error()?.let { col.addView(UI.oneLine(UI.text(ctx, it, 12f, R.color.alert)).apply { setPadding(0, ctx.dp(2), 0, 0) }) }
-        row.addView(col, UI.weight())
+        val lunch = d?.let { nextLunch(it, now) }?.let { day ->
+            val name = dayName(day.date, now.toLocalDate()).let { if (it == "Aujourd'hui" || it == "Demain") "$it midi" else it }
+            when {
+                day.booking.booked > 0 -> "$name : réservé"
+                !day.booking.allowed -> "$name : ${day.booking.message ?: "fermé"}"
+                else -> "$name : pas réservé"
+            }
+        }
+        val line = listOfNotNull(d?.balance?.let { Canteen.money(it.estimatedAmount) }, lunch).joinToString(" · ").ifEmpty { "Cantine · chargement…" }
+        row.addView(UI.oneLine(UI.text(ctx, line, 15f, if (canteen.error() != null) R.color.alert else R.color.text, 800)), UI.weight())
         if (d?.cardNumber != null) {
             row.addView(UI.text(ctx, "Ma carte", 13f, R.color.on_accent, 800).apply {
                 background = UI.sticker(ctx, ctx.getColor(R.color.accent), ctx.getColor(R.color.accent_edge), 12, 2)
-                setPadding(ctx.dp(12), ctx.dp(7), ctx.dp(12), ctx.dp(9))
+                setPadding(ctx.dp(12), ctx.dp(6), ctx.dp(12), ctx.dp(8))
                 setOnClickListener { Motion.tap(this); showCard(activity, d) }
             })
         }
@@ -187,6 +180,7 @@ object CanteenUI {
                         runCatching { activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ESPACE))) }
                     }, UI.matchWidth().apply { topMargin = ctx.dp(12) })
                     bookings.addView(box, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
+                    Motion.appear(box, "refusal:${System.nanoTime()}", 0)
                 }
                 val upcoming = data.days.filter { it.date >= LocalDate.now() }
                 if (!data.canBook) bookings.addView(UI.text(ctx, "Ton établissement ne permet pas de réserver en ligne.", 14f, R.color.text2))
@@ -226,6 +220,8 @@ object CanteenUI {
                 }
             }
             fill(d, null)
+            // From now on the days slide smoothly when a refusal card makes room for itself.
+            bookings.layoutTransition = android.animation.LayoutTransition()
 
             // History.
             if (d.history.isNotEmpty()) {

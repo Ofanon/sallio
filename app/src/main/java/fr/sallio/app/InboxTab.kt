@@ -265,6 +265,7 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
         card.setOnClickListener { Motion.tap(card); showNews(n) }
         // One vibration: the tap above, none on release.
         Motion.pressable(card, haptic = false)
+        Motion.appear(card, "news:${n.key}")
         return card
     }
 

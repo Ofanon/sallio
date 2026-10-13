@@ -210,32 +210,41 @@ object Inbox {
         for (item in items) {
             val key = base(item).key
             val read = wanted[key] ?: continue
-            // Always sent: within a session PRONOTE's list keeps the state it had at login,
-            // so its "lue" cannot tell whether a change is still needed.
-            run {
-                // The student, not the item's own audience (often the whole class): the
-                // read state is the student's, as in pronotepy's mark_as_read.
-                val audience = JSONObject().put("N", session.userResource?.optString("N").orEmpty()).put("G", 4)
-                log("SaisieActualites lue=$read: list says lue=${item.opt("lue")}, item public=${item.opt("public")}, genrePublic=${item.opt("genrePublic")}")
+            // Opened first, as PRONOTE's own page does before marking it read.
+            runCatching { details(session, item.optString("N")) }
+            val listed = item.optJSONObject("public")?.optJSONObject("V")
+            val student = JSONObject().put("N", session.userResource?.optString("N").orEmpty()).put("G", 4)
+            // PRONOTE answers {"RapportSaisie":{"_erreurSaisie_":true}} to a request it will not
+            // apply (seen 2026-10-13 with the student as audience). The known shapes, in turn:
+            // Pawnote's with the item's own audience, the same marked as modified (E = 2, as
+            // homework ticks need), then pronotepy's minimal one.
+            fun pawnote(audience: JSONObject) = JSONObject()
+                .put("N", item.optString("N"))
+                .put("L", item.optString("L"))
+                .put("genrePublic", audience.optInt("G", 4))
+                .put("public", audience)
+                .put("validationDirecte", true)
+                .put("listeQuestions", JSONArray())
+                .put("marqueLueSeulement", true)
+                .put("lue", read)
+                .put("supprimee", false)
+                .put("saisieActualite", false)
+            val variants = listOf(
+                "pawnote" to pawnote(listed ?: student),
+                "pawnote+E2" to pawnote(listed ?: student).put("E", 2),
+                "pronotepy" to JSONObject().put("N", item.optString("N")).put("validationDirecte", true)
+                    .put("genrePublic", 4).put("public", student).put("lue", read),
+            )
+            for ((name, entry) in variants) {
                 val answer = session.call(
                     "SaisieActualites",
                     JSONObject()
                         .put(p.signature, JSONObject().put("onglet", 8))
-                        .put(p.data, JSONObject()
-                            .put("listeActualites", JSONArray().put(JSONObject()
-                                .put("N", item.optString("N"))
-                                .put("L", item.optString("L"))
-                                .put("genrePublic", 4)
-                                .put("public", audience)
-                                .put("validationDirecte", true)
-                                .put("listeQuestions", JSONArray())
-                                .put("marqueLueSeulement", true)
-                                .put("lue", read)
-                                .put("supprimee", false)
-                                .put("saisieActualite", false)))
-                            .put("saisieActualite", false)),
+                        .put(p.data, JSONObject().put("listeActualites", JSONArray().put(entry)).put("saisieActualite", false)),
                 )
-                log("SaisieActualites answer: ${answer.toString().take(400)}")
+                val refused = answer.optJSONObject("RapportSaisie")?.optBoolean("_erreurSaisie_") == true
+                log("SaisieActualites $name lue=$read: ${if (refused) "refusé" else "accepté"} ${answer.toString().take(200)}")
+                if (!refused) break
             }
             settled += key
         }

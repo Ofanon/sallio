@@ -141,6 +141,25 @@ internal object Motion {
         }
     }
 
+    /** What already made its entrance: a notice appears once, not at every redraw. */
+    private val appeared = HashSet<String>()
+
+    /**
+     * A notice making its entrance (an update, a new actualité, a refusal):
+     * fades in while settling from slightly above and slightly smaller. Soft,
+     * no overshoot. Once per [key] while the app runs.
+     */
+    fun appear(view: View, key: String, startDelay: Long = 120) {
+        if (!appeared.add(key) || !enabled()) return
+        view.alpha = 0f
+        view.translationY = -view.dp(14).toFloat()
+        view.scaleX = 0.96f
+        view.scaleY = 0.96f
+        view.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f)
+            .setStartDelay(startDelay).setDuration(420)
+            .setInterpolator(DecelerateInterpolator(2.4f)).start()
+    }
+
     /** One view rising in, for content that unfolds after a tap. */
     fun fadeIn(view: View, startDelay: Long = 0) {
         if (!enabled()) return

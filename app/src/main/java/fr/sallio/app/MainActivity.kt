@@ -189,9 +189,8 @@ class MainActivity : Activity() {
         val column = UI.column(this)
         val content = UI.column(this).apply { setPadding(dp(16), topInset + dp(8), dp(16), dp(28)) }
         content.addView(header(s), UI.matchWidth())
-        update?.let { content.addView(updateCard(it), UI.matchWidth().apply { topMargin = dp(14) }) }
+        update?.let { u -> content.addView(updateCard(u).also { Motion.appear(it, "update:${u.versionCode}", 300) }, UI.matchWidth().apply { topMargin = dp(14) }) }
         if (s.status.needsLogin) content.addView(reconnectCard(s), UI.matchWidth().apply { topMargin = dp(14) })
-        if (tab == Tab.HOME) widgetInvite()?.let { content.addView(it, UI.matchWidth().apply { topMargin = dp(14) }) }
         content.addView(UI.gap(this, 14))
         val body = when (tab) {
             Tab.HOME -> tabs.home(s)

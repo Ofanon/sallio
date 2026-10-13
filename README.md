@@ -10,9 +10,10 @@ moment-là.
 
 Cinq onglets, pour l'essentiel de Pronote au quotidien sans le charger :
 
-- **Accueil** : le prochain cours en grand (salle, prof, horaires, alerte),
-  ce qui a changé aujourd'hui et demain, les devoirs du prochain jour de cours
-  et les dernières notes.
+- **Accueil**, volontairement court : le prochain cours en grand (salle, prof,
+  horaires, alerte) et le suivant, ce qui a changé aujourd'hui et demain (trois
+  au plus), un seul jour de devoirs (aujourd'hui tant qu'il en reste à faire,
+  sinon le prochain jour de cours) et la cantine en une ligne.
 - **Cours** : deux semaines d'emploi du temps, jour par jour ; un point rouge
   signale les jours avec un prof absent ou un cours modifié.
 - **Devoirs** : le cahier de textes des deux prochaines semaines. Cocher un

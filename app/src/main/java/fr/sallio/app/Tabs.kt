@@ -44,6 +44,8 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
     /** The snapshot the current views were built from, for their click handlers. */
     private var lastSnapshot: Snapshot? = null
 
+    private val MAX_ALERTS = 3
+
     /** The days whose homework the student unfolded on the home tab: they stay open across redraws. */
     private val unfoldedDays = mutableSetOf<java.time.LocalDate>()
 
@@ -60,33 +62,26 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val alerts = s.lessons.filter {
             it.end > s.now && it.start.toLocalDate() <= today.plusDays(1) && Agenda.alert(it) != null && it !== view.focus
         }
+        // The home tab keeps four things only (Oscar, 2026-10-13): the next lesson, what changed,
+        // one day of homework and the canteen in one line. Grades and the rest live in their tabs.
         if (alerts.isNotEmpty()) {
             root.addView(UI.section(ctx, "À savoir"))
-            alerts.forEachIndexed { i, lesson ->
+            alerts.take(MAX_ALERTS).forEachIndexed { i, lesson ->
                 root.addView(alertBanner(lesson, today), UI.matchWidth().apply { if (i > 0) topMargin = ctx.dp(8) })
             }
+            if (alerts.size > MAX_ALERTS) root.addView(UI.text(ctx, "+ ${alerts.size - MAX_ALERTS} autre${if (alerts.size - MAX_ALERTS > 1) "s" else ""} dans Cours", 13f, R.color.accent_ink, 800).apply {
+                setPadding(ctx.dp(4), ctx.dp(8), 0, 0)
+                setOnClickListener { Motion.tap(this); activity.openTab(MainActivity.Tab.TIMETABLE) }
+            })
         }
 
-        CanteenUI.homeCard(activity, s.now)?.let {
-            root.addView(UI.section(ctx, "Cantine"))
-            root.addView(it, UI.matchWidth())
-        }
-
-        // Today's homework first while there is any (handed in during the day), then the next school day's.
+        // One day of homework: today's while some is left to do, else the next school day's.
         val dueToday = s.homework.filter { it.due == today }
-        if (dueToday.isNotEmpty()) homeworkBlock(root, today, today, dueToday)
         val nextDay = s.lessons.map { it.start.toLocalDate() }.filter { it > today }.minOrNull() ?: today.plusDays(1)
-        homeworkBlock(root, nextDay, today, s.homework.filter { it.due == nextDay })
+        if (dueToday.any { !activity.isHomeworkDone(it) }) homeworkBlock(root, today, today, dueToday)
+        else homeworkBlock(root, nextDay, today, s.homework.filter { it.due == nextDay })
 
-        val grades = s.report?.grades.orEmpty().take(3)
-        if (grades.isNotEmpty()) {
-            root.addView(sectionWithLink("Dernières notes", "Tout voir") { activity.openTab(MainActivity.Tab.GRADES) })
-            val tiles = UI.row(ctx).apply { gravity = Gravity.TOP }
-            grades.forEachIndexed { i, g ->
-                tiles.addView(gradeTile(g, g.key in s.unseenGrades), UI.weight().apply { if (i > 0) marginStart = ctx.dp(10) })
-            }
-            root.addView(tiles, UI.matchWidth())
-        }
+        CanteenUI.homeCard(activity, s.now)?.let { root.addView(it, UI.matchWidth().apply { topMargin = ctx.dp(14) }) }
 
         root.addView(footer(s))
         return root
@@ -196,16 +191,6 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
     private fun footer(s: Snapshot): View {
         val col = UI.column(ctx).apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, dp(28), 0, dp(8)) }
         col.addView(UI.text(ctx, "Enregistré sur ton téléphone · mis à jour ${Agenda.ago(s.status.lastSuccess, s.now)}", 12f, R.color.text3).apply { gravity = Gravity.CENTER }, UI.matchWidth())
-        col.addView(UI.gap(ctx, 12))
-        col.addView(UI.row(ctx).apply {
-            background = UI.sticker(ctx, color(R.color.surface), color(R.color.edge), 16, 3, pressable = true)
-            setPadding(dp(16), dp(10), dp(16), dp(13))
-            addView(UI.icon(ctx, R.drawable.ic_open, R.color.accent_ink, 18))
-            addView(UI.hgap(ctx, 8))
-            addView(UI.title(ctx, "Ouvrir Pronote", 15f, R.color.accent_ink))
-            setOnClickListener { activity.openPronote() }
-            Motion.pressable(this, 3)
-        }, UI.wrap())
         return col
     }
 
