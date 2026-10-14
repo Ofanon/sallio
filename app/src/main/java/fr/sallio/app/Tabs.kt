@@ -445,7 +445,9 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val col = UI.column(ctx).apply { if (done) alpha = 0.45f }
         val head = UI.row(ctx)
         head.addView(UI.subjectChip(ctx, h.subject), UI.wrap())
-        head.addView(View(ctx), UI.weight())
+        // Zero height: a bare View measured "wrap" takes all the height it is offered, and when the
+        // page is shorter than the screen the row grew to fill it and pushed the text out (2026-10-15).
+        head.addView(View(ctx), LinearLayout.LayoutParams(0, 0, 1f))
         if (h.attachments > 0) head.addView(UI.icon(ctx, R.drawable.ic_attach, R.color.text3, 16))
         col.addView(head, UI.matchWidth())
         val description = UI.text(ctx, h.description.ifEmpty { "(pas de consigne)" }, 15f).apply {
