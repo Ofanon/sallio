@@ -269,7 +269,7 @@ class Repo private constructor(private val context: Context) {
     }
 
     /** Records the tick on the phone at once; [pushPending] then sends it to PRONOTE. */
-    fun setDone(h: Homework, done: Boolean) {
+    fun setDone(h: Homework, done: Boolean) = synchronized(pendingLock) {
         val set = pending().toMutableSet()
         set.remove("+" + h.key)
         set.remove("-" + h.key)
@@ -277,6 +277,13 @@ class Repo private constructor(private val context: Context) {
         if (done != stored) set += (if (done) "+" else "-") + h.key
         prefs.edit().putStringSet("pendingDone", set).apply()
     }
+
+    /**
+     * Guards the read-modify-write of the waiting ticks: a push finishing on the worker
+     * thread used to write back the set it read at its start, wiping a tick made meanwhile
+     * on the screen (seen 2026-10-14 with quick unticks: one came back ticked).
+     */
+    private val pendingLock = Any()
 
     /** For the debug log. */
     fun pendingKeys(): Set<String> = pending()
@@ -491,7 +498,8 @@ class Repo private constructor(private val context: Context) {
                 Analytics.error("devoir_coche", it)
             }
         }
-        if (stale.isNotEmpty()) prefs.edit().putStringSet("pendingDone", wanted - stale).apply()
+        // Only what was settled leaves, from the set as it is now: ticks made during the push stay.
+        if (stale.isNotEmpty()) synchronized(pendingLock) { prefs.edit().putStringSet("pendingDone", pending() - stale).apply() }
         return result
     }
 
