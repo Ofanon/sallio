@@ -254,8 +254,14 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             root.addView(emptyCard(R.drawable.ic_sparkles, "Pas cours ce jour-là."), UI.matchWidth())
         } else {
             val focus = Agenda.view(s.lessons, s.now).focus
-            lessons.forEachIndexed { i, lesson ->
-                root.addView(lessonCard(lesson, lesson === focus, s.now), UI.matchWidth().apply { if (i > 0) topMargin = ctx.dp(10) })
+            // Free time between two lessons shows as its own row: a perm, the lunch break.
+            var busyUntil: LocalDateTime? = null
+            Agenda.blocks(lessons).forEachIndexed { i, lesson ->
+                busyUntil?.let { from -> Agenda.gap(from, lesson.start)?.let { root.addView(gapRow(it, s.now), UI.matchWidth().apply { topMargin = ctx.dp(10) }) } }
+                // A merged block is "the focus" when its first hour is.
+                val isFocus = focus != null && focus.start == lesson.start && focus.subject == lesson.subject
+                root.addView(lessonCard(lesson, isFocus, s.now), UI.matchWidth().apply { if (i > 0) topMargin = ctx.dp(10) })
+                if (!lesson.canceled) busyUntil = listOfNotNull(busyUntil, lesson.end).maxOrNull()
             }
         }
         val dayHomework = s.homework.filter { it.due == day }
@@ -292,6 +298,22 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         return chip
     }
 
+    /** "Perm · 1 h", "Pause midi · 1 h 05": a light dashed row between two lesson cards. */
+    private fun gapRow(gap: Agenda.Gap, now: LocalDateTime): View = UI.row(ctx).apply {
+        gravity = Gravity.CENTER_VERTICAL
+        background = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = dp(16).toFloat()
+            setStroke(dp(2), color(R.color.edge), dp(6).toFloat(), dp(5).toFloat())
+        }
+        setPadding(dp(12), dp(9), dp(12), dp(9))
+        if (gap.end <= now) alpha = 0.5f
+        addView(UI.text(ctx, Agenda.time(gap.start), 13f, R.color.text2, 800), LinearLayout.LayoutParams(dp(50), LinearLayout.LayoutParams.WRAP_CONTENT))
+        addView(UI.icon(ctx, if (gap.lunch) R.drawable.ic_coin else R.drawable.ic_clock, R.color.text3, 18))
+        addView(UI.hgap(ctx, 10))
+        addView(UI.text(ctx, gap.label, 14f, R.color.text2, 800), UI.weight())
+        addView(UI.text(ctx, Agenda.duration(gap.minutes), 13f, R.color.text3, 800))
+    }
+
     private fun lessonCard(lesson: Lesson, isFocus: Boolean, now: LocalDateTime): View {
         val style = Subjects.style(lesson.subject)
         val card = UI.row(ctx).apply {
@@ -303,6 +325,11 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val times = UI.column(ctx)
         times.addView(UI.title(ctx, Agenda.time(lesson.start), 16f))
         times.addView(UI.text(ctx, Agenda.time(lesson.end), 11f, R.color.text2).apply { setPadding(0, dp(2), 0, 0) })
+        val minutes = java.time.Duration.between(lesson.start, lesson.end).toMinutes()
+        if (minutes >= 90) times.addView(UI.text(ctx, Agenda.duration(minutes), 11f, R.color.on_accent_container, 900).apply {
+            background = UI.rounded(color(R.color.accent_container), dp(8).toFloat())
+            setPadding(dp(6), dp(1), dp(6), dp(2))
+        }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = ctx.dp(4) })
         card.addView(times, LinearLayout.LayoutParams(ctx.dp(50), LinearLayout.LayoutParams.WRAP_CONTENT))
         card.addView(UI.subjectTile(ctx, lesson.subject))
         card.addView(UI.hgap(ctx, 12))

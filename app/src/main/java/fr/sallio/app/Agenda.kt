@@ -13,6 +13,57 @@ import java.util.Locale
  */
 object Agenda {
 
+    /** Free time between two lessons of a day. */
+    class Gap(val start: LocalDateTime, val end: LocalDateTime, val lunch: Boolean) {
+        val minutes get() = java.time.Duration.between(start, end).toMinutes()
+        val label get() = when {
+            lunch && minutes <= 120 -> "Pause midi"
+            lunch -> "Perm et pause midi"
+            else -> "Perm"
+        }
+    }
+
+    /**
+     * The gap from [from] to [to] when it is worth a row: 45 min or more (a
+     * 10-minute break between lessons is not). It is the lunch break when it
+     * covers at least 45 min of 11h30–14h.
+     */
+    fun gap(from: LocalDateTime, to: LocalDateTime): Gap? {
+        if (java.time.Duration.between(from, to).toMinutes() < 45) return null
+        val noonStart = from.toLocalDate().atTime(11, 30)
+        val noonEnd = from.toLocalDate().atTime(14, 0)
+        val overlap = java.time.Duration.between(maxOf(from, noonStart), minOf(to, noonEnd)).toMinutes()
+        return Gap(from, to, overlap >= 45)
+    }
+
+    /**
+     * Back-to-back hours of the same lesson (same subject, room, teachers and
+     * state, at most 15 minutes apart) as one block: PRONOTE sends a two-hour
+     * LV3 as two lessons, the student lives it as one.
+     */
+    fun blocks(lessons: List<Lesson>): List<Lesson> {
+        val out = mutableListOf<Lesson>()
+        for (l in lessons.sortedBy { it.start }) {
+            val last = out.lastOrNull()
+            if (last != null && continues(last, l)) out[out.size - 1] = last.copy(end = maxOf(last.end, l.end))
+            else out += l
+        }
+        return out
+    }
+
+    /** [next] carries on [prev] without a real break. */
+    fun continues(prev: Lesson, next: Lesson): Boolean =
+        prev.subject == next.subject && prev.rooms == next.rooms && prev.teachers == next.teachers &&
+            prev.canceled == next.canceled && prev.status == next.status &&
+            !next.start.isBefore(prev.start) && Duration.between(prev.end, next.start).toMinutes() in 0..15
+
+    /** "55 min", "2 h", "1 h 05". */
+    fun duration(minutes: Long): String = when {
+        minutes < 60 -> "$minutes min"
+        minutes % 60 == 0L -> "${minutes / 60} h"
+        else -> "${minutes / 60} h ${(minutes % 60).toString().padStart(2, '0')}"
+    }
+
     /** A lesson that started less than this long ago is still "where you should be". */
     val LATE_ARRIVAL: Duration = Duration.ofMinutes(10)
 

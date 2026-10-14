@@ -81,9 +81,12 @@ object Reminders {
             .filter { it.start > now.minusMinutes(1) && Duration.between(now, it.start).toMinutes() <= LATE_MARGIN_MIN + 1 }
             .filter { it.start.toString() != reminded(context) }
             .minByOrNull { it.start }
+        val all = Repo.get(context).lessons()
         if (lesson != null) {
             context.getSharedPreferences("ui", Context.MODE_PRIVATE).edit().putString("remindedLesson", lesson.start.toString()).apply()
-            show(context, lesson, lesson.start, now)
+            val secondHour = all.any { it !== lesson && Agenda.continues(it, lesson) }
+            if (!secondHour) show(context, Agenda.blocks(all.filter { it.start.toLocalDate() == lesson.start.toLocalDate() })
+                .firstOrNull { it.start == lesson.start && it.subject == lesson.subject } ?: lesson, lesson.start, now)
         }
         schedule(context)
     }
