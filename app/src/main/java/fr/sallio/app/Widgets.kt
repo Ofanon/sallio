@@ -182,10 +182,11 @@ object Widgets {
         rv.setInt(R.id.shadow, "setColorFilter", edge)
         rv.setImageViewResource(R.id.watermark, icon)
         rv.setInt(R.id.watermark, "setColorFilter", ink)
-        for (id in intArrayOf(R.id.label, R.id.room, R.id.subject, R.id.then, R.id.footer)) rv.setTextColor(id, ink)
+        for (id in intArrayOf(R.id.label, R.id.countdown, R.id.room, R.id.subject, R.id.then, R.id.footer)) rv.setTextColor(id, ink)
         val pill = if (ink == Color.WHITE) R.drawable.widget_tag_light else R.drawable.widget_tag_dark
         rv.setInt(R.id.label, "setBackgroundResource", pill)
         rv.setInt(R.id.then, "setBackgroundResource", pill)
+        rv.setInt(R.id.countdown, "setBackgroundResource", pill)
     }
 
     private fun renderNext(
@@ -199,6 +200,8 @@ object Widgets {
         rv.setOnClickPendingIntent(R.id.root, openApp(context, MainActivity.Tab.TIMETABLE))
         rv.setViewVisibility(R.id.badge, View.GONE)
         rv.setViewVisibility(R.id.note, View.GONE)
+        rv.setViewVisibility(R.id.countdown, View.GONE)
+        rv.setViewVisibility(R.id.label, View.VISIBLE)
         rv.setViewVisibility(R.id.then, View.GONE)
         val accent = context.getColor(R.color.accent)
         val accentEdge = context.getColor(R.color.accent_edge)
@@ -226,6 +229,13 @@ object Widgets {
         val ink = Subjects.onSolid(style.family)
         paintNext(context, rv, Subjects.solid(style.family), Subjects.edge(context, style.family), ink, style.icon)
         rv.setTextViewText(R.id.label, Agenda.when_(focus, now))
+        // The last minutes before the lesson: a live countdown instead of "dans 3 min".
+        Agenda.countdownMillis(focus, now)?.let { left ->
+            rv.setChronometer(R.id.countdown, android.os.SystemClock.elapsedRealtime() + left, "${Agenda.time(focus.start)} · dans %s", true)
+            rv.setChronometerCountDown(R.id.countdown, true)
+            rv.setViewVisibility(R.id.countdown, View.VISIBLE)
+            rv.setViewVisibility(R.id.label, View.GONE)
+        }
         val hasRoom = focus.rooms.isNotEmpty()
         val room = android.text.SpannableString(if (hasRoom) Agenda.room(focus) else Agenda.pretty(focus.subject))
         if (focus.canceled) room.setSpan(android.text.style.StrikethroughSpan(), 0, room.length, 0)

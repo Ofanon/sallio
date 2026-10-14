@@ -434,6 +434,37 @@ class Repo private constructor(private val context: Context) {
 
 
     /** Sends the pending ticks in [logged]'s session and returns the homework as PRONOTE now has it. */
+    /**
+     * Like actualités, PRONOTE keeps answering the homework list as it was at
+     * login for the rest of the session (seen 2026-10-14: a tick came back
+     * unticked until the next login, and an untick was taken as already done
+     * and never sent). What this session sent is laid over its lists.
+     */
+    private fun withSentTicks(list: List<Homework>): List<Homework> {
+        if (prefs.getLong("tickSentSession", 0) != liveSince) {
+            prefs.edit().remove("tickSent").remove("tickSentSession").apply()
+            return list
+        }
+        val sent = prefs.getStringSet("tickSent", emptySet())!!
+        return list.map { h ->
+            when {
+                "+" + h.key in sent -> h.copy(done = true)
+                "-" + h.key in sent -> h.copy(done = false)
+                else -> h
+            }
+        }
+    }
+
+    private fun rememberSentTicks(entries: List<String>) {
+        if (entries.isEmpty()) return
+        val before = if (prefs.getLong("tickSentSession", 0) == liveSince) prefs.getStringSet("tickSent", emptySet())!! else emptySet()
+        val keys = entries.map { it.substring(1) }.toSet()
+        prefs.edit()
+            .putStringSet("tickSent", before.filterNot { it.substring(1) in keys }.toSet() + entries)
+            .putLong("tickSentSession", liveSince)
+            .apply()
+    }
+
     private fun pushTicks(logged: LoggedIn, fetched: List<Homework>): List<Homework> {
         val wanted = pending()
         if (wanted.isEmpty()) return fetched
@@ -450,7 +481,13 @@ class Repo private constructor(private val context: Context) {
         if (changes.isNotEmpty()) {
             runCatching { Schoolwork.setHomeworkDone(logged, changes) }.onSuccess {
                 result = fetched.map { h -> changes[h.id]?.let { h.copy(done = it) } ?: h }
-                stale += wanted.filter { e -> byKey[e.substring(1)]?.id in changes.keys }
+                val sentNow = wanted.filter { e -> byKey[e.substring(1)]?.id in changes.keys }
+                stale += sentNow
+                rememberSentTicks(sentNow)
+                DebugLog.i("Ticks sent to PRONOTE: $sentNow")
+            }.onFailure {
+                DebugLog.i("SaisieTAFFaitEleve failed", it)
+                Analytics.error("devoir_coche", it)
             }
         }
         if (stale.isNotEmpty()) prefs.edit().putStringSet("pendingDone", wanted - stale).apply()
@@ -531,7 +568,7 @@ class Repo private constructor(private val context: Context) {
         runCatching { changes += Changes.lessons(lessons(), lessons, now) }
         vault.write(CACHE, JSONArray(lessons.map { it.toJson() }).toString())
         // Homework and grades are extras: when PRONOTE fails on them, the timetable still counts.
-        runCatching { Schoolwork.homework(logged, today, today.plusDays(FETCH_DAYS)) }.onSuccess { list ->
+        runCatching { Schoolwork.homework(logged, today, today.plusDays(FETCH_DAYS)) }.map { withSentTicks(it) }.onSuccess { list ->
             val synced = pushTicks(logged, list)
             vault.write(HOMEWORK, JSONArray(synced.map { it.toJson() }).toString())
         }

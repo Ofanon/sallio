@@ -258,10 +258,10 @@ internal object UI {
      * A homework line with its sticker checkbox. [isDone] / [toggle] come from the
      * repository; the row redraws itself, so it works inside any sheet.
      */
-    fun homeworkCheck(context: Context, h: fr.sallio.pronote.Homework, isDone: () -> Boolean, onOpen: (() -> Unit)? = null, toggle: (Boolean) -> Unit): View =
+    fun homeworkCheck(context: Context, h: fr.sallio.pronote.Homework, isDone: () -> Boolean, onOpen: (() -> Unit)? = null, showFiles: Boolean = true, toggle: (Boolean) -> Unit): View =
         check(context, h.description.ifEmpty { "(pas de consigne)" }, isDone, strike = true, onOpen = onOpen,
             isBusy = { (context as? MainActivity)?.isHomeworkSending(h) == true },
-            trailing = if (h.attachments > 0) R.drawable.ic_attach else null, toggle = toggle)
+            trailing = if (showFiles && h.attachments > 0) R.drawable.ic_attach else null, toggle = toggle)
 
     /**
      * The sticker checkbox and its label: homework done, actualité seen.
@@ -338,7 +338,8 @@ internal object UI {
         row.addView(hgap(context, 12))
         row.addView(text, weight())
         // A small mark after the text, like the paperclip of homework with files.
-        trailing?.let { row.addView(icon(context, it, R.color.text3, 16).apply { setPadding(context.dp(6), context.dp(4), 0, 0) }) }
+        // Same size and place as the paperclip of the homework lists (16 dp, top right).
+        trailing?.let { row.addView(icon(context, it, R.color.text3, 16), LinearLayout.LayoutParams(context.dp(16), context.dp(16)).apply { marginStart = context.dp(8); topMargin = context.dp(4) }) }
         return row
     }
 

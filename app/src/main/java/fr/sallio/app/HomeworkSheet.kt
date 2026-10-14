@@ -34,7 +34,7 @@ object HomeworkSheet {
 
             // Done, ticked here and on PRONOTE.
             val tick = UI.card(ctx, padding = 12)
-            tick.addView(UI.homeworkCheck(ctx, h.copy(description = "Marquer comme fait"), { activity.isHomeworkDone(h) }) { done ->
+            tick.addView(UI.homeworkCheck(ctx, h.copy(description = "Marquer comme fait"), { activity.isHomeworkDone(h) }, showFiles = false) { done ->
                 activity.setHomeworkDone(h, done)
             }, UI.matchWidth())
             sheet.addView(tick, UI.matchWidth().apply { topMargin = ctx.dp(16) })

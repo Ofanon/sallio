@@ -114,6 +114,8 @@ class MainActivity : Activity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // A widget, a notification or a shortcut brings its own page: the sheets left open go.
+        if (intent.hasExtra(EXTRA_TAB) || intent.hasExtra(EXTRA_OPEN) || intent.hasExtra(EXTRA_LESSON) || intent.hasExtra(EXTRA_INBOX)) Sheet.closeAll()
         intent.getStringExtra(EXTRA_TAB)?.let { name ->
             runCatching { Tab.valueOf(name) }.getOrNull()?.let { target ->
                 if (target != tab) { tab = target; entering = Enter.ALL; scroll = null }

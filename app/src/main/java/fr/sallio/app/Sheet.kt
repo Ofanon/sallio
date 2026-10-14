@@ -24,6 +24,12 @@ import android.widget.ScrollView
  */
 object Sheet {
 
+    /** Sheets on screen, to close them when a widget or a notification opens something else. */
+    private val open = java.util.Collections.newSetFromMap(java.util.WeakHashMap<Dialog, Boolean>())
+
+    /** Closes every sheet still open (a widget tap brings its own page). */
+    fun closeAll() = open.toList().forEach { runCatching { it.dismiss() } }
+
     /** Opens a sheet; [build] fills the column under the handle. */
     fun open(activity: MainActivity, bottomInset: Int, build: (LinearLayout, Dialog) -> Unit): Dialog {
         val ctx = activity
@@ -91,6 +97,7 @@ object Sheet {
             @Suppress("DEPRECATION")
             statusBarColor = Color.TRANSPARENT
         }
+        open += dialog
         dialog.show()
         return dialog
     }

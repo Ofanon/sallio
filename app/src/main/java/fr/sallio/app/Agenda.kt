@@ -88,9 +88,20 @@ object Agenda {
     }
 
     /** Next moment the widget content changes, so it can be redrawn right then. */
+    /** Minutes before a lesson when the countdown shows (the reminder comes at 5). */
+    const val COUNTDOWN_MIN = 10L
+
+    /** Time left before [lesson] when the countdown should show, null otherwise. */
+    fun countdownMillis(lesson: Lesson, now: LocalDateTime): Long? {
+        if (lesson.canceled) return null
+        val left = Duration.between(now, lesson.start).toMillis()
+        return left.takeIf { it > 0 && it <= COUNTDOWN_MIN * 60_000 }
+    }
+
     fun nextChange(lessons: List<Lesson>, now: LocalDateTime): LocalDateTime {
         val midnight = now.toLocalDate().plusDays(1).atStartOfDay()
-        val candidates = lessons.flatMap { listOf(it.start.minusMinutes(60), it.start, it.start.plus(LATE_ARRIVAL), it.end) }
+        // A cancelled lesson has no countdown to show.
+        val candidates = lessons.flatMap { listOfNotNull(it.start.minusMinutes(60), it.start.minusMinutes(COUNTDOWN_MIN).takeIf { _ -> !it.canceled }, it.start, it.start.plus(LATE_ARRIVAL), it.end) }
         return (candidates.filter { it > now } + midnight).min()
     }
 

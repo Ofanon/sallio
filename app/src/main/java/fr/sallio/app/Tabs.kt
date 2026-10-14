@@ -118,7 +118,19 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             setPadding(dp(10), dp(4), dp(12), dp(5))
             addView(UI.icon(ctx, R.drawable.ic_clock, ink, 14, tintIsColor = true))
             addView(UI.hgap(ctx, 5))
-            addView(UI.text(ctx, Agenda.when_(focus, s.now), 12f, R.color.on_accent, 800).apply { setTextColor(ink) })
+            val left = Agenda.countdownMillis(focus, java.time.LocalDateTime.now())
+            if (left == null) addView(UI.text(ctx, Agenda.when_(focus, s.now), 12f, R.color.on_accent, 800).apply { setTextColor(ink) })
+            else addView(android.widget.Chronometer(ctx).apply {
+                // The last minutes: "8h30 · dans 4:59", ticking; the page redraws at the start.
+                isCountDown = true
+                base = android.os.SystemClock.elapsedRealtime() + left
+                format = "${Agenda.time(focus.start)} · dans %s"
+                textSize = 12f
+                typeface = UI.body(ctx, 800)
+                setTextColor(ink)
+                setOnChronometerTickListener { c -> if (c.base <= android.os.SystemClock.elapsedRealtime()) { c.stop(); activity.refreshScreen() } }
+                start()
+            })
         }
         col.addView(tag, UI.wrap())
         val hasRoom = focus.rooms.isNotEmpty()

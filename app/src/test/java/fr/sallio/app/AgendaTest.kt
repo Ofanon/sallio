@@ -55,6 +55,8 @@ class AgendaTest {
     fun nextChangeIsTheNextBoundary() {
         assertEquals(LocalDateTime.of(2026, 10, 12, 8, 55), Agenda.nextChange(monday, LocalDateTime.of(2026, 10, 12, 8, 30)))
         assertEquals(LocalDateTime.of(2026, 10, 12, 8, 10), Agenda.nextChange(monday, LocalDateTime.of(2026, 10, 12, 8, 1)))
+        // Ten minutes before a lesson the widget switches to its countdown.
+        assertEquals(LocalDateTime.of(2026, 10, 12, 10, 0), Agenda.nextChange(monday, LocalDateTime.of(2026, 10, 12, 9, 56)))
     }
 
     @Test
