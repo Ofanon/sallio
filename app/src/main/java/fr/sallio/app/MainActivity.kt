@@ -324,12 +324,12 @@ class MainActivity : Activity() {
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pushScheduled = false
     /** A push to PRONOTE is on its way: ticks waiting for it show a spinner. */
-    @Volatile private var pushing = false
-    val sending: Boolean get() = pushScheduled || pushing
+    // A count, not a flag: a tick made during a push waits for the next one and keeps spinning.
+    @Volatile private var pushing = 0
+    val sending: Boolean get() = pushScheduled || pushing > 0
     private val pushNow = Runnable {
         pushScheduled = false
-        pushing = true
-        inFlight = repo.pendingKeys()
+        pushing++
         UI.refreshChecks()
         worker.execute {
             val result = repo.pushPending()
@@ -337,8 +337,7 @@ class MainActivity : Activity() {
             if (repo.pendingTotal() > 0) SyncJob.runLater(applicationContext, repo.waitBeforeLogin(manual = true))
             runOnUiThread {
                 if (result == Repo.SyncResult.FAILED) Motion.failure(root)
-                pushing = false
-                inFlight = emptySet()
+                pushing--
                 UI.refreshChecks()
                 if (!isFinishing) render()
             }
@@ -349,7 +348,8 @@ class MainActivity : Activity() {
     fun schedulePush() {
         handler.removeCallbacks(pushNow)
         pushScheduled = true
-        handler.postDelayed(pushNow, 800)
+        // Just the length of the box's bounce: the tap is seen, then it leaves.
+        handler.postDelayed(pushNow, 250)
     }
 
     val bottomInsetPx: Int get() = bottomInset
@@ -377,12 +377,11 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Ticks on their way to PRONOTE right now. A tick waiting for the next push shows ticked,
-     * not spinning: several quick ticks used to spin together for the whole wait (2026-10-14).
+     * A tick spins from the tap until PRONOTE has it, then shows its new state: no "ticked,
+     * spinning, ticked" in between (Oscar, 2026-10-14). Ticks are sent at once, so a quick
+     * second tick spins on its own for the next push rather than waiting with the first.
      */
-    @Volatile private var inFlight: Set<String> = emptySet()
-
-    fun isHomeworkSending(h: fr.sallio.pronote.Homework) = ("+" + h.key in inFlight || "-" + h.key in inFlight) && repo.isPending(h)
+    fun isHomeworkSending(h: fr.sallio.pronote.Homework) = sending && repo.isPending(h)
     /** A homework due today was ticked since the app opened: the home tab keeps today's list. */
     var tickedToday = false
 
