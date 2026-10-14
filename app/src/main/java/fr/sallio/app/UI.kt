@@ -260,7 +260,8 @@ internal object UI {
      */
     fun homeworkCheck(context: Context, h: fr.sallio.pronote.Homework, isDone: () -> Boolean, onOpen: (() -> Unit)? = null, toggle: (Boolean) -> Unit): View =
         check(context, h.description.ifEmpty { "(pas de consigne)" }, isDone, strike = true, onOpen = onOpen,
-            isBusy = { (context as? MainActivity)?.isHomeworkSending(h) == true }, toggle = toggle)
+            isBusy = { (context as? MainActivity)?.isHomeworkSending(h) == true },
+            trailing = if (h.attachments > 0) R.drawable.ic_attach else null, toggle = toggle)
 
     /**
      * The sticker checkbox and its label: homework done, actualité seen.
@@ -306,7 +307,7 @@ internal object UI {
         }
     }
 
-    fun check(context: Context, label: String, isOn: () -> Boolean, strike: Boolean = false, size: Float = 15f, onOpen: (() -> Unit)? = null, isBusy: () -> Boolean = { false }, toggle: (Boolean) -> Unit): View {
+    fun check(context: Context, label: String, isOn: () -> Boolean, strike: Boolean = false, size: Float = 15f, onOpen: (() -> Unit)? = null, isBusy: () -> Boolean = { false }, trailing: Int? = null, toggle: (Boolean) -> Unit): View {
         val row = row(context).apply {
             gravity = Gravity.TOP
             setPadding(0, dp(10), 0, dp(10))
@@ -336,6 +337,8 @@ internal object UI {
         row.addView(box, LinearLayout.LayoutParams(context.dp(28), context.dp(28)))
         row.addView(hgap(context, 12))
         row.addView(text, weight())
+        // A small mark after the text, like the paperclip of homework with files.
+        trailing?.let { row.addView(icon(context, it, R.color.text3, 16).apply { setPadding(context.dp(6), context.dp(4), 0, 0) }) }
         return row
     }
 

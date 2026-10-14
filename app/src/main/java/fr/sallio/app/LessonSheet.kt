@@ -23,7 +23,10 @@ object LessonSheet {
     private fun fold(text: String) =
         Normalizer.normalize(text, Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").lowercase().replace(Regex("[^a-z0-9]"), "")
 
-    fun show(activity: MainActivity, lesson: Lesson, s: Snapshot, bottomInset: Int) {
+    fun show(activity: MainActivity, hour: Lesson, s: Snapshot, bottomInset: Int) {
+        // From a widget or the home tab it may be one hour of a two-hour block: show the block.
+        val lesson = Agenda.blocks(s.lessons.filter { it.start.toLocalDate() == hour.start.toLocalDate() })
+            .firstOrNull { it.subject == hour.subject && !hour.start.isBefore(it.start) && !hour.end.isAfter(it.end) } ?: hour
         Analytics.event("fiche_ouverte", "fiche" to "cours")
         val ctx = activity
         val fr = Locale.FRANCE
@@ -106,7 +109,9 @@ object LessonSheet {
             }
 
             // When the subject comes back.
-            val next = s.lessons.filter { it.start > lesson.start && fold(it.subject) == fold(lesson.subject) }.take(3)
+            // Two-hour blocks count once, and the second hour of this one is not "next".
+            val next = Agenda.blocks(s.lessons).filter { it.start > lesson.end.minusMinutes(1) && fold(it.subject) == fold(lesson.subject) }
+                .filterNot { Agenda.continues(lesson, it) }.take(3)
             if (next.isNotEmpty()) {
                 sheet.addView(UI.section(ctx, "Prochains cours"))
                 val card = UI.card(ctx, padding = 14)
