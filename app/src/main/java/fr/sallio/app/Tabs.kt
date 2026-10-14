@@ -79,7 +79,8 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         // One day of homework: today's while some is left to do, else the next school day's.
         val dueToday = s.homework.filter { it.due == today }
         val nextDay = s.lessons.map { it.start.toLocalDate() }.filter { it > today }.minOrNull() ?: today.plusDays(1)
-        if (dueToday.any { !activity.isHomeworkDone(it) }) homeworkBlock(root, today, today, dueToday)
+        // Ticked from here: today's list stays until the app reopens, so it does not vanish under the finger.
+        if (dueToday.any { !activity.isHomeworkDone(it) } || (activity.tickedToday && dueToday.isNotEmpty())) homeworkBlock(root, today, today, dueToday)
         else homeworkBlock(root, nextDay, today, s.homework.filter { it.due == nextDay })
 
         CanteenUI.homeCard(activity, s.now)?.let {
@@ -587,6 +588,13 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             root.addView(emptyCard(R.drawable.ic_sparkles, "Rien à rendre. Profites-en !"), UI.matchWidth())
             return
         }
+        if (due.all { activity.isHomeworkDone(it) }) root.addView(UI.row(ctx).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), 0, 0, dp(8))
+            addView(UI.icon(ctx, R.drawable.ic_sparkles, R.color.success, 18))
+            addView(UI.hgap(ctx, 6))
+            addView(UI.text(ctx, "Tout est fait, bravo !", 14f, R.color.success, 800))
+        }.also { Motion.appear(it, "allDone:$day", 0) })
         val card = UI.card(ctx, padding = 14)
         val shown = if (day in unfoldedDays) due.size else 4
         due.take(shown).forEachIndexed { i, h ->

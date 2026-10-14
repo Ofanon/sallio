@@ -120,13 +120,8 @@ class Repo private constructor(private val context: Context) {
         }.getOrDefault(emptyList())
     }
 
-    fun homework(): List<Homework> {
-        val text = vault.read(HOMEWORK) ?: return emptyList()
-        return runCatching {
-            val array = JSONArray(text)
-            (0 until array.length()).map { Homework.fromJson(array.getJSONObject(it)) }
-        }.getOrDefault(emptyList())
-    }
+    /** Decoded once per stored version: every check on screen asks for it (see [isDone]). */
+    fun homework(): List<Homework> = readList(HOMEWORK) { Homework.fromJson(it) }
 
     @Volatile private var cachedPhoto: android.graphics.Bitmap? = null
 
@@ -267,7 +262,9 @@ class Repo private constructor(private val context: Context) {
         return when {
             "+" + h.key in p -> true
             "-" + h.key in p -> false
-            else -> h.done
+            // [h] may come from a sheet opened before the tick was sent (seen 2026-10-14: the
+            // lesson sheet showed a sent tick as undone): what is stored now wins.
+            else -> homework().firstOrNull { it.key == h.key }?.done ?: h.done
         }
     }
 
@@ -276,9 +273,13 @@ class Repo private constructor(private val context: Context) {
         val set = pending().toMutableSet()
         set.remove("+" + h.key)
         set.remove("-" + h.key)
-        if (done != h.done) set += (if (done) "+" else "-") + h.key
+        val stored = homework().firstOrNull { it.key == h.key }?.done ?: h.done
+        if (done != stored) set += (if (done) "+" else "-") + h.key
         prefs.edit().putStringSet("pendingDone", set).apply()
     }
+
+    /** For the debug log. */
+    fun pendingKeys(): Set<String> = pending()
 
     /** This homework's tick is waiting to reach PRONOTE. */
     fun isPending(h: Homework): Boolean = pending().let { "+" + h.key in it || "-" + h.key in it }

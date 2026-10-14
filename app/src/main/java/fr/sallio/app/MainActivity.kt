@@ -329,6 +329,8 @@ class MainActivity : Activity() {
     private val pushNow = Runnable {
         pushScheduled = false
         pushing = true
+        inFlight = repo.pendingKeys()
+        UI.refreshChecks()
         worker.execute {
             val result = repo.pushPending()
             // Not allowed to log in yet: the ticks are safe, a job sends them as soon as it is.
@@ -336,6 +338,7 @@ class MainActivity : Activity() {
             runOnUiThread {
                 if (result == Repo.SyncResult.FAILED) Motion.failure(root)
                 pushing = false
+                inFlight = emptySet()
                 UI.refreshChecks()
                 if (!isFinishing) render()
             }
@@ -346,7 +349,7 @@ class MainActivity : Activity() {
     fun schedulePush() {
         handler.removeCallbacks(pushNow)
         pushScheduled = true
-        handler.postDelayed(pushNow, 1500)
+        handler.postDelayed(pushNow, 800)
     }
 
     val bottomInsetPx: Int get() = bottomInset
@@ -365,13 +368,24 @@ class MainActivity : Activity() {
     /** Ticks from a sheet: saved at once, sent to PRONOTE shortly after, page redrawn behind. */
     fun setHomeworkDone(h: fr.sallio.pronote.Homework, done: Boolean) {
         repo.setDone(h, done)
+        DebugLog.i("tick tapped: ${h.key} done=$done pending=${repo.pendingKeys()}")
+        if (h.due == java.time.LocalDate.now()) tickedToday = true
         Analytics.event("devoir_coche", "fait" to done, "depuis" to "app")
         schedulePush()
         render()
         UI.refreshChecks()
     }
 
-    fun isHomeworkSending(h: fr.sallio.pronote.Homework) = sending && repo.isPending(h)
+    /**
+     * Ticks on their way to PRONOTE right now. A tick waiting for the next push shows ticked,
+     * not spinning: several quick ticks used to spin together for the whole wait (2026-10-14).
+     */
+    @Volatile private var inFlight: Set<String> = emptySet()
+
+    fun isHomeworkSending(h: fr.sallio.pronote.Homework) = ("+" + h.key in inFlight || "-" + h.key in inFlight) && repo.isPending(h)
+    /** A homework due today was ticked since the app opened: the home tab keeps today's list. */
+    var tickedToday = false
+
     fun isNewsSending(n: fr.sallio.pronote.News) = sending && repo.isReadPending(n)
 
     /**
