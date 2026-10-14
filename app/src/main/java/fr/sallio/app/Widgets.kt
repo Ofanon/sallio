@@ -394,8 +394,11 @@ object Widgets {
             if (!canteen.connected()) rv.setOnClickPendingIntent(R.id.root, openApp(context))
             return rv
         }
-        rv.setTextViewText(R.id.room, d.balance?.let { Canteen.money(it.estimatedAmount) } ?: "—")
-        rv.setTextViewText(R.id.subject, d.lunchesLeft?.let { if (it <= 0) "plus de repas sur ta carte" else "encore $it repas" } ?: "solde estimé")
+        rv.setTextViewText(R.id.room, d.balance?.let { Canteen.money(it.amount) } ?: "—")
+        rv.setTextViewText(R.id.subject, d.lunchesLeft?.let { n ->
+            val more = if (d.balance?.let { it.amount != it.estimatedAmount } == true) " de plus" else ""
+            if (n <= 0) "pas assez pour un repas$more" else "encore $n repas$more"
+        } ?: "")
         CanteenUI.nextLunchLine(d, now)?.let {
             rv.setTextViewText(R.id.then, it)
             rv.setViewVisibility(R.id.then, View.VISIBLE)

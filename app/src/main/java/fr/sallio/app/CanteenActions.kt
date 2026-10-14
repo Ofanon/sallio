@@ -31,7 +31,7 @@ class CanteenActions : BroadcastReceiver() {
                     else -> canteen.book(day, true)
                 }
                 Analytics.event("cantine_reservation_notification", "resultat" to if (error == null) "ok" else "erreur")
-                if (error == null) show(app, id, date, "C'est réservé ✓", canteen.data()?.balance?.let { "Solde : ${Canteen.money(it.estimatedAmount)}" }, done = true)
+                if (error == null) show(app, id, date, "C'est réservé ✓", canteen.data()?.balance?.let { "Solde : ${Canteen.money(it.amount)}, ${Canteen.money(it.estimatedAmount)} une fois tes repas réservés payés" }, done = true)
                 else show(app, id, date, "Pas réservé", error)
                 Widgets.refreshAll(app)
             } finally {

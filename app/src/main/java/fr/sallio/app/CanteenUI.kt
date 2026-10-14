@@ -58,7 +58,7 @@ object CanteenUI {
         row.addView(UI.logo(ctx, R.drawable.logo_turboself, 32))
         row.addView(UI.hgap(ctx, 12))
         val lunch = d?.let { nextLunchLine(it, now) }
-        val line = listOfNotNull(d?.balance?.let { Canteen.money(it.estimatedAmount) }, lunch).joinToString(" · ").ifEmpty { "Cantine · chargement…" }
+        val line = listOfNotNull(d?.balance?.let { Canteen.money(it.amount) }, lunch).joinToString(" · ").ifEmpty { "Cantine · chargement…" }
         row.addView(UI.oneLine(UI.text(ctx, line, 15f, if (canteen.error() != null) R.color.alert else R.color.text, 800)), UI.weight())
         if (d?.cardNumber != null) {
             row.addView(UI.text(ctx, "Ma carte", 13f, R.color.on_accent, 800).apply {
@@ -143,18 +143,21 @@ object CanteenUI {
                 val b = d.balance ?: return
                 val hero = UI.card(ctx, R.color.accent, R.color.accent_edge, padding = 18)
                 hero.addView(UI.text(ctx, "SOLDE", 12f, R.color.on_accent, 900).apply { letterSpacing = 0.06f; alpha = 0.8f })
-                hero.addView(UI.title(ctx, Canteen.money(b.estimatedAmount), 40f, R.color.on_accent))
+                // TurboSelf's real balance in big: its "estimated" one already takes off the lunches
+                // booked ahead and goes negative, which read like a debt (Oscar, 2026-10-14).
+                hero.addView(UI.title(ctx, Canteen.money(b.amount), 40f, R.color.on_accent))
                 val lines = listOfNotNull(
-                    if (b.amount != b.estimatedAmount) "${Canteen.money(b.amount)} aujourd'hui, ${Canteen.money(b.estimatedAmount)} après tes réservations" else null,
+                    if (b.amount != b.estimatedAmount) "${Canteen.money(b.estimatedAmount)} une fois tes repas réservés payés" else null,
                     d.lunchesLeft?.let { n ->
                         val price = d.lunchPrice?.let { " (${Canteen.money(it)} le repas)" } ?: ""
-                        when (n) {
-                            0 -> "Pas assez pour un repas$price"
-                            1 -> "De quoi payer 1 repas$price"
-                            else -> "De quoi payer $n repas$price"
+                        // Counted after the lunches already booked, which TurboSelf takes off first.
+                        val more = if (b.amount != b.estimatedAmount) " de plus" else ""
+                        when {
+                            n <= 0 -> "Pas assez pour un repas$more$price"
+                            n == 1 -> "De quoi payer 1 repas$more$price"
+                            else -> "De quoi payer $n repas$more$price"
                         }
                     },
-                    b.estimatedMessage,
                 )
                 for (l in lines) hero.addView(UI.text(ctx, l, 13f, R.color.on_accent, 700).apply { alpha = 0.9f; setPadding(0, ctx.dp(3), 0, 0) })
                 activity.offerWidget(hero, CanteenWidget::class.java)
