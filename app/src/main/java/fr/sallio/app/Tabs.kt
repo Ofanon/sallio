@@ -79,9 +79,33 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         // One day of homework: today's while some is left to do, else the next school day's.
         val dueToday = s.homework.filter { it.due == today }
         val nextDay = s.lessons.map { it.start.toLocalDate() }.filter { it > today }.minOrNull() ?: today.plusDays(1)
-        // Ticked from here: today's list stays until the app reopens, so it does not vanish under the finger.
-        if (dueToday.any { !activity.isHomeworkDone(it) } || (activity.tickedToday && dueToday.isNotEmpty())) homeworkBlock(root, today, today, dueToday)
-        else homeworkBlock(root, nextDay, today, s.homework.filter { it.due == nextDay })
+        // The last tick of today: "Tout est fait" for a moment, then today's list slides out and
+        // the next day's slides in (Oscar, 2026-10-14) instead of being swapped under the finger.
+        val box = UI.column(ctx)
+        val todayLeft = dueToday.any { !activity.isHomeworkDone(it) }
+        if (todayLeft || (activity.tickedToday && dueToday.isNotEmpty())) {
+            homeworkBlock(box, today, today, dueToday)
+            if (!todayLeft) box.postDelayed({
+                if (!box.isAttachedToWindow || dueToday.any { !activity.isHomeworkDone(it) }) return@postDelayed
+                val swap = {
+                    activity.tickedToday = false
+                    activity.homeworkSlideIn = true
+                    activity.refreshScreen()
+                }
+                if (!android.animation.ValueAnimator.areAnimatorsEnabled()) swap()
+                else box.animate().alpha(0f).translationX(-ctx.dp(40).toFloat()).setDuration(260)
+                    .setInterpolator(android.view.animation.AccelerateInterpolator(1.5f)).withEndAction(swap).start()
+            }, 1400)
+        } else {
+            homeworkBlock(box, nextDay, today, s.homework.filter { it.due == nextDay })
+            if (activity.homeworkSlideIn && android.animation.ValueAnimator.areAnimatorsEnabled()) {
+                box.alpha = 0f
+                box.translationX = ctx.dp(40).toFloat()
+                box.animate().alpha(1f).translationX(0f).setDuration(320).setInterpolator(android.view.animation.DecelerateInterpolator(2f)).start()
+            }
+            activity.homeworkSlideIn = false
+        }
+        root.addView(box, UI.matchWidth())
 
         CanteenUI.homeCard(activity, s.now)?.let {
             activity.offerWidget(it, CanteenWidget::class.java)

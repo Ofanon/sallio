@@ -381,6 +381,9 @@ class MainActivity : Activity() {
     /** A homework due today was ticked since the app opened: the home tab keeps today's list. */
     var tickedToday = false
 
+    /** The next render brings the next day's homework in with a slide (after today's are all done). */
+    var homeworkSlideIn = false
+
     fun isNewsSending(n: fr.sallio.pronote.News) = sending && repo.isReadPending(n)
 
     /**
