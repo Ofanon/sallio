@@ -269,6 +269,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
                 val chip = strip.getChildAt(days.indexOf(day)) ?: return true
                 val max = (strip.width - scroller.width).coerceAtLeast(0)
                 val centered = (chip.left - (scroller.width - chip.width) / 2).coerceIn(0, max)
+                DebugLog.i("strip: day=$day restore=$restore centered=$centered max=$max now=${activity.stripScroll}")
                 if (restore < 0) {
                     scroller.scrollTo(centered, 0)
                     // Recorded even when it did not move (first days, at 0): otherwise the
