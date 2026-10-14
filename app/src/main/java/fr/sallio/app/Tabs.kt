@@ -412,7 +412,9 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             setPadding(0, dp(10), 0, dp(10))
         }
         // A spinner while the tick travels to PRONOTE.
-        val box = UI.homeworkBox(ctx, done, activity.isHomeworkSending(h)) { activity.setHomeworkDone(h, !done) }
+        // The tick shows at once. No wheel: when PRONOTE makes Sallio wait before logging in again,
+        // waiting ticks spun for seconds, next to the one just touched (Oscar, 2026-10-14).
+        val box = UI.homeworkBox(ctx, done, busy = false) { activity.setHomeworkDone(h, !done) }
         row.addView(box, LinearLayout.LayoutParams(ctx.dp(28), ctx.dp(28)).apply { topMargin = ctx.dp(2) })
         row.addView(UI.hgap(ctx, 12))
         val col = UI.column(ctx).apply { if (done) alpha = 0.45f }
@@ -623,6 +625,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
             card.addView(more, UI.matchWidth())
         }
         root.addView(card, UI.matchWidth())
+        UI.ticksWaitingLine(activity)?.let { root.addView(it) }
     }
 
     // ---- Shared ------------------------------------------------------------------

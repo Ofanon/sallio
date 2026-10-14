@@ -106,6 +106,7 @@ object LessonSheet {
                     card.addView(UI.homeworkCheck(ctx, h, { activity.isHomeworkDone(h) }, { HomeworkSheet.show(activity, h, s, bottomInset) }) { done -> activity.setHomeworkDone(h, done) }, UI.matchWidth())
                 }
                 sheet.addView(card, UI.matchWidth())
+                UI.ticksWaitingLine(activity)?.let { sheet.addView(it) }
             }
 
             // When the subject comes back.

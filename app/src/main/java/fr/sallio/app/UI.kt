@@ -260,7 +260,6 @@ internal object UI {
      */
     fun homeworkCheck(context: Context, h: fr.sallio.pronote.Homework, isDone: () -> Boolean, onOpen: (() -> Unit)? = null, showFiles: Boolean = true, toggle: (Boolean) -> Unit): View =
         check(context, h.description.ifEmpty { "(pas de consigne)" }, isDone, strike = true, onOpen = onOpen,
-            isBusy = { (context as? MainActivity)?.isHomeworkSending(h) == true },
             trailing = if (showFiles && h.attachments > 0) R.drawable.ic_attach else null, toggle = toggle)
 
     /**
@@ -304,6 +303,14 @@ internal object UI {
         if (!busy) setOnClickListener {
             if (!done) Motion.success(this) else Motion.tick(this)
             Motion.bounce(this) { onToggle() }
+        }
+    }
+
+    /** "1 coche en attente d'envoi à Pronote…", under a homework list; null when all are sent. */
+    fun ticksWaitingLine(activity: MainActivity): View? {
+        val n = activity.ticksWaiting().takeIf { it > 0 } ?: return null
+        return text(activity, "$n coche${if (n > 1) "s" else ""} en attente d'envoi à Pronote…", 12f, R.color.text3, 700).apply {
+            setPadding(activity.dp(4), activity.dp(8), 0, 0)
         }
     }
 

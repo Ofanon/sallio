@@ -376,12 +376,8 @@ class MainActivity : Activity() {
         UI.refreshChecks()
     }
 
-    /**
-     * A tick spins from the tap until PRONOTE has it, then shows its new state: no "ticked,
-     * spinning, ticked" in between (Oscar, 2026-10-14). Ticks are sent at once, so a quick
-     * second tick spins on its own for the next push rather than waiting with the first.
-     */
-    fun isHomeworkSending(h: fr.sallio.pronote.Homework) = sending && repo.isPending(h)
+    /** Ticks not on PRONOTE yet, for the "en attente d'envoi" line under the lists. */
+    fun ticksWaiting(): Int = repo.pendingCount()
     /** A homework due today was ticked since the app opened: the home tab keeps today's list. */
     var tickedToday = false
 
