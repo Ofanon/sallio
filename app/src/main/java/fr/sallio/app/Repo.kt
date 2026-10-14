@@ -39,8 +39,14 @@ class Repo private constructor(private val context: Context) {
     private val prefs = context.getSharedPreferences("sync", Context.MODE_PRIVATE)
     private val lock = ReentrantLock()
 
+    /** Lists already decoded, by vault entry, with the text they came from. */
+    private val decoded = HashMap<String, Pair<String, List<*>>>()
+
+    // Declared above: learnColors reads the homework through readList, which needs [decoded]
+    // already built (it was declared further down and the colours were silently lost at start,
+    // 0.7.4: an app opened from a widget had Sallio's colours until the next sync).
     init {
-        runCatching { learnColors() }
+        runCatching { learnColors() }.onFailure { DebugLog.i("learnColors failed at start", it) }
     }
 
     /** The student's choice: subjects in PRONOTE's colours (on by default). */
@@ -148,8 +154,6 @@ class Repo private constructor(private val context: Context) {
             runCatching { JSONArray(text).let { a -> (0 until a.length()).map { decode(a.getJSONObject(it)) } } }.getOrNull()
         }
 
-    /** Lists already decoded, by vault entry, with the text they came from. */
-    private val decoded = HashMap<String, Pair<String, List<*>>>()
 
     /**
      * The stored list, decoded once per version of its text: every redraw asks
