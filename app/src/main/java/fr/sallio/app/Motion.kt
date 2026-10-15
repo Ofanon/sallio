@@ -189,6 +189,21 @@ internal object Motion {
             }.start()
     }
 
+    /**
+     * Lets [view] grow past its row and its card while it bounces: the boxes sit near
+     * the card's padding, which cut the bounce (Oscar, 2026-10-15). A few levels up only;
+     * a card that clips to its rounded outline still does.
+     */
+    private fun unclip(view: View) {
+        var p = view.parent
+        repeat(4) {
+            val g = p as? ViewGroup ?: return
+            g.clipChildren = false
+            g.clipToPadding = false
+            p = g.parent
+        }
+    }
+
     /** One view rising in, for content that unfolds after a tap. */
     fun fadeIn(view: View, startDelay: Long = 0) {
         if (!enabled()) return
@@ -209,6 +224,7 @@ internal object Motion {
     /** Bounce of the checkbox, then [then] once the gesture has been seen. */
     fun bounce(view: View, then: () -> Unit) {
         if (!enabled()) return then()
+        unclip(view)
         view.animate().scaleX(1.25f).scaleY(1.25f).setDuration(90).withEndAction {
             view.animate().scaleX(1f).scaleY(1f).setDuration(140).setInterpolator(OvershootInterpolator(3f)).withEndAction(then).start()
         }.start()
