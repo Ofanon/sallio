@@ -139,8 +139,8 @@ object Welcome {
             setPadding(ctx.dp(24), topInset + ctx.dp(40), ctx.dp(24), bottomInset + ctx.dp(24))
         }
         val first = MainActivity.firstName(s.account.studentName)
-        val wave = UI.title(ctx, "👋", 64f).apply { gravity = Gravity.CENTER }
-        col.addView(wave, UI.matchWidth())
+        // Sallio's own icon rather than an emoji: the scenes of the next steps are drawn too.
+        col.addView(Illustrations.logo(ctx), LinearLayout.LayoutParams(-1, ctx.dp(110)))
         val title = UI.title(ctx, if (first.isNotEmpty()) "Bienvenue, $first !" else "Bienvenue !", 32f).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(10), 0, 0) }
         col.addView(title, UI.matchWidth())
         val subtitle = UI.text(ctx, "Tout est prêt. Ton emploi du temps, tes devoirs et tes notes sont sur ton téléphone.", 16f, R.color.text2).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(8), 0, ctx.dp(22)) }
@@ -215,16 +215,6 @@ object Welcome {
         // The login screen stays quiet: this is the one vibration of a first login.
         Motion.tap(root)
         if (animations()) {
-            wave.scaleX = 0f; wave.scaleY = 0f
-            wave.animate().scaleX(1f).scaleY(1f).setDuration(500).setInterpolator(OvershootInterpolator(3f)).withEndAction {
-                ValueAnimator.ofFloat(0f, 1f).apply {
-                    duration = 900
-                    wave.pivotX = wave.width * 0.7f
-                    wave.pivotY = wave.height * 0.9f
-                    addUpdateListener { a -> wave.rotation = sin((a.animatedValue as Float) * 4 * Math.PI).toFloat() * 16f * (1f - a.animatedFraction) }
-                    start()
-                }
-            }.start()
             riseIn(listOf(title, subtitle), 200)
             card.scaleX = 0.6f; card.scaleY = 0.6f; card.alpha = 0f
             card.animate().scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(650).setDuration(520).setInterpolator(OvershootInterpolator(2.2f)).start()
@@ -241,11 +231,11 @@ object Welcome {
         }, LinearLayout.LayoutParams(ctx.dp(if (i == index) 18 else 8), ctx.dp(8)).apply { marginStart = ctx.dp(3); marginEnd = ctx.dp(3) })
     }
 
-    private fun page(ctx: Context, topInset: Int, bottomInset: Int, emoji: String, title: String, text: String) = UI.column(ctx).apply {
+    private fun page(ctx: Context, topInset: Int, bottomInset: Int, scene: View, title: String, text: String) = UI.column(ctx).apply {
         gravity = Gravity.CENTER_HORIZONTAL
         setPadding(ctx.dp(24), topInset + ctx.dp(40), ctx.dp(24), bottomInset + ctx.dp(24))
-        addView(UI.title(ctx, emoji, 56f).apply { gravity = Gravity.CENTER }, UI.matchWidth())
-        addView(UI.title(ctx, title, 28f).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(10), 0, 0) }, UI.matchWidth())
+        addView(scene, UI.matchWidth())
+        addView(UI.title(ctx, title, 28f).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(22), 0, 0) }, UI.matchWidth())
         addView(UI.text(ctx, text, 16f, R.color.text2).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(8), 0, ctx.dp(20)) }, UI.matchWidth())
     }
 
@@ -268,7 +258,7 @@ object Welcome {
 
     private fun notificationsPage(activity: MainActivity, topInset: Int, bottomInset: Int): LinearLayout {
         val ctx = activity
-        val page = page(ctx, topInset, bottomInset, "🔔", "Ne rate rien", "Sallio te prévient seulement quand c'est utile. Tu changes tout ça quand tu veux dans Réglages.")
+        val page = page(ctx, topInset, bottomInset, Illustrations.notifications(ctx), "Ne rate rien", "Sallio te prévient seulement quand c'est utile. Tu changes tout ça quand tu veux dans Réglages.")
         val card = UI.card(ctx, padding = 14)
         card.addView(feature(ctx, R.drawable.ic_warning, "Changements", "Prof absent, cours annulé, salle changée, nouvelle note."), UI.matchWidth())
         card.addView(feature(ctx, R.drawable.ic_clock, "5 min avant chaque cours", "La salle où aller, sans ouvrir l'app."), UI.matchWidth())
@@ -281,7 +271,7 @@ object Welcome {
 
     private fun fasterPage(activity: MainActivity, topInset: Int, bottomInset: Int): LinearLayout {
         val ctx = activity
-        val page = page(ctx, topInset, bottomInset, "⚡", "Encore plus vite", "Ta salle sans même ouvrir l'app.")
+        val page = page(ctx, topInset, bottomInset, Illustrations.homeScreen(ctx), "Encore plus vite", "Ta salle sans même ouvrir l'app.")
         val actions = UI.column(ctx)
         actions.addView(UI.ghostButton(ctx, "Poser le widget sur l'accueil") { activity.pinWidget() }, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
         if (!Canteen.get(ctx).connected()) actions.addView(UI.ghostButton(ctx, "Relier ma cantine", R.drawable.logo_turboself) {
