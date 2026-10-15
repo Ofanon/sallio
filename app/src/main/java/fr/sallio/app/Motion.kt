@@ -160,6 +160,35 @@ internal object Motion {
             .setInterpolator(DecelerateInterpolator(2.4f)).start()
     }
 
+    /**
+     * A card leaving after [delay]: it slides right and fades, then the space it
+     * took closes smoothly; [then] runs at the end (or at once without animations).
+     */
+    fun leave(view: View, delay: Long = 0, then: () -> Unit) {
+        if (!enabled()) return then()
+        view.animate().setStartDelay(delay).alpha(0f).translationX(view.width * 0.25f).setDuration(220)
+            .setInterpolator(android.view.animation.AccelerateInterpolator(1.5f))
+            .withEndAction {
+                val start = view.height
+                val params = view.layoutParams
+                val margin = (params as? ViewGroup.MarginLayoutParams)?.bottomMargin ?: 0
+                ValueAnimator.ofFloat(1f, 0f).apply {
+                    duration = 240
+                    interpolator = DecelerateInterpolator(1.5f)
+                    addUpdateListener {
+                        val f = it.animatedValue as Float
+                        params.height = (start * f).toInt()
+                        (params as? ViewGroup.MarginLayoutParams)?.bottomMargin = (margin * f).toInt()
+                        view.layoutParams = params
+                    }
+                    addListener(object : android.animation.AnimatorListenerAdapter() {
+                        override fun onAnimationEnd(animation: android.animation.Animator) { then() }
+                    })
+                    start()
+                }
+            }.start()
+    }
+
     /** One view rising in, for content that unfolds after a tap. */
     fun fadeIn(view: View, startDelay: Long = 0) {
         if (!enabled()) return

@@ -272,7 +272,9 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
         bottom.addView(UI.oneLine(UI.text(ctx, n.author, 13f, weight = 800).apply { setTextColor(ink); alpha = 0.85f }), UI.weight())
         card.addView(bottom, UI.matchWidth())
         // "J'ai vu" right on the card: no need to open it to clear it.
-        card.addView(UI.checkButton(ctx, "J'ai vu", "Vue", false, { activity.isNewsSending(n) }) { activity.setNewsRead(n) }, UI.matchWidth().apply { topMargin = ctx.dp(12) })
+        // The tick shows, then the card leaves: it slides away and the list closes up, instead of
+        // vanishing at the next redraw (Oscar, 2026-10-15).
+        card.addView(UI.checkButton(ctx, "J'ai vu", "Vue", false, { false }) { Motion.leave(card, 450) { activity.setNewsRead(n) } }, UI.matchWidth().apply { topMargin = ctx.dp(12) })
         card.setOnClickListener { Motion.tap(card); showNews(n) }
         // One vibration: the tap above, none on release.
         Motion.pressable(card, haptic = false)
