@@ -263,23 +263,25 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val restore = activity.stripScroll
         activity.stripOwner = scroller
         scroller.setOnScrollChangeListener { v, x, _, _, _ -> if (activity.stripOwner === v) activity.stripScroll = x }
-        scroller.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
-            override fun onPreDraw(): Boolean {
-                scroller.viewTreeObserver.removeOnPreDrawListener(this)
-                val chip = strip.getChildAt(days.indexOf(day)) ?: return true
+        // Placed once, at its first layout. A listener on the view itself, not on the window's
+        // tree observer: a strip replaced before its first frame (two renders in a row when a
+        // widget opens the app) kept a pre-draw listener that could not be removed, ran at every
+        // frame and reset the remembered position, so each tap slid from the start (2026-10-15).
+        scroller.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(v: View, l: Int, t: Int, r: Int, b: Int, ol: Int, ot: Int, or_: Int, ob: Int) {
+                if (activity.stripOwner !== scroller) { scroller.removeOnLayoutChangeListener(this); return }
+                if (strip.width == 0 || scroller.width == 0) return
+                scroller.removeOnLayoutChangeListener(this)
+                val chip = strip.getChildAt(days.indexOf(day)) ?: return
                 val max = (strip.width - scroller.width).coerceAtLeast(0)
                 val centered = (chip.left - (scroller.width - chip.width) / 2).coerceIn(0, max)
-                DebugLog.i("strip: day=$day restore=$restore centered=$centered max=$max now=${activity.stripScroll}")
                 if (restore < 0) {
                     scroller.scrollTo(centered, 0)
-                    // Recorded even when it did not move (first days, at 0): otherwise the
-                    // first tap on a day found no position and jumped without sliding.
                     activity.stripScroll = centered
                 } else {
                     scroller.scrollTo(restore.coerceIn(0, max), 0)
-                    if (kotlin.math.abs(centered - restore) > ctx.dp(4)) scroller.smoothScrollTo(centered, 0)
+                    if (kotlin.math.abs(centered - restore) > ctx.dp(4)) scroller.post { scroller.smoothScrollTo(centered, 0) }
                 }
-                return true
             }
         })
 
