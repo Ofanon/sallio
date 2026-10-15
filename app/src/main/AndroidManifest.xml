@@ -54,6 +54,12 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
+        <!-- Debug builds only (finishes at once otherwise): watches PRONOTE's own page. -->
+        <activity
+            android:name=".SpyActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <activity
             android:name=".LoginActivity"
             android:exported="false"

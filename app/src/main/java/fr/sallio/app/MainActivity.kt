@@ -859,6 +859,12 @@ class MainActivity : Activity() {
                         worker.execute { Alerts.demo(applicationContext) }
                     },
                     // Lets "erreur" exist in PostHog before a real one, to build its insight.
+                    SettingsSheet.Item.Action(R.drawable.logo_pronote, "Espion Pronote, site (debug)", "Le vrai site Pronote, pour voir ce qu'il envoie pour les actualités.") {
+                        startActivity(Intent(this@MainActivity, SpyActivity::class.java).putExtra(SpyActivity.EXTRA_URL, s.account.credentials.url))
+                    },
+                    SettingsSheet.Item.Action(R.drawable.logo_pronote, "Espion Pronote, version mobile (debug)", "La page mobile de Pronote, comme la session de Sallio.") {
+                        startActivity(Intent(this@MainActivity, SpyActivity::class.java).putExtra(SpyActivity.EXTRA_URL, s.account.credentials.url).putExtra(SpyActivity.EXTRA_PAGE, "mobile.eleve.html"))
+                    },
                     SettingsSheet.Item.Action(R.drawable.ic_warning, "Envoyer une erreur de test (debug)", "Un événement « erreur » avec ou = test, envoyé tout de suite.") {
                         Analytics.error("test", IllegalStateException())
                         Analytics.flushSoon()
