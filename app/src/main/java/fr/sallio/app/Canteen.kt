@@ -52,6 +52,12 @@ class Canteen private constructor(private val context: Context) {
 
     fun connected(): Boolean = vault.read(ACCOUNT) != null
 
+    /**
+     * One more lunch fits in the balance left after the ones already booked, or the school
+     * lets bookings go negative. Unknown price or balance: TurboSelf decides, as before.
+     */
+    fun canAfford(): Boolean = data()?.let { affords(it) } ?: true
+
     fun data(): Data? = vault.read(DATA)?.let { runCatching { decode(JSONObject(it)) }.getOrNull() }
 
     /** The last error to show, null when the last sync worked. */
@@ -135,6 +141,13 @@ class Canteen private constructor(private val context: Context) {
 
     /** Books (true) or cancels a lunch. Worker thread. Returns an error message, or null. */
     fun book(day: Day, booked: Boolean): String? {
+        // Checked before sending, as TurboSelf's own site and app do: its server answers
+        // "Solde insuffisant" yet saves the booking, and then refuses to cancel it. Sallio sent
+        // it anyway and a student went negative (Oscar, 2026-10-15).
+        if (booked && !canAfford()) {
+            Analytics.event("cantine_reservation", "reserver" to true, "resultat" to "bloque_solde")
+            return INSUFFICIENT
+        }
         lock.lock()
         try {
             withSession { s ->
@@ -147,13 +160,12 @@ class Canteen private constructor(private val context: Context) {
             DebugLog.i("Turboself refused ${if (booked) "a booking" else "a cancellation"}: ${e.code} ${e.body.take(300)}")
             val reason = e.reason.orEmpty()
             val poor = Regex("(?i)solde|insuffisant|cr[ée]dit").containsMatchIn(reason)
-            // TurboSelf may say no and do it anyway: a booking that leaves the estimated balance
-            // under a lunch's price answers 422 "Solde insuffisant" and is saved all the same
-            // (seen 2026-10-13). What counts is what it has now.
+            // TurboSelf may say no and save it anyway (seen 2026-10-13). The real state is read
+            // again so the screen tells the truth, but a refused booking is never reported as done.
             val now = runCatching { withSession { s -> fetch(s, first = false) }; data()?.day(day.date)?.booking?.booked }.getOrNull()
             DebugLog.i("Turboself after the refusal: ${day.date} booked=$now")
-            if (now != null && (now > 0) == booked) {
-                Analytics.event("cantine_reservation", "reserver" to booked, "resultat" to "ok_malgre_refus", "http" to e.code)
+            if (!booked && now == 0) {
+                Analytics.event("cantine_reservation", "reserver" to false, "resultat" to "ok_malgre_refus", "http" to e.code)
                 return null
             }
             Analytics.event("cantine_reservation", "reserver" to booked, "resultat" to if (poor) "solde_insuffisant" else "refus", "http" to e.code)
@@ -265,6 +277,13 @@ class Canteen private constructor(private val context: Context) {
 
     companion object {
         /** The booking error that comes with a "Recharger" button. */
+        internal fun affords(d: Data): Boolean {
+            if (d.canBookWithNegativeBalance) return true
+            val price = d.lunchPrice?.takeIf { it > 0 } ?: return true
+            val left = d.balance?.estimatedAmount ?: return true
+            return left - price >= -0.001
+        }
+
         const val INSUFFICIENT = "Ton solde ne suffit pas pour ce repas. Recharge ton compte Turboself, puis réserve à nouveau."
 
         /**

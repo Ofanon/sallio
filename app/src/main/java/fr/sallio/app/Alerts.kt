@@ -93,7 +93,7 @@ object Alerts {
                         .build())
                 }
                 // "Pas encore réservé pour demain midi": book from the notification itself.
-                if (item.key.startsWith("canteen|book|")) runCatching {
+                if (item.key.startsWith("canteen|book|") && Canteen.get(context).canAfford()) runCatching {
                     builder.addAction(CanteenActions.book(context, java.time.LocalDate.parse(item.key.substringAfterLast('|')), item.key.hashCode()))
                 }
                 runCatching { nm.notify(item.key.hashCode(), builder.build()) }
