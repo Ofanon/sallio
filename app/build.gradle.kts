@@ -28,8 +28,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // Bump both for every GitHub release: the in-app updater compares versionCode.
-        versionCode = 15
-        versionName = "0.7.4.2"
+        versionCode = 16
+        versionName = "0.7.5"
         buildConfigField("String", "POSTHOG_KEY", "\"${local.getProperty("posthog.key", "").trim()}\"")
     }
 
