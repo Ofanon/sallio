@@ -325,6 +325,8 @@ object Inbox {
                 .put("supprimee", false)
                 .put("saisieActualite", false)
             val variants = listOf(
+                // What PRONOTE's own page sends when leaving an actualité (seen 2026-10-15).
+                "web" to webEntry(session, item, read = read, onlyRead = true, questions = JSONArray()),
                 "pawnote" to pawnote(listed ?: student),
                 "pawnote+E2" to pawnote(listed ?: student).put("E", 2),
                 "pronotepy" to JSONObject().put("N", item.optString("N")).put("validationDirecte", true)
@@ -335,7 +337,7 @@ object Inbox {
                     "SaisieActualites",
                     JSONObject()
                         .put(p.signature, JSONObject().put("onglet", 8))
-                        .put(p.data, JSONObject().put("listeActualites", JSONArray().put(entry)).put("saisieActualite", false)),
+                        .put(p.data, JSONObject().put("genreSaisie", 0).put("listeActualites", JSONArray().put(entry)).put("saisieActualite", false)),
                 )
                 val refused = answer.optJSONObject("RapportSaisie")?.optBoolean("_erreurSaisie_") == true
                 log("SaisieActualites $name lue=$read: ${if (refused) "refusé" else "accepté"} ${answer.toString().take(200)}")
@@ -362,8 +364,6 @@ object Inbox {
         val p = session.properties
         val item = list(session).firstOrNull { base(it).key == key } ?: throw PronoteException.Protocol("Actualité introuvable")
         val raw = details(session, item.optString("N"))
-        val student = JSONObject().put("N", session.userResource?.optString("N").orEmpty()).put("G", 4)
-        val audience = item.optJSONObject("public")?.optJSONObject("V") ?: student
         val questions = JSONArray()
         raw.forEachIndexed { i, q ->
             val kind = q.optInt("genreReponse")
@@ -372,39 +372,55 @@ object Inbox {
             val free = q.optJSONObject("listeChoix")?.optJSONArray("V")?.objects().orEmpty().any { it.optBoolean("estReponseLibre") }
             val value: Any = if (kind == News.KIND_INFO || kind == News.KIND_TEXT) answer.text
                 else JSONObject().put("_T", 8).put("V", ranges(answer.chosen))
+            // A first answer is created (E = 1, N = 0); an existing one is modified (E = 2, its N).
+            val existing = reply?.optBoolean("avecReponse") == true
             questions.put(JSONObject()
                 .put("N", q.optString("N"))
                 .put("L", q.optString("L"))
+                .put("E", 2)
                 .put("genreReponse", kind)
                 .put("reponse", JSONObject()
-                    .put("N", reply?.optString("N")?.toIntOrNull() ?: 0)
+                    .put("N", if (existing) reply?.opt("N") ?: 0 else 0)
+                    .put("E", if (existing) 2 else 1)
                     .put("Actif", true)
-                    .put("valeurReponse", value)
-                    .apply { if (free) put("valeurReponseLibre", answer.text) }
                     .put("avecReponse", true)
                     .put("estReponseAttendue", reply?.optBoolean("estReponseAttendue") == true)
+                    .put("valeurReponse", value)
+                    .apply { if (free) put("valeurReponseLibre", answer.text) }
                     .put("_validationSaisie", true)))
         }
-        val entry = JSONObject()
-            .put("N", item.optString("N"))
-            .put("L", item.optString("L"))
-            .put("genrePublic", audience.optInt("G", 4))
-            .put("public", audience)
-            .put("validationDirecte", true)
-            .put("listeQuestions", questions)
-            .put("marqueLueSeulement", false)
-            .put("lue", true)
-            .put("supprimee", false)
-            .put("saisieActualite", false)
+        val entry = webEntry(session, item, read = true, onlyRead = false, questions = questions).put("E", 2)
         val answer = session.call(
             "SaisieActualites",
             JSONObject()
                 .put(p.signature, JSONObject().put("onglet", 8))
-                .put(p.data, JSONObject().put("listeActualites", JSONArray().put(entry)).put("saisieActualite", false)),
+                .put(p.data, JSONObject().put("genreSaisie", 0).put("listeActualites", JSONArray().put(entry)).put("saisieActualite", false)),
         )
         val refused = answer.optJSONObject("RapportSaisie")?.optBoolean("_erreurSaisie_") == true
         log("SaisieActualites answers (${raw.size} questions): ${if (refused) "refusé" else "accepté"} ${answer.toString().take(200)}")
         return !refused
+    }
+
+    /**
+     * An actualité as PRONOTE's own page sends it to `SaisieActualites` (seen
+     * 2026-10-15 in its plain requests): the student as audience, with their
+     * name, `estPublic`, and `genreSaisie` 0 beside the list. The shapes of
+     * Pawnote and pronotepy, without those, got `_erreurSaisie_`.
+     */
+    private fun webEntry(session: Session, item: JSONObject, read: Boolean, onlyRead: Boolean, questions: JSONArray): JSONObject {
+        val user = session.userResource
+        return JSONObject()
+            .put("N", item.optString("N"))
+            .put("L", item.optString("L"))
+            .put("validationDirecte", true)
+            .put("genrePublic", 4)
+            .put("public", JSONObject().put("N", user?.optString("N").orEmpty()).put("G", 4).put("L", user?.optString("L").orEmpty()))
+            .put("estPublic", true)
+            .put("lue", read)
+            .put("supprimee", false)
+            .put("marqueLueSeulement", onlyRead)
+            .put("saisieActualite", false)
+            .put("listeQuestions", questions)
     }
 
     /** Address of the file [name] of the actualité [key], in this session (ids change with each one). */
