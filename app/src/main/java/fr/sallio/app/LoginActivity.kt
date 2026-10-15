@@ -272,10 +272,12 @@ class LoginActivity : Activity() {
     private fun complete(logged: LoggedIn) {
         // The account is saved first; if PRONOTE fails on the timetable right after,
         // the background sync fetches it later, so the login still counts.
+        val first = Repo.get(applicationContext).account() == null
         runCatching { Repo.get(applicationContext).onLoggedIn(logged) }
         SyncJob.schedulePeriodic(applicationContext)
         runOnUiThread {
-            Motion.success(window.decorView)
+            // A first login gets the welcome, which vibrates once: not twice in a row.
+            if (!first) Motion.success(window.decorView)
             forgetBrowsing()
             setResult(RESULT_OK)
             finish()

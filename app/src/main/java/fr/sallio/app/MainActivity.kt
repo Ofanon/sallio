@@ -891,6 +891,16 @@ class MainActivity : Activity() {
     private var afterNotificationPermission: ((Boolean) -> Unit)? = null
 
     /** Applies [on] through [set], asking Android for notifications first when needed. */
+    /** The welcome step "Ne rate rien": alerts, reminders and the bag, after Android's permission. */
+    fun enableEverySchoolNotification(done: () -> Unit) = withNotifications(true, { on ->
+        if (on) {
+            Alerts.setEnabled(this, true)
+            Reminders.setEnabled(this, true)
+            Bag.setEnabled(this, true)
+            Analytics.event("bienvenue_notifications", "accepte" to true)
+        }
+    }, done)
+
     private fun withNotifications(on: Boolean, set: (Boolean) -> Unit, done: () -> Unit) {
         if (on && !notificationsAllowed()) {
             afterNotificationPermission = { granted ->

@@ -163,27 +163,57 @@ object Welcome {
             addView(UI.text(ctx, "Ton emploi du temps arrive dans un instant.", 15f, R.color.text2, 800).apply { gravity = Gravity.CENTER }, UI.matchWidth())
         }
         col.addView(card, UI.matchWidth())
-
         col.addView(View(ctx), LinearLayout.LayoutParams(1, 0, 1f))
-        col.addView(UI.text(ctx, "Pour l'avoir encore plus vite :", 14f, R.color.text2).apply { gravity = Gravity.CENTER; setPadding(0, 0, 0, ctx.dp(10)) }, UI.matchWidth())
-        val widget = UI.ghostButton(ctx, "Poser le widget sur l'accueil") { activity.pinWidget() }
-        col.addView(widget, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
-        val go = UI.button(ctx, "C'est parti") {
-            if (overlay.tag == null) {
-                overlay.tag = "leaving"
-                onDone()
-                overlay.animate().alpha(0f).setDuration(320).withEndAction {
-                    confetti.stop()
-                    (overlay.parent as? ViewGroup)?.removeView(overlay)
-                    onGone()
-                }.start()
-            }
+
+        // Three short steps (Oscar, 2026-10-15): welcome, the notifications worth having, the
+        // fastest ways in. Each can be skipped; the dots say where you are.
+        val pages = FrameLayout(ctx)
+        overlay.addView(pages, FrameLayout.LayoutParams(-1, -1))
+        pages.addView(col, FrameLayout.LayoutParams(-1, -1))
+        var step = 0
+        fun leave() {
+            if (overlay.tag != null) return
+            overlay.tag = "leaving"
+            onDone()
+            overlay.animate().alpha(0f).setDuration(320).withEndAction {
+                confetti.stop()
+                (overlay.parent as? ViewGroup)?.removeView(overlay)
+                onGone()
+            }.start()
         }
-        col.addView(go, UI.matchWidth())
-        overlay.addView(col, FrameLayout.LayoutParams(-1, -1))
+        lateinit var show: (Int) -> Unit
+        fun footer(page: LinearLayout, index: Int, primary: String, onPrimary: () -> Unit, secondary: String?, onSecondary: () -> Unit) {
+            page.addView(dots(ctx, index, 3), UI.matchWidth().apply { bottomMargin = ctx.dp(16) })
+            secondary?.let { page.addView(UI.ghostButton(ctx, it) { onSecondary() }, UI.matchWidth().apply { bottomMargin = ctx.dp(10) }) }
+            page.addView(UI.button(ctx, primary) { onPrimary() }, UI.matchWidth())
+        }
+        footer(col, 0, "Continuer", { show(1) }, null) {}
+
+        show = { next ->
+            val old = pages.getChildAt(0)
+            val page = when (next) {
+                1 -> notificationsPage(activity, topInset, bottomInset).also { p ->
+                    footer(p, 1, "Activer", {
+                        activity.enableEverySchoolNotification { show(2) }
+                    }, "Plus tard") { show(2) }
+                }
+                else -> fasterPage(activity, topInset, bottomInset).also { p ->
+                    footer(p, 2, "C'est parti", { leave() }, null) {}
+                }
+            }
+            step = next
+            pages.addView(page, FrameLayout.LayoutParams(-1, -1))
+            if (animations()) {
+                old.animate().alpha(0f).translationX(-ctx.dp(40).toFloat()).setDuration(220).withEndAction { pages.removeView(old) }.start()
+                page.alpha = 0f
+                page.translationX = ctx.dp(40).toFloat()
+                page.animate().alpha(1f).translationX(0f).setStartDelay(120).setDuration(320).setInterpolator(DecelerateInterpolator(2f)).start()
+            } else pages.removeView(old)
+        }
         root.addView(overlay, FrameLayout.LayoutParams(-1, -1))
 
-        Motion.success(root)
+        // The login screen stays quiet: this is the one vibration of a first login.
+        Motion.tap(root)
         if (animations()) {
             wave.scaleX = 0f; wave.scaleY = 0f
             wave.animate().scaleX(1f).scaleY(1f).setDuration(500).setInterpolator(OvershootInterpolator(3f)).withEndAction {
@@ -198,10 +228,73 @@ object Welcome {
             riseIn(listOf(title, subtitle), 200)
             card.scaleX = 0.6f; card.scaleY = 0.6f; card.alpha = 0f
             card.animate().scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(650).setDuration(520).setInterpolator(OvershootInterpolator(2.2f)).start()
-            riseIn(listOf(widget, go), 900)
             confetti.post { confetti.burst() }
         }
         return overlay
+    }
+
+    /** "● ━ ●": which of the [count] steps is on screen. */
+    private fun dots(ctx: Context, index: Int, count: Int) = UI.row(ctx).apply {
+        gravity = Gravity.CENTER
+        for (i in 0 until count) addView(View(ctx).apply {
+            background = UI.rounded(ctx.getColor(if (i == index) R.color.accent_ink else R.color.edge), ctx.dp(4).toFloat())
+        }, LinearLayout.LayoutParams(ctx.dp(if (i == index) 18 else 8), ctx.dp(8)).apply { marginStart = ctx.dp(3); marginEnd = ctx.dp(3) })
+    }
+
+    private fun page(ctx: Context, topInset: Int, bottomInset: Int, emoji: String, title: String, text: String) = UI.column(ctx).apply {
+        gravity = Gravity.CENTER_HORIZONTAL
+        setPadding(ctx.dp(24), topInset + ctx.dp(40), ctx.dp(24), bottomInset + ctx.dp(24))
+        addView(UI.title(ctx, emoji, 56f).apply { gravity = Gravity.CENTER }, UI.matchWidth())
+        addView(UI.title(ctx, title, 28f).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(10), 0, 0) }, UI.matchWidth())
+        addView(UI.text(ctx, text, 16f, R.color.text2).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(8), 0, ctx.dp(20)) }, UI.matchWidth())
+    }
+
+    /** One line of a step: an icon on its tile, a title and what it does. */
+    private fun feature(ctx: Context, icon: Int, title: String, text: String) = UI.row(ctx).apply {
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(0, ctx.dp(8), 0, ctx.dp(8))
+        addView(FrameLayout(ctx).apply {
+            background = UI.rounded(ctx.getColor(R.color.accent_container), ctx.dp(12).toFloat())
+            addView(UI.icon(ctx, icon, R.color.on_accent_container, 20).apply {
+                layoutParams = FrameLayout.LayoutParams(ctx.dp(20), ctx.dp(20), Gravity.CENTER)
+            })
+        }, LinearLayout.LayoutParams(ctx.dp(42), ctx.dp(42)))
+        addView(UI.hgap(ctx, 14))
+        addView(UI.column(ctx).apply {
+            addView(UI.title(ctx, title, 16f))
+            addView(UI.text(ctx, text, 13f, R.color.text2).apply { setPadding(0, ctx.dp(2), 0, 0) })
+        }, UI.weight())
+    }
+
+    private fun notificationsPage(activity: MainActivity, topInset: Int, bottomInset: Int): LinearLayout {
+        val ctx = activity
+        val page = page(ctx, topInset, bottomInset, "🔔", "Ne rate rien", "Sallio te prévient seulement quand c'est utile. Tu changes tout ça quand tu veux dans Réglages.")
+        val card = UI.card(ctx, padding = 14)
+        card.addView(feature(ctx, R.drawable.ic_warning, "Changements", "Prof absent, cours annulé, salle changée, nouvelle note."), UI.matchWidth())
+        card.addView(feature(ctx, R.drawable.ic_clock, "5 min avant chaque cours", "La salle où aller, sans ouvrir l'app."), UI.matchWidth())
+        card.addView(feature(ctx, R.drawable.ic_briefcase, "Cartable la veille", "À 19 h : les matières et les devoirs pas finis."), UI.matchWidth())
+        page.addView(card, UI.matchWidth())
+        page.addView(View(ctx), LinearLayout.LayoutParams(1, 0, 1f))
+        riseIn(listOf(card), 150)
+        return page
+    }
+
+    private fun fasterPage(activity: MainActivity, topInset: Int, bottomInset: Int): LinearLayout {
+        val ctx = activity
+        val page = page(ctx, topInset, bottomInset, "⚡", "Encore plus vite", "Ta salle sans même ouvrir l'app.")
+        val actions = UI.column(ctx)
+        actions.addView(UI.ghostButton(ctx, "Poser le widget sur l'accueil") { activity.pinWidget() }, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
+        if (!Canteen.get(ctx).connected()) actions.addView(UI.ghostButton(ctx, "Relier ma cantine (Turboself)") {
+            CanteenUI.showLogin(activity) { activity.refreshScreen() }
+        }, UI.matchWidth())
+        page.addView(actions, UI.matchWidth())
+        page.addView(UI.text(ctx, "Astuce : reste appuyé sur une carte de l'accueil pour poser son widget.", 13f, R.color.text3).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, ctx.dp(16), 0, 0)
+        }, UI.matchWidth())
+        page.addView(View(ctx), LinearLayout.LayoutParams(1, 0, 1f))
+        riseIn(listOf(actions), 150)
+        return page
     }
 
     /** Pieces of paper in the subject colours, thrown from the top and falling with gravity. */
