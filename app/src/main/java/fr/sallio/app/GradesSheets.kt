@@ -58,6 +58,45 @@ object GradesSheets {
         }
     }
 
+    /**
+     * The overall average after each grade, the way PRONOTE builds it: each
+     * subject's weighted average of its grades so far, then the mean of those
+     * subjects. A plain average of every grade drifted away from PRONOTE's
+     * overall (a subject with many small tests weighed more; Oscar, 2026-10-15).
+     * The class curve does the same with the class average of each test.
+     */
+    internal fun runningOverall(grades: List<Grade>): List<Point> {
+        class Acc { var sum = 0.0; var weight = 0.0; var classSum = 0.0; var classWeight = 0.0 }
+        val bySubject = LinkedHashMap<String, Acc>()
+        return grades.sortedBy { it.date }.mapNotNull { g ->
+            val v = on20(g) ?: return@mapNotNull null
+            val w = g.coefficient?.takeIf { it > 0 } ?: 1.0
+            val acc = bySubject.getOrPut(g.subject) { Acc() }
+            acc.sum += v * w
+            acc.weight += w
+            classOn20(g)?.let { c -> acc.classSum += c * w; acc.classWeight += w }
+            val subjects = bySubject.values.filter { it.weight > 0 }
+            val classes = bySubject.values.filter { it.classWeight > 0 }
+            Point(subjects.map { it.sum / it.weight }.average(), g.date, g,
+                classes.takeIf { it.isNotEmpty() }?.map { it.classSum / it.classWeight }?.average())
+        }
+    }
+
+    /**
+     * The curves moved so they end on PRONOTE's own overall averages. PRONOTE
+     * weighs subjects with coefficients it does not send (seen 2026-10-15: 17,86
+     * official, 18,21 by subject), so the shape is Sallio's and the last point is
+     * PRONOTE's: the curve and the big number never disagree.
+     */
+    internal fun anchored(curve: List<Point>, overall: Double?, classOverall: Double?): List<Point> {
+        val last = curve.lastOrNull() ?: return curve
+        val shift = overall?.let { it - last.value } ?: 0.0
+        val classShift = if (classOverall != null && last.classValue != null) classOverall - last.classValue else 0.0
+        return curve.map { p ->
+            Point((p.value + shift).coerceIn(0.0, 20.0), p.date, p.grade, p.classValue?.let { (it + classShift).coerceIn(0.0, 20.0) })
+        }
+    }
+
     // ---- Moyenne générale --------------------------------------------------------
 
     fun showOverview(activity: MainActivity, report: Report, bottomInset: Int) {
@@ -81,6 +120,7 @@ object GradesSheets {
                 else -> "Pile la moyenne de la classe"
             }, 14f, R.color.on_accent, 800).apply { alpha = 0.9f; setPadding(0, ctx.dp(4), 0, 0) })
             report.overall?.let { t -> Motion.countUp(big, t) { UI.number(it) } }
+            activity.offerWidget(hero, AverageWidget::class.java)
             sheet.addView(hero, UI.matchWidth().apply { topMargin = ctx.dp(12) })
 
             // Key numbers.
@@ -104,7 +144,7 @@ object GradesSheets {
             sheet.addView(tiles, UI.matchWidth().apply { topMargin = ctx.dp(12) })
 
             // Curve.
-            val curve = runningAverage(report.grades)
+            val curve = anchored(runningOverall(report.grades), report.overall, report.classOverall)
             if (curve.size >= 2) {
                 sheet.addView(UI.section(ctx, "Évolution"))
                 val card = UI.card(ctx, padding = 14)
@@ -435,9 +475,11 @@ object GradesSheets {
                 val h = (bottom - top) * n / max * progress
                 val r = 8 * d
                 canvas.drawRoundRect(cx - barW / 2, top, cx + barW / 2, bottom, r, r, empty)
-                if (n > 0) canvas.drawRoundRect(cx - barW / 2, bottom - h.coerceAtLeast(2 * r), cx + barW / 2, bottom, r, r, bar)
+                val drawn = h.coerceAtLeast(2 * r)
+                if (n > 0) canvas.drawRoundRect(cx - barW / 2, bottom - drawn, cx + barW / 2, bottom, r, r, bar)
                 canvas.drawText(name, cx, height - 3 * d, label)
-                if (n > 0) canvas.drawText(n.toString(), cx, (bottom - h - 5 * d).coerceAtLeast(13 * d), count)
+                // Above the bar as drawn, which a short bar's rounded ends make taller than [h].
+                if (n > 0) canvas.drawText(n.toString(), cx, (bottom - drawn - 5 * d).coerceAtLeast(13 * d), count)
             }
         }
     }
