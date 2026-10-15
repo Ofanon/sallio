@@ -19,8 +19,35 @@ data class News(
     val questions: List<Question>,
     /** Attached files and the links of the text; null when read before the app knew them. */
     val files: List<Homework.Attachment>? = null,
+    /** An information that asks for an acknowledgement ("J'ai pris connaissance"). */
+    val needsAck: Boolean = false,
+    /** That acknowledgement was given. */
+    val acked: Boolean = false,
 ) {
-    data class Question(val title: String, val text: String, val choices: List<String>, val answered: Boolean)
+    /**
+     * A survey question. [kind] is PRONOTE's `genreReponse`: 0 information text,
+     * 1 free text, 2 one choice, 3 several choices, 5 text block without answer.
+     * [answer] holds the chosen positions (1-based, PRONOTE's `rang`) and the
+     * typed text, as they are on PRONOTE or as just sent.
+     */
+    data class Question(
+        val title: String,
+        val text: String,
+        val choices: List<String>,
+        val answered: Boolean,
+        val kind: Int = KIND_UNIQUE,
+        /** Positions of the choices that take a typed answer ("Autre : …"). */
+        val freeChoices: Set<Int> = emptySet(),
+        /** At most this many choices, for [KIND_MULTIPLE]; null for no limit. */
+        val maxChoices: Int? = null,
+        val answer: Answer = Answer(),
+        /** PRONOTE's position (`rang`) of each of [choices], what answers are made of. */
+        val ranks: List<Int> = choices.indices.map { it + 1 },
+    ) {
+        val needsInput get() = kind == KIND_TEXT || kind == KIND_UNIQUE || kind == KIND_MULTIPLE
+    }
+
+    data class Answer(val chosen: Set<Int> = emptySet(), val text: String = "")
 
     /** Stable across sessions (ids are not). */
     val key: String get() = "$date|$title|$author"
@@ -30,10 +57,18 @@ data class News(
         .put("s", survey).put("r", read).put("x", content)
         .put("q", JSONArray(questions.map {
             JSONObject().put("t", it.title).put("x", it.text).put("c", JSONArray(it.choices)).put("a", it.answered)
+                .put("k", it.kind).put("fc", JSONArray(it.freeChoices.toList())).put("max", it.maxChoices ?: JSONObject.NULL)
+                .put("ac", JSONArray(it.answer.chosen.toList())).put("at", it.answer.text).put("cr", JSONArray(it.ranks))
         }))
+        .put("na", needsAck).put("ak", acked)
         .put("f", files?.let { Inbox.filesJson(it) } ?: JSONObject.NULL)
 
     companion object {
+        const val KIND_INFO = 0
+        const val KIND_TEXT = 1
+        const val KIND_UNIQUE = 2
+        const val KIND_MULTIPLE = 3
+
         fun fromJson(o: JSONObject) = News(
             title = o.optString("t"),
             author = o.optString("a"),
@@ -43,10 +78,20 @@ data class News(
             read = o.optBoolean("r"),
             content = o.optString("x"),
             questions = o.optJSONArray("q")?.objects().orEmpty().map { q ->
+                fun ints(name: String) = q.optJSONArray(name)?.let { a -> (0 until a.length()).map { a.getInt(it) } }.orEmpty().toSet()
                 Question(q.optString("t"), q.optString("x"),
-                    q.optJSONArray("c")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty(), q.optBoolean("a"))
+                    q.optJSONArray("c")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty(), q.optBoolean("a"),
+                    kind = q.optInt("k", KIND_UNIQUE), freeChoices = ints("fc"),
+                    maxChoices = if (q.isNull("max") || !q.has("max")) null else q.optInt("max"),
+                    answer = Answer(ints("ac"), q.optString("at")),
+                    ranks = q.optJSONArray("cr")?.let { a -> (0 until a.length()).map { a.getInt(it) } }
+                        ?: q.optJSONArray("c")?.let { a -> (1..a.length()).toList() }.orEmpty())
             },
-            files = o.optJSONArray("f")?.let { Inbox.filesFromJson(it) },
+            // Copies made before survey answers and acknowledgements were read have no "na":
+            // without files they count as not fully read, so the next sync asks for them again.
+            files = if (o.has("na")) o.optJSONArray("f")?.let { Inbox.filesFromJson(it) } else null,
+            needsAck = o.optBoolean("na"),
+            acked = o.optBoolean("ak"),
         )
     }
 }
@@ -176,22 +221,67 @@ object Inbox {
             ?.optJSONArray("V")?.objects().orEmpty()
     }
 
+    internal fun question(q: JSONObject, text: String): News.Question {
+        val choices = q.optJSONObject("listeChoix")?.optJSONArray("V")?.objects().orEmpty()
+        val reply = q.optJSONObject("reponse")?.optJSONObject("V")
+        val answered = reply?.optBoolean("avecReponse") == true
+        // The answer as PRONOTE has it: typed text, or chosen positions ("[1,3]") plus the "Autre" text.
+        val value = reply?.opt("valeurReponse")
+        val answer = when {
+            !answered || value == null -> News.Answer()
+            value is String -> News.Answer(text = value)
+            value is JSONObject -> News.Answer(ranges(value.optString("V")), reply.optString("valeurReponseLibre"))
+            else -> News.Answer()
+        }
+        return News.Question(
+            title = q.optString("titre").ifEmpty { q.optString("L") },
+            text = text,
+            choices = choices.sortedBy { it.optInt("rang") }.map { it.optString("L") },
+            ranks = choices.map { it.optInt("rang") }.sorted(),
+            answered = answered,
+            kind = q.optInt("genreReponse", News.KIND_UNIQUE),
+            freeChoices = choices.filter { it.optBoolean("estReponseLibre") }.map { it.optInt("rang") }.toSet(),
+            maxChoices = if (q.optBoolean("avecMaximum")) q.optInt("nombreReponsesMax").takeIf { it > 0 } else null,
+            answer = answer,
+        )
+    }
+
+    /** "[1,3..5]" to {1, 3, 4, 5}. */
+    internal fun ranges(text: String): Set<Int> {
+        val inner = text.trim().removePrefix("[").removeSuffix("]").trim()
+        if (inner.isEmpty()) return emptySet()
+        return inner.split(",").flatMap { part ->
+            val bounds = part.split("..").mapNotNull { it.trim().toIntOrNull() }
+            if (bounds.size == 2) (bounds[0]..bounds[1]).toList() else bounds
+        }.toSet()
+    }
+
+    /** {1, 3, 4, 5} to "[1,3..5]", as PRONOTE writes them. */
+    internal fun ranges(values: Set<Int>): String {
+        val sorted = values.sorted()
+        val parts = mutableListOf<String>()
+        var i = 0
+        while (i < sorted.size) {
+            var j = i
+            while (j + 1 < sorted.size && sorted[j + 1] == sorted[j] + 1) j++
+            parts += if (j > i) "${sorted[i]}..${sorted[j]}" else "${sorted[i]}"
+            i = j + 1
+        }
+        return "[${parts.joinToString(",")}]"
+    }
+
     private fun html(q: JSONObject) = q.optJSONObject("texte")?.optString("V") ?: q.optString("texte")
 
     private fun withQuestions(base: News, questions: List<JSONObject>): News {
         fun text(q: JSONObject) = Schoolwork.htmlToText(html(q))
         val files = questions.flatMap { files(it.optJSONObject("listePiecesJointes"), html(it)) }.distinctBy { it.name to it.link }
         return if (!base.survey) {
-            base.copy(content = questions.firstOrNull()?.let { text(it) }.orEmpty(), files = files)
+            // An information has one question: its text, and whether PRONOTE waits for an acknowledgement.
+            val reply = questions.firstOrNull()?.optJSONObject("reponse")?.optJSONObject("V")
+            base.copy(content = questions.firstOrNull()?.let { text(it) }.orEmpty(), files = files,
+                needsAck = reply?.optBoolean("estReponseAttendue") == true, acked = reply?.optBoolean("avecReponse") == true)
         } else {
-            base.copy(files = files, questions = questions.map { q ->
-                News.Question(
-                    title = q.optString("titre").ifEmpty { q.optString("L") },
-                    text = text(q),
-                    choices = q.optJSONObject("listeChoix")?.optJSONArray("V")?.objects().orEmpty().map { it.optString("L") },
-                    answered = q.optJSONObject("reponse")?.optJSONObject("V")?.optBoolean("avecReponse") == true,
-                )
-            })
+            base.copy(files = files, questions = questions.map { q -> question(q, text(q)) })
         }
     }
 
@@ -257,6 +347,64 @@ object Inbox {
         // No longer on PRONOTE: nothing left to mark.
         settled += wanted.keys - items.map { base(it).key }.toSet()
         return settled
+    }
+
+    /**
+     * Answers the actualité [key] on PRONOTE, as its own page does (Pawnote's
+     * `newsSurveySend` and `newsInformationAcknowledge`): every question with
+     * its answer, and the item marked read. [answers] has one entry per
+     * question in PRONOTE's order; for an information, an empty answer is the
+     * acknowledgement. Returns false when PRONOTE refuses (`_erreurSaisie_`),
+     * throws when the actualité is gone.
+     */
+    fun answerNews(logged: LoggedIn, key: String, answers: List<News.Answer>, log: (String) -> Unit = {}): Boolean {
+        val session = logged.session
+        val p = session.properties
+        val item = list(session).firstOrNull { base(it).key == key } ?: throw PronoteException.Protocol("Actualité introuvable")
+        val raw = details(session, item.optString("N"))
+        val student = JSONObject().put("N", session.userResource?.optString("N").orEmpty()).put("G", 4)
+        val audience = item.optJSONObject("public")?.optJSONObject("V") ?: student
+        val questions = JSONArray()
+        raw.forEachIndexed { i, q ->
+            val kind = q.optInt("genreReponse")
+            val answer = answers.getOrElse(i) { News.Answer() }
+            val reply = q.optJSONObject("reponse")?.optJSONObject("V")
+            val free = q.optJSONObject("listeChoix")?.optJSONArray("V")?.objects().orEmpty().any { it.optBoolean("estReponseLibre") }
+            val value: Any = if (kind == News.KIND_INFO || kind == News.KIND_TEXT) answer.text
+                else JSONObject().put("_T", 8).put("V", ranges(answer.chosen))
+            questions.put(JSONObject()
+                .put("N", q.optString("N"))
+                .put("L", q.optString("L"))
+                .put("genreReponse", kind)
+                .put("reponse", JSONObject()
+                    .put("N", reply?.optString("N")?.toIntOrNull() ?: 0)
+                    .put("Actif", true)
+                    .put("valeurReponse", value)
+                    .apply { if (free) put("valeurReponseLibre", answer.text) }
+                    .put("avecReponse", true)
+                    .put("estReponseAttendue", reply?.optBoolean("estReponseAttendue") == true)
+                    .put("_validationSaisie", true)))
+        }
+        val entry = JSONObject()
+            .put("N", item.optString("N"))
+            .put("L", item.optString("L"))
+            .put("genrePublic", audience.optInt("G", 4))
+            .put("public", audience)
+            .put("validationDirecte", true)
+            .put("listeQuestions", questions)
+            .put("marqueLueSeulement", false)
+            .put("lue", true)
+            .put("supprimee", false)
+            .put("saisieActualite", false)
+        val answer = session.call(
+            "SaisieActualites",
+            JSONObject()
+                .put(p.signature, JSONObject().put("onglet", 8))
+                .put(p.data, JSONObject().put("listeActualites", JSONArray().put(entry)).put("saisieActualite", false)),
+        )
+        val refused = answer.optJSONObject("RapportSaisie")?.optBoolean("_erreurSaisie_") == true
+        log("SaisieActualites answers (${raw.size} questions): ${if (refused) "refusé" else "accepté"} ${answer.toString().take(200)}")
+        return !refused
     }
 
     /** Address of the file [name] of the actualité [key], in this session (ids change with each one). */

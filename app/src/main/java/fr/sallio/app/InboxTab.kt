@@ -365,30 +365,19 @@ class InboxTab(private val activity: MainActivity, private val repo: Repo) {
                 sheet.addView(card, UI.matchWidth().apply { topMargin = ctx.dp(8) })
             } else {
                 if (n.questions.isEmpty()) sheet.addView(UI.text(ctx, "Questions pas encore chargées : elles arrivent à la prochaine mise à jour.", 14f, R.color.text2))
-                n.questions.forEachIndexed { i, q ->
-                    sheet.addView(UI.section(ctx, "Question ${i + 1}${if (q.answered) " · répondu" else ""}"))
-                    val card = UI.card(ctx, padding = 16)
-                    if (q.title.isNotEmpty()) card.addView(UI.title(ctx, q.title, 16f))
-                    if (q.text.isNotEmpty() && q.text != q.title) card.addView(UI.text(ctx, q.text, 15f).apply { setPadding(0, ctx.dp(4), 0, 0); UI.linkify(this) })
-                    q.choices.forEach { c ->
-                        card.addView(UI.row(ctx).apply {
-                            setPadding(0, ctx.dp(8), 0, 0)
-                            addView(View(ctx).apply { background = UI.rounded(0, ctx.dp(8).toFloat(), ctx.dp(2), ctx.getColor(R.color.box_edge)) }, LinearLayout.LayoutParams(ctx.dp(18), ctx.dp(18)))
-                            addView(UI.hgap(ctx, 10))
-                            addView(UI.text(ctx, c, 15f), UI.weight())
-                        }, UI.matchWidth())
-                    }
-                    sheet.addView(card, UI.matchWidth())
-                }
+                else SurveyForm.add(activity, sheet, n) { dialog.dismiss() }
             }
             val files = n.files.orEmpty()
             if (files.isNotEmpty()) {
                 sheet.addView(UI.section(ctx, if (files.size > 1) "Pièces jointes et liens" else if (files[0].link != null) "Lien" else "Pièce jointe"))
                 sheet.addView(Attachments.card(activity, files, "news|${n.key}") { logged, name -> Inbox.newsFileUrl(logged, n.key, name) }, UI.matchWidth())
             }
-            if (n.survey) sheet.addView(UI.ghostButton(ctx, "Répondre sur Pronote") { activity.openPronote() }, UI.matchWidth().apply { topMargin = ctx.dp(16) })
-            // "J'ai vu": marks it read here and on PRONOTE (sent with the homework ticks), only on this tap.
-            sheet.addView(UI.checkButton(ctx, "J'ai vu", "Vue", repo.isRead(n), { activity.isNewsSending(n) }) { activity.setNewsRead(n) }, UI.matchWidth().apply { topMargin = ctx.dp(16) })
+            when {
+                // PRONOTE waits for an acknowledgement: "J'ai vu" alone is refused on these.
+                !n.survey && n.needsAck -> sheet.addView(SurveyForm.ackButton(activity, n), UI.matchWidth().apply { topMargin = ctx.dp(16) })
+                // "J'ai vu": marks it read here and on PRONOTE (sent with the homework ticks), only on this tap.
+                !n.survey -> sheet.addView(UI.checkButton(ctx, "J'ai vu", "Vue", repo.isRead(n), { activity.isNewsSending(n) }) { activity.setNewsRead(n) }, UI.matchWidth().apply { topMargin = ctx.dp(16) })
+            }
         }
     }
 

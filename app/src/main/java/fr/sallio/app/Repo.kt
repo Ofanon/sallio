@@ -380,6 +380,55 @@ class Repo private constructor(private val context: Context) {
         }
     }
 
+    /**
+     * Sends a survey's answers, or an information's acknowledgement (one empty
+     * answer), to PRONOTE now, then keeps them on the phone. Worker thread.
+     * Returns a message to show when it did not go through, null when it did.
+     */
+    fun answerNews(n: News, answers: List<News.Answer>): String? {
+        account() ?: return "Connecte-toi d'abord à Pronote."
+        lock.lock()
+        try {
+            if (status().needsLogin) return "Pronote demande de te reconnecter : va dans Réglages."
+            val logged = liveSession() ?: run {
+                val wait = waitBeforeLogin(manual = true)
+                if (wait > 0) return "Pronote demande d'attendre un peu avant de te reconnecter : réessaie dans ${wait / 1000 + 1} s."
+                login()
+            }
+            val ok = Inbox.answerNews(logged, n.key, answers) { DebugLog.i(it) }
+            onSuccess()
+            Analytics.event(if (n.survey) "sondage_reponse" else "accuse_lecture", "resultat" to if (ok) "ok" else "refus")
+            if (!ok) return "Pronote a refusé l'envoi. Réessaie depuis Pronote si ça continue."
+            val updated = readList(NEWS) { News.fromJson(it) }.map { if (it.key == n.key) answered(it, answers) else it }
+            vault.write(NEWS, JSONArray(updated.map { it.toJson() }).toString())
+            // PRONOTE keeps answering the list as it was at login for this session: remember it is read.
+            val sent = if (prefs.getLong("readSentSession", 0) == liveSince) prefs.getStringSet("readSent", emptySet())!! else emptySet()
+            prefs.edit()
+                .putStringSet("readSent", sent.filterNot { it.substring(1) == n.key }.toSet() + ("+" + n.key))
+                .putLong("readSentSession", liveSince)
+                .putStringSet("pendingRead", pendingReads() - ("+" + n.key))
+                .apply()
+            return null
+        } catch (e: PronoteException) {
+            onFailure(e)
+            return explain(e)
+        } catch (e: Exception) {
+            DebugLog.i("answerNews failed", e)
+            Analytics.error("sondage", e)
+            return "L'envoi n'a pas marché, réessaie."
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    private fun answered(n: News, answers: List<News.Answer>) = n.copy(
+        read = true,
+        acked = n.acked || !n.survey,
+        questions = n.questions.mapIndexed { i, q ->
+            if (!q.needsInput) q else q.copy(answered = true, answer = answers.getOrElse(i) { q.answer })
+        },
+    )
+
     // ---- Being polite with PRONOTE ---------------------------------------------------
     //
     // PRONOTE suspends, for a while, IP addresses that log in too often. A whole
