@@ -248,13 +248,17 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val focusDay = Agenda.view(s.lessons, s.now).dayDate
         val day = selected?.takeIf { it in days } ?: focusDay?.takeIf { it in days } ?: today
 
-        val strip = UI.row(ctx).apply { setPadding(0, dp(2), dp(8), dp(2)) }
+        // Room above and below for the selected chip's pop and the press, which the strip's
+        // edges cut (Oscar, 2026-10-15); the scroll view does not clip to that padding.
+        val strip = UI.row(ctx).apply { setPadding(dp(4), dp(8), dp(8), dp(8)); clipChildren = false; clipToPadding = false }
         for (d in days) strip.addView(dayChip(d, d == day, s, onSelect))
         val scroller = HorizontalScrollView(ctx).apply {
             isHorizontalScrollBarEnabled = false
+            clipToPadding = false
+            clipChildren = false
             addView(strip)
         }
-        root.addView(scroller, UI.matchWidth())
+        root.addView(scroller, UI.matchWidth().apply { topMargin = -ctx.dp(6); bottomMargin = -ctx.dp(6); marginStart = -ctx.dp(4) })
         // Back to where the strip was, at once (no visible jump), then nudge only if
         // the selected day is off screen.
         // The previous strip may still be finishing its own smooth scroll after it was

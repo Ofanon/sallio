@@ -152,6 +152,24 @@ internal object UI {
         Motion.pressable(this)
     }
 
+    /** [ghostButton] with a brand logo before its label (Turboself, Pronote). */
+    fun ghostButton(context: Context, label: String, logo: Int, onClick: () -> Unit): View = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER
+        background = sticker(context, context.getColor(R.color.surface), context.getColor(R.color.edge), 18, 4, pressable = true)
+        stickerPadding(this, 16, 10)
+        addView(logo(context, logo, 26))
+        addView(hgap(context, 10))
+        addView(TextView(context).apply {
+            text = label
+            textSize = 15f
+            typeface = display(context, 500)
+            setTextColor(context.getColor(R.color.text))
+        })
+        setOnClickListener { onClick() }
+        Motion.pressable(this)
+    }
+
     fun ghostButton(context: Context, label: String, onClick: () -> Unit): View = TextView(context).apply {
         text = label
         textSize = 15f

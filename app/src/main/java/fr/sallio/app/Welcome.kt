@@ -284,7 +284,7 @@ object Welcome {
         val page = page(ctx, topInset, bottomInset, "⚡", "Encore plus vite", "Ta salle sans même ouvrir l'app.")
         val actions = UI.column(ctx)
         actions.addView(UI.ghostButton(ctx, "Poser le widget sur l'accueil") { activity.pinWidget() }, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
-        if (!Canteen.get(ctx).connected()) actions.addView(UI.ghostButton(ctx, "Relier ma cantine (Turboself)") {
+        if (!Canteen.get(ctx).connected()) actions.addView(UI.ghostButton(ctx, "Relier ma cantine", R.drawable.logo_turboself) {
             CanteenUI.showLogin(activity) { activity.refreshScreen() }
         }, UI.matchWidth())
         page.addView(actions, UI.matchWidth())
