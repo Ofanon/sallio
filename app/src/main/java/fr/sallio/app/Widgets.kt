@@ -118,14 +118,60 @@ object Widgets {
         val now = LocalDateTime.now()
         val view = Agenda.view(lessons, now)
 
-        if (nextIds.isNotEmpty()) manager.updateAppWidget(nextIds, renderNext(context, loggedIn, view, status, now))
-        if (dayIds.isNotEmpty()) manager.updateAppWidget(dayIds, renderDay(context, loggedIn, view, status, now))
-        if (tomorrowIds.isNotEmpty()) manager.updateAppWidget(tomorrowIds, renderTomorrow(context, loggedIn, lessons, status, now))
-        if (alertIds.isNotEmpty()) manager.updateAppWidget(alertIds, renderAlerts(context, loggedIn, lessons, status, now))
-        if (homeworkIds.isNotEmpty()) manager.updateAppWidget(homeworkIds, renderHomework(context, loggedIn, repo, lessons, status, now))
-        if (averageIds.isNotEmpty()) manager.updateAppWidget(averageIds, renderAverage(context, loggedIn, repo.report(), status, now))
-        if (canteenIds.isNotEmpty()) manager.updateAppWidget(canteenIds, renderCanteen(context, now))
+        if (nextIds.isNotEmpty()) manager.updateAppWidget(nextIds, sticker(renderNext(context, loggedIn, view, status, now)))
+        if (dayIds.isNotEmpty()) manager.updateAppWidget(dayIds, list(renderDay(context, loggedIn, view, status, now)))
+        if (tomorrowIds.isNotEmpty()) manager.updateAppWidget(tomorrowIds, list(renderTomorrow(context, loggedIn, lessons, status, now)))
+        if (alertIds.isNotEmpty()) manager.updateAppWidget(alertIds, list(renderAlerts(context, loggedIn, lessons, status, now)))
+        if (homeworkIds.isNotEmpty()) manager.updateAppWidget(homeworkIds, list(renderHomework(context, loggedIn, repo, lessons, status, now)))
+        if (averageIds.isNotEmpty()) manager.updateAppWidget(averageIds, sticker(renderAverage(context, loggedIn, repo.report(), status, now)))
+        if (canteenIds.isNotEmpty()) manager.updateAppWidget(canteenIds, sticker(renderCanteen(context, now)))
         scheduleTick(context, Agenda.nextChange(lessons, now))
+    }
+
+    // ---- Sizes (Android 12+: one layout per size, the launcher picks) ------------------
+
+    /** The size the big text was given for the content, so the variants scale it. */
+    private var roomSp = 40f
+
+    private fun roomSize(rv: RemoteViews, sp: Float) {
+        roomSp = sp
+        rv.setTextViewTextSize(R.id.room, android.util.TypedValue.COMPLEX_UNIT_SP, sp)
+    }
+
+    private fun copy(rv: RemoteViews) = RemoteViews(rv)
+
+    /**
+     * A sticker widget (Prochaine salle, Moyenne, Cantine) in three sizes: small keeps the
+     * label and the big text only, a little smaller; normal as drawn; large gets bigger
+     * text (Oscar, 2026-10-16).
+     */
+    private fun sticker(rv: RemoteViews): RemoteViews {
+        val base = roomSp
+        roomSp = 40f
+        if (android.os.Build.VERSION.SDK_INT < 31) return rv
+        val small = copy(rv).apply {
+            for (id in intArrayOf(R.id.then, R.id.footer, R.id.note, R.id.badge)) setViewVisibility(id, View.GONE)
+            setTextViewTextSize(R.id.room, android.util.TypedValue.COMPLEX_UNIT_SP, base * 0.65f)
+            setTextViewTextSize(R.id.subject, android.util.TypedValue.COMPLEX_UNIT_SP, 12f)
+            setViewVisibility(R.id.watermark, View.GONE)
+        }
+        val large = copy(rv).apply {
+            setTextViewTextSize(R.id.room, android.util.TypedValue.COMPLEX_UNIT_SP, base * 1.3f)
+            setTextViewTextSize(R.id.subject, android.util.TypedValue.COMPLEX_UNIT_SP, 17f)
+            setTextViewTextSize(R.id.label, android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
+        }
+        return RemoteViews(mapOf(
+            android.util.SizeF(100f, 60f) to small,
+            android.util.SizeF(170f, 110f) to rv,
+            android.util.SizeF(260f, 180f) to large,
+        ))
+    }
+
+    /** A list widget: when short, without its footer, to leave the room to the lines. */
+    private fun list(rv: RemoteViews): RemoteViews {
+        if (android.os.Build.VERSION.SDK_INT < 31) return rv
+        val short = copy(rv).apply { setViewVisibility(R.id.footer, View.GONE) }
+        return RemoteViews(mapOf(android.util.SizeF(150f, 60f) to short, android.util.SizeF(150f, 150f) to rv))
     }
 
     private fun footer(status: Repo.Status, now: LocalDateTime): String = when {
@@ -214,8 +260,8 @@ object Widgets {
             paintNext(context, rv, Subjects.solid(family), Subjects.edge(context, family), Subjects.onSolid(family), R.drawable.ic_sparkles)
             rv.setOnClickPendingIntent(R.id.root, openApp(context))
             rv.setTextViewText(R.id.label, if (now.toLocalDate() < h.start) "Dès demain" else "Bonnes vacances")
-            rv.setTextViewText(R.id.room, Vacation.name(h).removePrefix("Vacances ").replaceFirstChar { it.uppercase() })
-            rv.setTextViewTextSize(R.id.room, android.util.TypedValue.COMPLEX_UNIT_SP, 30f)
+            rv.setTextViewText(R.id.room, Vacation.shortName(h))
+            roomSize(rv, 30f)
             rv.setTextViewText(R.id.subject, "Reprise ${Vacation.dayText(back)}")
             rv.setTextViewText(R.id.footer, "")
             return rv
@@ -253,7 +299,7 @@ object Widgets {
         val room = android.text.SpannableString(if (hasRoom) Agenda.room(focus) else Agenda.pretty(focus.subject))
         if (focus.canceled) room.setSpan(android.text.style.StrikethroughSpan(), 0, room.length, 0)
         rv.setTextViewText(R.id.room, room)
-        rv.setTextViewTextSize(R.id.room, android.util.TypedValue.COMPLEX_UNIT_SP, if (hasRoom) 40f else 28f)
+        roomSize(rv, if (hasRoom) 40f else 28f)
         rv.setTextViewText(R.id.subject, if (hasRoom) describe(focus) else focus.teachers.firstOrNull()?.let { Agenda.prettyName(it) } ?: "")
         LessonNotes.text(context, focus)?.let {
             rv.setTextViewText(R.id.note, it)
@@ -434,7 +480,7 @@ object Widgets {
         paintNext(context, rv, Subjects.solid(family), Subjects.edge(context, family), Subjects.onSolid(family), R.drawable.ic_coin)
         rv.setOnClickPendingIntent(R.id.root, openSheet(context, MainActivity.OPEN_CANTEEN, 72))
         rv.setTextViewText(R.id.label, "Cantine")
-        rv.setTextViewTextSize(R.id.room, android.util.TypedValue.COMPLEX_UNIT_SP, 40f)
+        roomSize(rv, 40f)
         if (!canteen.connected() || d == null) {
             rv.setTextViewText(R.id.room, "—")
             rv.setTextViewText(R.id.subject, if (!canteen.connected()) "Relie Turboself dans Réglages › Cantine" else "Ton solde arrive")
@@ -463,7 +509,7 @@ object Widgets {
         rv.setViewVisibility(R.id.then, View.GONE)
         paintNext(context, rv, context.getColor(R.color.accent), context.getColor(R.color.accent_edge), context.getColor(R.color.on_accent), R.drawable.ic_star)
         rv.setTextViewText(R.id.label, listOfNotNull("Moyenne générale", report?.periodName?.takeIf { it.isNotBlank() }).joinToString(" · "))
-        rv.setTextViewTextSize(R.id.room, android.util.TypedValue.COMPLEX_UNIT_SP, 40f)
+        roomSize(rv, 40f)
         val overall = report?.overall
         if (!loggedIn || overall == null) {
             rv.setTextViewText(R.id.room, "—")

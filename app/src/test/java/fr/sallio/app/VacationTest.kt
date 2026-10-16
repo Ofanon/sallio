@@ -29,4 +29,11 @@ class VacationTest {
 
     @Test fun `the fetch reaches the week back at school`() =
         assertEquals(LocalDate.of(2026, 11, 8), Vacation.fetchUntil(listOf(toussaint), LocalDate.of(2026, 10, 16), LocalDate.of(2026, 10, 29)))
+
+    @Test fun `short names for the widget`() {
+        assertEquals("Toussaint", Vacation.shortName(toussaint))
+        assertEquals("Noël", Vacation.shortName(Holiday("Vacances de Noël", toussaint.start, toussaint.end)))
+        assertEquals("Hiver", Vacation.shortName(Holiday("Vacances d'hiver", toussaint.start, toussaint.end)))
+        assertEquals("Vacances", Vacation.shortName(Holiday("", toussaint.start, toussaint.end)))
+    }
 }

@@ -42,6 +42,11 @@ object Vacation {
     /** "Vacances de la Toussaint", or "Vacances" when PRONOTE's label is empty. */
     fun name(h: Holiday) = h.name.ifBlank { "Vacances" }.replaceFirstChar { it.uppercase() }
 
+    /** "Toussaint", "Noël", "Hiver": the name without "Vacances de la", for the big text of a widget. */
+    fun shortName(h: Holiday): String =
+        h.name.replace(Regex("(?i)^\\s*vacances\\s+(de\\s+la\\s+|de\\s+l'|d'|des\\s+|du\\s+|de\\s+)?"), "").trim()
+            .ifEmpty { "Vacances" }.replaceFirstChar { it.uppercase() }
+
     /** The end of the fetch window: past a holiday inside it, to the week back at school. */
     fun fetchUntil(holidays: List<Holiday>, today: LocalDate, until: LocalDate): LocalDate {
         val inside = holidays.filter { isBreak(it) && it.start <= until && it.end >= today }
