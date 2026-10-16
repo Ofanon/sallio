@@ -62,14 +62,36 @@ internal object Illustrations {
         }, UI.weight())
     }
 
-    /** Two notifications, as Sallio would send them. */
-    fun notifications(ctx: Context): View {
+    /** Two lessons of the student to show, the next one first; examples when none is known. */
+    private fun sample(s: Snapshot): Pair<fr.sallio.pronote.Lesson?, fr.sallio.pronote.Lesson?> {
+        // A lesson with a room reads best ("B204"): sport or an outing only when there is nothing else.
+        val coming = s.lessons.filter { it.start > s.now && !it.canceled }.sortedBy { it.start }
+        val next = coming.firstOrNull { it.rooms.isNotEmpty() } ?: coming.firstOrNull()
+        val other = coming.firstOrNull { it.subject != next?.subject && it.rooms.isNotEmpty() } ?: coming.firstOrNull { it.subject != next?.subject }
+        return next to other
+    }
+
+    private fun teacher(l: fr.sallio.pronote.Lesson) = l.teachers.firstOrNull()?.let { Agenda.prettyName(it) }
+
+    /** Three notifications, as Sallio would send them to this student (Oscar, 2026-10-16). */
+    fun notifications(ctx: Context, s: Snapshot): View {
         val col = UI.column(ctx)
         col.clipChildren = false
         col.clipToPadding = false
-        val a = notification(ctx, "MATHEMATIQUES", "B204 · Mathématiques", "Dans 5 min · M. Gallet", "8h25")
-        val b = notification(ctx, "ANGLAIS", "Prof absent · Anglais", "Cours de 10h annulé", "7h02")
-        val c = notification(ctx, "HISTOIRE-GEOGRAPHIE", "Demain : 4 cours", "Histoire-géo, Anglais, Maths…", "19h00")
+        val (next, other) = sample(s)
+        val a = next?.let { l ->
+            val title = if (l.rooms.isNotEmpty()) "${Agenda.room(l)} · ${Agenda.pretty(l.subject)}" else Agenda.pretty(l.subject)
+            notification(ctx, l.subject, title, listOfNotNull("Dans 5 min", teacher(l)).joinToString(" · "), Agenda.time(l.start.minusMinutes(5)))
+        } ?: notification(ctx, "MATHEMATIQUES", "B204 · Mathématiques", "Dans 5 min · M. Gallet", "8h25")
+        val b = other?.let { l ->
+            notification(ctx, l.subject, "Prof absent · ${Agenda.pretty(l.subject)}", "Cours annulé (exemple)", "7h02")
+        } ?: notification(ctx, "ANGLAIS", "Prof absent · Anglais", "Cours de 10h annulé", "7h02")
+        val day = Bag.nextDay(s.lessons, s.now.toLocalDate())
+        val subjects = day?.let { Bag.subjects(s.lessons, it) }.orEmpty()
+        val c = if (day != null && subjects.isNotEmpty()) notification(ctx, subjects.first(),
+            "${Bag.title(day, s.now.toLocalDate())} : ${subjects.size} matière${if (subjects.size > 1) "s" else ""}",
+            subjects.take(3).joinToString(", ") { Agenda.pretty(it) } + if (subjects.size > 3) "…" else "", "19h00")
+        else notification(ctx, "HISTOIRE-GEOGRAPHIE", "Demain : 4 cours", "Histoire-géo, Anglais, Maths…", "19h00")
         col.addView(a, UI.matchWidth())
         col.addView(b, UI.matchWidth().apply { topMargin = ctx.dp(8) })
         col.addView(c, UI.matchWidth().apply { topMargin = ctx.dp(8) })
@@ -77,8 +99,9 @@ internal object Illustrations {
         return col
     }
 
-    /** A home screen in miniature: app icons around Sallio's room widget. */
-    fun homeScreen(ctx: Context): View {
+    /** A home screen in miniature: app icons around Sallio's room widget, with the student's next room. */
+    fun homeScreen(ctx: Context, s: Snapshot): View {
+        val next = sample(s).first
         val phone = UI.column(ctx).apply {
             background = UI.rounded(ctx.getColor(R.color.surface2), ctx.dp(26).toFloat(), ctx.dp(3), ctx.getColor(R.color.edge))
             setPadding(ctx.dp(14), ctx.dp(16), ctx.dp(14), ctx.dp(16))
@@ -91,12 +114,17 @@ internal object Illustrations {
         val tints = listOf(Subjects.SKY, Subjects.GREEN, Subjects.PINK, Subjects.VIOLET, Subjects.CORAL, Subjects.TEAL, Subjects.AMBER, Subjects.ORANGE)
             .map { Subjects.tint(ctx, it) }
         phone.addView(icons(tints.take(4)), UI.matchWidth())
+        // The widget as it will look: the subject's colour, the student's next room.
+        val family = next?.let { Subjects.style(it.subject).family }
+        val fill = family?.let { Subjects.solid(it) } ?: ctx.getColor(R.color.accent)
+        val edge = family?.let { Subjects.edge(ctx, it) } ?: ctx.getColor(R.color.accent_edge)
+        val ink = family?.let { Subjects.onSolid(it) } ?: ctx.getColor(R.color.on_accent)
         val widget = UI.column(ctx).apply {
-            background = UI.sticker(ctx, ctx.getColor(R.color.accent), ctx.getColor(R.color.accent_edge), 18, 4)
+            background = UI.sticker(ctx, fill, edge, 18, 4)
             UI.stickerPadding(this, 12, 8, 4)
-            addView(UI.text(ctx, "Dans 3 min", 10f, R.color.on_accent, 900).apply { alpha = 0.8f })
-            addView(UI.title(ctx, "B204", 26f, R.color.on_accent))
-            addView(UI.text(ctx, "Mathématiques", 11f, R.color.on_accent, 800))
+            addView(UI.text(ctx, next?.let { Agenda.when_(it, s.now) } ?: "Dans 3 min", 10f, weight = 900).apply { setTextColor(ink); alpha = 0.8f })
+            addView(UI.oneLine(UI.title(ctx, next?.let { if (it.rooms.isNotEmpty()) Agenda.room(it) else Agenda.pretty(it.subject) } ?: "B204", 26f)).apply { setTextColor(ink) })
+            addView(UI.oneLine(UI.text(ctx, next?.let { Agenda.pretty(it.subject) } ?: "Mathématiques", 11f, weight = 800)).apply { setTextColor(ink) })
         }
         phone.addView(widget, UI.matchWidth().apply { topMargin = ctx.dp(12); bottomMargin = ctx.dp(12) })
         phone.addView(icons(tints.drop(4)), UI.matchWidth())

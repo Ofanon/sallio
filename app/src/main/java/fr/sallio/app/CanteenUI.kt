@@ -319,6 +319,59 @@ object CanteenUI {
 
     // ---- Login -----------------------------------------------------------------------
 
+    /** "Cantine reliée": the green proof, with the available balance. */
+    fun linkedBadge(activity: MainActivity): View {
+        val ctx = activity
+        val d = Canteen.get(ctx).data()
+        return UI.row(ctx).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            background = UI.sticker(ctx, ctx.getColor(R.color.success_bg), ctx.getColor(R.color.success_edge), 18, 4)
+            UI.stickerPadding(this, 16, 10)
+            addView(UI.logo(ctx, R.drawable.logo_turboself, 26))
+            addView(UI.hgap(ctx, 10))
+            addView(UI.text(ctx, "Cantine reliée", 15f, R.color.success, 800), UI.weight())
+            d?.balance?.let { addView(UI.text(ctx, Canteen.money(it.estimatedAmount), 15f, R.color.success, 900)) }
+            addView(UI.hgap(ctx, 8))
+            addView(UI.icon(ctx, R.drawable.ic_check, R.color.success, 18))
+        }
+    }
+
+    /** After the login: a big tick, the student's first name as TurboSelf knows it, the balance. */
+    private fun linkedScreen(activity: MainActivity, close: () -> Unit): View {
+        val ctx = activity
+        val d = Canteen.get(ctx).data()
+        val col = UI.column(ctx).apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, ctx.dp(8), 0, 0) }
+        val tick = android.widget.FrameLayout(ctx).apply {
+            background = UI.rounded(ctx.getColor(R.color.success), ctx.dp(36).toFloat())
+            addView(UI.icon(ctx, R.drawable.ic_check, R.color.success_bg, 36).apply {
+                layoutParams = android.widget.FrameLayout.LayoutParams(ctx.dp(36), ctx.dp(36), Gravity.CENTER)
+            })
+        }
+        col.addView(tick, LinearLayout.LayoutParams(ctx.dp(72), ctx.dp(72)))
+        col.addView(UI.title(ctx, "Cantine reliée !", 24f).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(14), 0, 0) }, UI.matchWidth())
+        val who = d?.firstName?.takeIf { it.isNotBlank() }?.let { "Compte Turboself de ${it.lowercase().replaceFirstChar { c -> c.uppercase() }}" } ?: "Ton compte Turboself est relié"
+        col.addView(UI.text(ctx, who, 15f, R.color.text2).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(4), 0, ctx.dp(16)) }, UI.matchWidth())
+        d?.balance?.let { b ->
+            val card = UI.card(ctx, R.color.accent, R.color.accent_edge, padding = 16)
+            card.addView(UI.text(ctx, "SOLDE DISPONIBLE", 12f, R.color.on_accent, 900).apply { letterSpacing = 0.06f; alpha = 0.8f })
+            val big = UI.title(ctx, Canteen.money(b.estimatedAmount), 34f, R.color.on_accent)
+            card.addView(big)
+            nextLunchLine(d, LocalDateTime.now())?.let { card.addView(UI.text(ctx, it, 13f, R.color.on_accent, 800).apply { setPadding(0, ctx.dp(2), 0, 0) }) }
+            col.addView(card, UI.matchWidth())
+        }
+        col.addView(UI.text(ctx, "Ta carte, ton solde et tes réservations sont dans la carte Cantine de l'accueil.", 13f, R.color.text2).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, ctx.dp(14), 0, ctx.dp(14))
+        }, UI.matchWidth())
+        col.addView(UI.button(ctx, "Super") { close() }, UI.matchWidth())
+        if (android.animation.ValueAnimator.areAnimatorsEnabled()) {
+            tick.scaleX = 0.4f; tick.scaleY = 0.4f; tick.alpha = 0f
+            tick.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(420)
+                .setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).start()
+        }
+        return col
+    }
+
     fun showLogin(activity: MainActivity, onDone: () -> Unit) {
         val ctx = activity
         Sheet.open(activity, activity.bottomInsetPx) { sheet, dialog ->
@@ -369,8 +422,11 @@ object CanteenUI {
                     activity.runOnUiThread {
                         busy = false
                         if (error == null) {
+                            // Said, not just closed: the student sees it worked and what Sallio got.
                             Motion.success(sheet)
-                            dialog.dismiss()
+                            sheet.removeAllViews()
+                            sheet.addView(linkedScreen(activity) { dialog.dismiss() }, UI.matchWidth())
+                            Analytics.event("cantine_connexion_vue")
                             onDone()
                         } else {
                             Motion.failure(sheet)

@@ -199,12 +199,12 @@ object Welcome {
         show = { next ->
             val old = pages.getChildAt(0)
             val page = when (next) {
-                1 -> notificationsPage(activity, topInset, bottomInset).also { p ->
+                1 -> notificationsPage(activity, s, topInset, bottomInset).also { p ->
                     footer(p, 1, "Activer", {
                         activity.enableEverySchoolNotification { show(2) }
                     }, "Plus tard") { show(2) }
                 }
-                else -> fasterPage(activity, topInset, bottomInset).also { p ->
+                else -> fasterPage(activity, s, topInset, bottomInset).also { p ->
                     footer(p, 2, "C'est parti", { leave() }, null) {}
                 }
             }
@@ -266,21 +266,31 @@ object Welcome {
         }, UI.weight())
     }
 
-    private fun notificationsPage(activity: MainActivity, topInset: Int, bottomInset: Int): LinearLayout {
+    private fun notificationsPage(activity: MainActivity, s: Snapshot, topInset: Int, bottomInset: Int): LinearLayout {
         val ctx = activity
-        val page = page(ctx, topInset, bottomInset, Illustrations.notifications(ctx), "Ne rate rien", "Ta salle 5 min avant chaque cours, les profs absents, ton cartable la veille. Seulement quand c'est utile.")
+        val page = page(ctx, topInset, bottomInset, Illustrations.notifications(ctx, s), "Ne rate rien", "Ta salle 5 min avant chaque cours, les profs absents, ton cartable la veille. Seulement quand c'est utile.")
         page.addView(View(ctx), LinearLayout.LayoutParams(1, 0, 1.3f))
         return page
     }
 
-    private fun fasterPage(activity: MainActivity, topInset: Int, bottomInset: Int): LinearLayout {
+    private fun fasterPage(activity: MainActivity, s: Snapshot, topInset: Int, bottomInset: Int): LinearLayout {
         val ctx = activity
-        val page = page(ctx, topInset, bottomInset, Illustrations.homeScreen(ctx), "Encore plus vite", "Ta salle sans même ouvrir l'app.")
+        val page = page(ctx, topInset, bottomInset, Illustrations.homeScreen(ctx, s), "Encore plus vite", "Ta salle sans même ouvrir l'app.")
         val actions = UI.column(ctx)
         actions.addView(UI.ghostButton(ctx, "Poser le widget sur l'accueil") { activity.pinWidget() }, UI.matchWidth().apply { bottomMargin = ctx.dp(10) })
-        if (!Canteen.get(ctx).connected()) actions.addView(UI.ghostButton(ctx, "Relier ma cantine", R.drawable.logo_turboself) {
-            CanteenUI.showLogin(activity) { activity.refreshScreen() }
-        }, UI.matchWidth())
+        if (!Canteen.get(ctx).connected()) {
+            val slot = FrameLayout(ctx)
+            slot.addView(UI.ghostButton(ctx, "Relier ma cantine", R.drawable.logo_turboself) {
+                CanteenUI.showLogin(activity) {
+                    // Linked: the button becomes the proof, with the balance.
+                    slot.removeAllViews()
+                    slot.addView(CanteenUI.linkedBadge(activity), FrameLayout.LayoutParams(-1, -2))
+                    Motion.pop(slot, 0.9f)
+                    activity.refreshScreen()
+                }
+            }, FrameLayout.LayoutParams(-1, -2))
+            actions.addView(slot, UI.matchWidth())
+        }
         page.addView(actions, UI.matchWidth())
         page.addView(UI.text(ctx, "Astuce : reste appuyé sur une carte de l'accueil pour poser son widget.", 13f, R.color.text3).apply {
             gravity = Gravity.CENTER
