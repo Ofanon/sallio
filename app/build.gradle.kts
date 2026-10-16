@@ -59,6 +59,13 @@ android {
             applicationIdSuffix = ".debug"
             resValue("string", "app_name", "Sallio test")
         }
+        // Sallio test, shrunk like the release: to see what R8 changes, with the debug tools.
+        create("shrunk") {
+            initWith(getByName("debug"))
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            matchingFallbacks += listOf("debug")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
