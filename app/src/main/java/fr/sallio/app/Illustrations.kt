@@ -83,9 +83,17 @@ internal object Illustrations {
             val title = if (l.rooms.isNotEmpty()) "${Agenda.room(l)} · ${Agenda.pretty(l.subject)}" else Agenda.pretty(l.subject)
             notification(ctx, l.subject, title, listOfNotNull("Dans 5 min", teacher(l)).joinToString(" · "), Agenda.time(l.start.minusMinutes(5)))
         } ?: notification(ctx, "MATHEMATIQUES", "B204 · Mathématiques", "Dans 5 min · M. Gallet", "8h25")
-        val b = other?.let { l ->
-            notification(ctx, l.subject, "Prof absent · ${Agenda.pretty(l.subject)}", "Cours annulé (exemple)", "7h02")
-        } ?: notification(ctx, "ANGLAIS", "Prof absent · Anglais", "Cours de 10h annulé", "7h02")
+        // Only true things (Oscar, 2026-10-16): a real change of the timetable if there is one,
+        // else the student's latest grade, else a neutral example.
+        val change = s.lessons.filter { it.end > s.now && Agenda.alert(it) != null }.minByOrNull { it.start }
+        val grade = s.report?.grades?.filter { it.points != null }?.maxByOrNull { it.date }
+        val b = when {
+            change != null -> notification(ctx, change.subject, "${Agenda.alert(change)} · ${Agenda.pretty(change.subject)}",
+                "${Agenda.dayName(change.start.toLocalDate())} ${Agenda.time(change.start)}", "7h02")
+            grade != null -> notification(ctx, grade.subject, "Nouvelle note · ${Agenda.pretty(grade.subject)}",
+                "${grade.value}${grade.outOf?.let { "/${UI.number(it)}" } ?: ""}" + (grade.classAverage?.let { " · classe ${UI.number(it)}" } ?: ""), "17h40")
+            else -> notification(ctx, other?.subject ?: "ANGLAIS", "Changement de salle", "Sallio te prévient dès que ça arrive", "7h02")
+        }
         val day = Bag.nextDay(s.lessons, s.now.toLocalDate())
         val subjects = day?.let { Bag.subjects(s.lessons, it) }.orEmpty()
         val c = if (day != null && subjects.isNotEmpty()) notification(ctx, subjects.first(),

@@ -319,6 +319,49 @@ object CanteenUI {
 
     // ---- Login -----------------------------------------------------------------------
 
+    /**
+     * Unlinking TurboSelf: asked first (it erases the password and the copy), then said
+     * when done (Oscar, 2026-10-16), as the linking is.
+     */
+    fun confirmDisconnect(activity: MainActivity, onDone: () -> Unit) {
+        android.app.AlertDialog.Builder(activity)
+            .setTitle("Déconnecter Turboself ?")
+            .setMessage("Ton mot de passe Turboself, ton solde et tes réservations seront effacés de ce téléphone. Tes réservations restent sur Turboself.")
+            .setPositiveButton("Déconnecter") { _, _ ->
+                activity.worker.execute {
+                    Canteen.get(activity).disconnect()
+                    Analytics.event("cantine_deconnexion")
+                    activity.runOnUiThread {
+                        onDone()
+                        Sheet.open(activity, activity.bottomInsetPx) { sheet, dialog ->
+                            sheet.addView(doneScreen(activity, R.drawable.ic_logout, "Turboself déconnecté",
+                                "Ton mot de passe et tes données de cantine ont été effacés de ce téléphone. Tu peux relier ton compte à nouveau dans Réglages › Cantine.") { dialog.dismiss() }, UI.matchWidth())
+                        }
+                    }
+                }
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
+
+    /** A round mark, a title, a sentence and "OK": the end of an account change. */
+    private fun doneScreen(activity: MainActivity, icon: Int, title: String, text: String, close: () -> Unit): View {
+        val ctx = activity
+        val col = UI.column(ctx).apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, ctx.dp(8), 0, 0) }
+        val mark = android.widget.FrameLayout(ctx).apply {
+            background = UI.rounded(ctx.getColor(R.color.surface2), ctx.dp(36).toFloat())
+            addView(UI.icon(ctx, icon, R.color.text2, 32).apply {
+                layoutParams = android.widget.FrameLayout.LayoutParams(ctx.dp(32), ctx.dp(32), Gravity.CENTER)
+            })
+        }
+        col.addView(mark, LinearLayout.LayoutParams(ctx.dp(72), ctx.dp(72)))
+        col.addView(UI.title(ctx, title, 22f).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(14), 0, 0) }, UI.matchWidth())
+        col.addView(UI.text(ctx, text, 14f, R.color.text2).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(6), 0, ctx.dp(18)) }, UI.matchWidth())
+        col.addView(UI.button(ctx, "OK") { close() }, UI.matchWidth())
+        Motion.fadeIn(mark)
+        return col
+    }
+
     /** "Cantine reliée": the green proof, with the available balance. */
     fun linkedBadge(activity: MainActivity): View {
         val ctx = activity

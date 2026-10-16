@@ -831,7 +831,7 @@ class MainActivity : Activity() {
                     CanteenUI.showSheet(this)
                 },
                 SettingsSheet.Item.Action(R.drawable.ic_logout, "Déconnecter Turboself", "Efface le mot de passe et les données Turboself de ce téléphone.", danger = true) {
-                    worker.execute { canteen.disconnect(); runOnUiThread { render() } }
+                    CanteenUI.confirmDisconnect(this) { render() }
                 },
             ) else listOf(
                 SettingsSheet.Item.Action(R.drawable.logo_turboself, "Connecter Turboself", "Avec ton e-mail et ton mot de passe Turboself.") {
