@@ -130,9 +130,11 @@ object Reminders {
         val alert = Agenda.alert(lesson)
         val subject = Agenda.pretty(lesson.subject)
         // The header line also holds the countdown: the room alone fits, the subject goes below.
-        val title = if (lesson.canceled) "${alert ?: "Cours annulé"}" else Agenda.room(lesson)
+        // No room (sport, an outing): the subject is the title, not a dash.
+        val hasRoom = lesson.rooms.isNotEmpty()
+        val title = if (lesson.canceled) "${alert ?: "Cours annulé"}" else if (hasRoom) Agenda.room(lesson) else subject
         val details = listOfNotNull(
-            subject,
+            subject.takeIf { hasRoom || lesson.canceled },
             if (lesson.canceled) "prévu à ${Agenda.time(lesson.start)}, il n'aura pas lieu" else "à ${Agenda.time(lesson.start)}",
             alert?.takeIf { !lesson.canceled },
             lesson.teachers.firstOrNull()?.let { Agenda.prettyName(it) },

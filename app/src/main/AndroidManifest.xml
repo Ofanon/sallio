@@ -147,6 +147,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".NotificationActions"
+            android:exported="false" />
+
+        <receiver
             android:name=".HomeworkWidget"
             android:exported="false"
             android:label="@string/widget_homework">

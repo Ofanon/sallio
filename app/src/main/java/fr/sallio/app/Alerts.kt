@@ -92,9 +92,16 @@ object Alerts {
                         .setContentTitle(title)
                         .build())
                 }
-                // "Pas encore réservé pour demain midi": book from the notification itself.
-                if (item.key.startsWith("canteen|book|") && Canteen.get(context).canAfford()) runCatching {
-                    builder.addAction(CanteenActions.book(context, java.time.LocalDate.parse(item.key.substringAfterLast('|')), item.key.hashCode()))
+                // Buttons that do the thing from the notification itself.
+                when {
+                    // "Pas encore réservé pour demain midi": book, or top up when the lunch does not fit.
+                    item.key.startsWith("canteen|book|") -> runCatching {
+                        if (Canteen.get(context).canAfford())
+                            builder.addAction(CanteenActions.book(context, java.time.LocalDate.parse(item.key.substringAfterLast('|')), item.key.hashCode()))
+                        else builder.addAction(NotificationActions.recharge(context))
+                    }
+                    item.key.startsWith("canteen|low|") -> builder.addAction(NotificationActions.recharge(context))
+                    item.key.startsWith("news|") -> builder.addAction(NotificationActions.newsRead(context, item.key.removePrefix("news|"), item.key.hashCode()))
                 }
                 runCatching { nm.notify(item.key.hashCode(), builder.build()) }
             }

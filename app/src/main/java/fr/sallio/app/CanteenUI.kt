@@ -21,7 +21,7 @@ import java.util.Locale
 object CanteenUI {
 
     private val fr = Locale.FRANCE
-    private const val ESPACE = "https://espacenumerique.turbo-self.com"
+    internal const val ESPACE = "https://espacenumerique.turbo-self.com"
 
     /** The lunch that matters now: today's until 13h, then the next one TurboSelf lists. */
     private fun nextLunch(d: Canteen.Data, now: LocalDateTime): Canteen.Day? {
@@ -153,26 +153,13 @@ object CanteenUI {
                 val big = UI.title(ctx, Canteen.money(b.estimatedAmount), 40f, R.color.on_accent)
                 line.addView(big)
                 val delta = from?.let { b.estimatedAmount - it }?.takeIf { kotlin.math.abs(it) > 0.004 }
-                if (delta != null) {
-                    val chip = UI.text(ctx, (if (delta < 0) "−" else "+") + Canteen.money(kotlin.math.abs(delta)), 15f, weight = 900).apply {
-                        setTextColor(ctx.getColor(if (delta < 0) R.color.alert else R.color.success))
-                        background = UI.rounded(ctx.getColor(R.color.surface), ctx.dp(99).toFloat())
-                        setPadding(ctx.dp(10), ctx.dp(3), ctx.dp(10), ctx.dp(4))
-                    }
-                    line.addView(UI.hgap(ctx, 12))
-                    line.addView(chip)
-                    if (android.animation.ValueAnimator.areAnimatorsEnabled()) {
-                        // The number runs from the old value to the new one, the chip rises and fades.
-                        android.animation.ValueAnimator.ofFloat(from.toFloat(), b.estimatedAmount.toFloat()).apply {
-                            duration = 900
-                            interpolator = android.view.animation.DecelerateInterpolator(2f)
-                            addUpdateListener { big.text = Canteen.money((it.animatedValue as Float).toDouble()) }
-                            start()
-                        }
-                        chip.alpha = 0f
-                        chip.animate().alpha(1f).setDuration(200).withEndAction {
-                            chip.animate().alpha(0f).translationY(-ctx.dp(18).toFloat()).setStartDelay(1100).setDuration(500).start()
-                        }.start()
+                // The number runs from the old value to the new one (no "−4,66 €" chip: Oscar, 2026-10-16).
+                if (delta != null && android.animation.ValueAnimator.areAnimatorsEnabled()) {
+                    android.animation.ValueAnimator.ofFloat(from.toFloat(), b.estimatedAmount.toFloat()).apply {
+                        duration = 900
+                        interpolator = android.view.animation.DecelerateInterpolator(2f)
+                        addUpdateListener { big.text = Canteen.money((it.animatedValue as Float).toDouble()) }
+                        start()
                     }
                 }
                 hero.addView(line)

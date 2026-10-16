@@ -43,6 +43,13 @@ object Bag {
 
     // ---- What goes in the bag --------------------------------------------------------
 
+    /** "C'est prêt" from the notification: every subject of the next school day in the bag. */
+    fun packAll(context: Context) {
+        val lessons = Repo.get(context).lessons()
+        val day = nextDay(lessons, LocalDate.now()) ?: return
+        subjects(lessons, day).forEach { setPacked(context, day, it, true) }
+    }
+
     /** The next day with lessons after [today]. */
     fun nextDay(lessons: List<Lesson>, today: LocalDate): LocalDate? =
         lessons.filter { !it.canceled && it.start.toLocalDate() > today }.minOfOrNull { it.start.toLocalDate() }
@@ -128,6 +135,8 @@ object Bag {
             // Gone the next morning: the bag is packed or it is too late.
             .setTimeoutAfter(java.time.Duration.between(LocalDateTime.now(), day.atTime(8, 0)).toMillis().coerceAtLeast(60_000L))
             .setContentIntent(Widgets.openSheet(context, MainActivity.OPEN_BAG, 70))
+            // Packed already: one tap ticks every subject of that day.
+            .addAction(NotificationActions.bagReady(context, NOTIFICATION_ID))
             .build()
         runCatching { nm.notify(NOTIFICATION_ID, notification) }
         Analytics.event("cartable_notification", "matieres" to subjects.size, "devoirs" to todo.size, "notes" to notes.size)
