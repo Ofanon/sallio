@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sallio · Tester l'app</title>
+<meta name="description" content="Sallio : ta salle, tes profs absents, tes devoirs et tes notes, depuis Pronote. Une app Android gratuite et open source, en test.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FBF7F0; --surface: #FFFFFF; --surface2: #F4EEE4; --edge: #EBE2D3;
+    --text: #2E2A3A; --text2: #7A7266; --text3: #A89F92;
+    --accent: #FFD66B; --accent-edge: #D49A1C; --on-accent: #3B2A00; --accent-ink: #8A5C00;
+    --alert: #B3423A; --alert-bg: #FBE4E0; --success: #2F6B33; --success-bg: #E4F3E2;
+    --sky: #6FB3E0; --sky-edge: #4F95C4; --coral: #F28B74; --green: #7CC49A; --violet: #A993E6; --pink: #EE8FB7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1A1820; --surface: #24212C; --surface2: #2D2A36; --edge: #0E0D12;
+      --text: #F4EFE6; --text2: #B0A79A; --text3: #7E776D;
+      --accent-edge: #A8801F; --accent-ink: #FFD66B;
+      --alert: #FFB2A6; --alert-bg: #3A2522; --success: #9FD8A3; --success-bg: #20301F;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Nunito", system-ui, sans-serif; font-weight: 700; line-height: 1.5;
+  }
+  h1, h2, h3, .display { font-family: "Fredoka", system-ui, sans-serif; font-weight: 600; line-height: 1.15; margin: 0; }
+  a { color: var(--accent-ink); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+
+  /* Sticker look of the app: a face on a darker shadow. */
+  .sticker { background: var(--surface); border-radius: 22px; box-shadow: 0 4px 0 var(--edge); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 14px 24px 16px; border-radius: 18px; text-decoration: none;
+    font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 18px;
+    background: var(--accent); color: var(--on-accent); box-shadow: 0 5px 0 var(--accent-edge);
+    transition: transform .12s, box-shadow .12s;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--accent-edge); }
+  .btn.ghost { background: var(--surface); color: var(--text); box-shadow: 0 5px 0 var(--edge); }
+  .btn svg { width: 22px; height: 22px; }
+
+  /* Hero */
+  header { padding: 28px 0 8px; }
+  nav { display: flex; align-items: center; gap: 12px; }
+  nav img { width: 40px; height: 40px; border-radius: 11px; }
+  nav .name { font-family: "Fredoka", sans-serif; font-size: 24px; font-weight: 600; }
+  nav .pill { margin-left: auto; font-size: 13px; padding: 6px 12px; border-radius: 99px; background: var(--surface2); color: var(--text2); }
+  .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; padding-top: 40px; padding-bottom: 56px; }
+  .hero h1 { font-size: clamp(38px, 6vw, 60px); }
+  .hero h1 em { font-style: normal; background: var(--accent); color: var(--on-accent); padding: 0 10px; border-radius: 14px; -webkit-box-decoration-break: clone; box-decoration-break: clone; white-space: nowrap; }
+  .hero p.lead { font-size: 19px; color: var(--text2); margin: 18px 0 26px; max-width: 34ch; }
+  .cta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .cta small { display: block; width: 100%; color: var(--text3); font-size: 13px; margin-top: 4px; }
+
+  /* The phone, drawn like the app's home tab. */
+  .phone {
+    width: min(320px, 100%); margin: 0 auto; padding: 18px 14px 22px; border-radius: 40px;
+    background: var(--bg); border: 10px solid #2E2A3A; box-shadow: 0 20px 50px rgba(46, 42, 58, .25);
+  }
+  .phone .hi { font-family: "Fredoka", sans-serif; font-size: 21px; padding: 2px 6px 10px; }
+  .phone .hi span { display: block; font-family: "Nunito", sans-serif; font-size: 12px; color: var(--text2); }
+  .roomcard { border-radius: 22px; padding: 14px 16px 18px; background: var(--sky); box-shadow: 0 4px 0 var(--sky-edge); color: #fff; position: relative; overflow: hidden; }
+  .roomcard .tag { display: inline-block; font-size: 11px; padding: 3px 9px; border-radius: 99px; background: rgba(255,255,255,.25); }
+  .roomcard .room { font-family: "Fredoka", sans-serif; font-size: 50px; font-weight: 700; line-height: 1; margin: 8px 0 4px; }
+  .roomcard .sub { font-size: 14px; }
+  .roomcard .mark { position: absolute; right: -6px; bottom: -10px; font-size: 96px; opacity: .2; font-family: "Fredoka"; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-top: 10px; border-radius: 16px; background: var(--surface); box-shadow: 0 3px 0 var(--edge); font-size: 13px; }
+  .tile { width: 32px; height: 32px; border-radius: 10px; flex: none; display: grid; place-items: center; font-size: 15px; font-family: "Fredoka"; color: rgba(0,0,0,.55); }
+  .row b { display: block; font-family: "Fredoka", sans-serif; font-size: 15px; font-weight: 600; }
+  .row small { color: var(--text2); }
+  .row.alert { background: var(--alert-bg); color: var(--alert); box-shadow: none; }
+  .box { width: 22px; height: 22px; border-radius: 7px; border: 3px solid var(--text3); flex: none; }
+  .box.on { background: var(--accent); border-color: var(--accent-edge); }
+  .done { text-decoration: line-through; opacity: .5; }
+
+  /* Sections */
+  section { padding: 44px 0; }
+  section > .wrap > h2 { font-size: clamp(28px, 4vw, 38px); margin-bottom: 8px; }
+  section > .wrap > p.intro { color: var(--text2); margin: 0 0 26px; font-size: 17px; max-width: 60ch; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .feature { padding: 20px; }
+  .feature .ico { width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center; font-size: 24px; margin-bottom: 12px; }
+  .feature h3 { font-size: 20px; margin-bottom: 4px; }
+  .feature p { margin: 0; color: var(--text2); font-size: 15px; }
+
+  .steps { counter-reset: step; display: grid; gap: 14px; }
+  .step { display: grid; grid-template-columns: 48px 1fr; gap: 16px; padding: 18px 20px; align-items: start; }
+  .step::before {
+    counter-increment: step; content: counter(step);
+    width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center;
+    background: var(--accent); color: var(--on-accent); box-shadow: 0 3px 0 var(--accent-edge);
+    font-family: "Fredoka", sans-serif; font-size: 22px; font-weight: 700;
+  }
+  .step h3 { font-size: 19px; margin: 2px 0 4px; }
+  .step p { margin: 0; color: var(--text2); font-size: 15px; }
+  .note { margin-top: 16px; padding: 16px 20px; border-radius: 18px; background: var(--surface2); color: var(--text2); font-size: 15px; }
+
+  .privacy { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .privacy div { padding: 18px 20px; }
+  .privacy b { display: block; font-family: "Fredoka", sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 2px; }
+  .privacy span { color: var(--text2); font-size: 15px; }
+
+  footer { padding: 36px 0 48px; color: var(--text3); font-size: 13px; text-align: center; }
+  footer a { color: var(--text2); }
+
+  @media (max-width: 820px) {
+    .hero { grid-template-columns: 1fr; padding-top: 24px; gap: 32px; }
+    .grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 560px) {
+    .grid, .privacy { grid-template-columns: 1fr; }
+    .btn { width: 100%; }
+    nav .pill { display: none; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .rise { opacity: 0; transform: translateY(16px); animation: rise .6s cubic-bezier(.2,.7,.2,1) forwards; }
+    .rise.d1 { animation-delay: .1s; } .rise.d2 { animation-delay: .2s; } .rise.d3 { animation-delay: .3s; }
+    @keyframes rise { to { opacity: 1; transform: none; } }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <nav>
+      <img src="icon.svg" alt="">
+      <span class="name">Sallio</span>
+      <span class="pill">En test · Android</span>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <h1 class="rise">Ta salle, <em>sans chercher</em>.</h1>
+      <p class="lead rise d1">Sallio se branche sur ton Pronote et te dit où aller, quel prof est absent, quels devoirs rendre. Même quand Pronote rame.</p>
+      <div class="cta rise d2">
+        <a class="btn" id="download" href="https://github.com/Ofanon/sallio/releases/latest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+          <span id="download-label">Télécharger pour Android</span>
+        </a>
+        <a class="btn ghost" href="#installer">Comment l'installer</a>
+        <small id="download-info">Gratuit, sans pub, open source.</small>
+      </div>
+    </div>
+
+    <div class="rise d3" aria-hidden="true">
+      <div class="phone">
+        <div class="hi">Salut Léa 👋<span>Lundi 2 nov. · à jour à l'instant</span></div>
+        <div class="roomcard">
+          <span class="tag">À 8h30 · dans 4 min</span>
+          <div class="room">B204</div>
+          <div class="sub">Mathématiques · M. Gallet</div>
+          <div class="mark">ƒx</div>
+        </div>
+        <div class="row">
+          <span class="tile" style="background:var(--coral)">EN</span>
+          <div><b>Ensuite · C102</b><small>9h30 · Anglais</small></div>
+        </div>
+        <div class="row alert">⚠️ <div><b style="font-size:14px">Prof absent · SVT 14h</b></div></div>
+        <div class="row">
+          <span class="box on"></span>
+          <div class="done">Exercices 4 et 5 p. 49</div>
+        </div>
+        <div class="row">
+          <span class="box"></span>
+          <div>Apporter la blouse pour le TP</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="wrap">
+      <h2>Ce que fait Sallio</h2>
+      <p class="intro">Pas un deuxième Pronote : juste ce dont tu as besoin pour t'organiser, plus vite.</p>
+      <div class="grid">
+        <div class="feature sticker"><div class="ico" style="background:var(--accent)">🚪</div><h3>Ta salle en grand</h3><p>Le prochain cours, sa salle et son prof, dès l'ouverture.</p></div>
+        <div class="feature sticker"><div class="ico" style="background:var(--sky)">📱</div><h3>Des widgets</h3><p>Ta salle, ta journée, tes devoirs, ta moyenne : sans même ouvrir l'app.</p></div>
+        <div class="feature sticker"><div class="ico" style="background:var(--coral)">🔔</div><h3>Les bonnes alertes</h3><p>Prof absent, cours annulé, salle changée, rappel 5 min avant chaque cours.</p></div>
+        <div class="feature sticker"><div class="ico" style="background:var(--green)">✅</div><h3>Devoirs cochés</h3><p>Coche un devoir dans Sallio, il l'est aussi sur Pronote.</p></div>
+        <div class="feature sticker"><div class="ico" style="background:var(--violet)">📈</div><h3>Tes notes</h3><p>Ta moyenne, celle de la classe, et leur évolution au fil du trimestre.</p></div>
+        <div class="feature sticker"><div class="ico" style="background:var(--pink)">🍽️</div><h3>La cantine</h3><p>Si ton lycée utilise Turboself : ton solde et tes réservations en un geste.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="installer">
+    <div class="wrap">
+      <h2>L'installer en 2 minutes</h2>
+      <p class="intro">Sallio n'est pas encore sur le Play Store : tu l'installes directement, comme pendant une bêta. Ensuite, il se met à jour tout seul.</p>
+      <div class="steps">
+        <div class="step sticker"><div><h3>Télécharge l'APK</h3><p>Touche « Télécharger pour Android » en haut de cette page, depuis ton téléphone.</p></div></div>
+        <div class="step sticker"><div><h3>Ouvre le fichier</h3><p>Dans la notification de téléchargement, ou dans l'app Fichiers › Téléchargements.</p></div></div>
+        <div class="step sticker"><div><h3>Autorise l'installation</h3><p>Android demande d'autoriser ton navigateur à « installer des applis inconnues » : touche « Paramètres », active l'option, puis reviens.</p></div></div>
+        <div class="step sticker"><div><h3>Installe</h3><p>Touche « Installer ». Si Play Protect te prévient, choisis « Installer quand même » : l'app n'est juste pas encore sur le Play Store.</p></div></div>
+        <div class="step sticker"><div><h3>Connecte ton Pronote</h3><p>Ouvre Sallio, trouve ton lycée (autour de toi, ou avec son code) et connecte-toi comme d'habitude, avec ton ENT.</p></div></div>
+      </div>
+      <div class="note">📱 Android 8 ou plus récent. Pas encore d'iPhone, désolé.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Tes données restent chez toi</h2>
+      <p class="intro">Sallio n'a pas de serveur : ton téléphone parle directement à Pronote.</p>
+      <div class="privacy">
+        <div class="sticker"><b>Jamais ton mot de passe Pronote</b><span>Tu te connectes sur la vraie page de ton ENT. Sallio ne garde que le jeton que Pronote donne à ton téléphone.</span></div>
+        <div class="sticker"><b>Tout est chiffré</b><span>Emploi du temps, notes, devoirs, messages : chiffrés sur ton téléphone, exclus des sauvegardes.</span></div>
+        <div class="sticker"><b>Ni pub, ni traqueur</b><span>Pendant les tests, des statistiques anonymes seulement si tu dis oui. Jamais ton nom, tes cours ou tes notes.</span></div>
+        <div class="sticker"><b>Open source</b><span>Tout le code est public sur <a href="https://github.com/Ofanon/sallio">GitHub</a>, sous licence GPL-3.0.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Un bug ? Une idée ?</h2>
+      <p class="intro">C'est une version de test : tes retours servent vraiment.</p>
+      <div class="steps">
+        <div class="step sticker"><div><h3>Envoie un rapport depuis l'app</h3><p>Touche ton avatar › Compte et données › « Envoyer un rapport de test ». Le texte contient les versions et les dernières erreurs, jamais tes notes ni tes cours. Ajoute une capture d'écran si tu peux.</p></div></div>
+        <div class="step sticker"><div><h3>Ou ouvre un ticket</h3><p>Sur la page <a href="https://github.com/Ofanon/sallio/issues">Issues du projet</a>, si tu as un compte GitHub.</p></div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    Sallio · fait par un lycéen, pour les lycéens ·
+    <a href="https://github.com/Ofanon/sallio">code source</a> ·
+    <a href="https://github.com/Ofanon/sallio/blob/main/PRIVACY.md">confidentialité</a><br>
+    Sallio n'est lié ni à Index Éducation (Pronote) ni à INCB (Turboself). Ce sont des marques de leurs propriétaires.
+  </div>
+</footer>
+
+<script>
+  // The newest APK of the GitHub releases, so the button always gets the last version.
+  (async () => {
+    try {
+      const r = await fetch('https://api.github.com/repos/Ofanon/sallio/releases/latest');
+      if (!r.ok) return;
+      const release = await r.json();
+      const apk = (release.assets || []).find(a => /^sallio-\d+\.apk$/.test(a.name));
+      if (!apk) return;
+      document.getElementById('download').href = apk.browser_download_url;
+      document.getElementById('download-label').textContent = 'Télécharger Sallio ' + release.tag_name.replace(/^v/, '');
+      const mb = (apk.size / 1048576).toFixed(1).replace('.', ',');
+      document.getElementById('download-info').textContent = 'APK de ' + mb + ' Mo · gratuit, sans pub, open source.';
+    } catch (e) { /* the button keeps the releases page */ }
+  })();
+</script>
+</body>
+</html>
