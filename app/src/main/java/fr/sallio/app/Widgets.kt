@@ -479,7 +479,7 @@ object Widgets {
         val family = if (low) Subjects.CORAL else Subjects.GREEN
         paintNext(context, rv, Subjects.solid(family), Subjects.edge(context, family), Subjects.onSolid(family), R.drawable.ic_coin)
         rv.setOnClickPendingIntent(R.id.root, openSheet(context, MainActivity.OPEN_CANTEEN, 72))
-        rv.setTextViewText(R.id.label, "Cantine")
+        rv.setTextViewText(R.id.label, "Cantine · disponible")
         roomSize(rv, 40f)
         if (!canteen.connected() || d == null) {
             rv.setTextViewText(R.id.room, "—")
@@ -488,7 +488,7 @@ object Widgets {
             if (!canteen.connected()) rv.setOnClickPendingIntent(R.id.root, openApp(context))
             return rv
         }
-        rv.setTextViewText(R.id.room, d.balance?.let { Canteen.money(it.amount) } ?: "—")
+        rv.setTextViewText(R.id.room, d.balance?.let { Canteen.money(it.estimatedAmount) } ?: "—")
         rv.setTextViewText(R.id.subject, d.lunchesLeft?.let { n ->
             val more = if (d.balance?.let { it.amount != it.estimatedAmount } == true) " de plus" else ""
             if (n <= 0) "pas assez pour un repas$more" else "encore $n repas$more"

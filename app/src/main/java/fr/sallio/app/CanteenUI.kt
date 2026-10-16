@@ -58,7 +58,7 @@ object CanteenUI {
         row.addView(UI.logo(ctx, R.drawable.logo_turboself, 32))
         row.addView(UI.hgap(ctx, 12))
         val lunch = d?.let { nextLunchLine(it, now) }
-        val line = listOfNotNull(d?.balance?.let { Canteen.money(it.amount) }, lunch).joinToString(" · ").ifEmpty { "Cantine · chargement…" }
+        val line = listOfNotNull(d?.balance?.let { Canteen.money(it.estimatedAmount) }, lunch).joinToString(" · ").ifEmpty { "Cantine · chargement…" }
         row.addView(UI.oneLine(UI.text(ctx, line, 15f, if (canteen.error() != null) R.color.alert else R.color.text, 800)), UI.weight())
         if (d?.cardNumber != null) {
             row.addView(UI.text(ctx, "Ma carte", 13f, R.color.on_accent, 800).apply {
@@ -138,16 +138,46 @@ object CanteenUI {
             // Balance, redrawn after each booking: TurboSelf's estimate moves with them.
             val balanceSlot = UI.column(ctx)
             sheet.addView(balanceSlot, UI.matchWidth())
-            fun showBalance(d: Canteen.Data) {
+            /**
+             * The money still available in big: what a booking takes and a cancellation gives
+             * back, so the number moves when a box is ticked (Oscar, 2026-10-16). [from] is the
+             * value before a booking that went through: the number then runs down to the new one
+             * and a "−4,66 €" floats away.
+             */
+            fun showBalance(d: Canteen.Data, from: Double? = null) {
                 balanceSlot.removeAllViews()
                 val b = d.balance ?: return
                 val hero = UI.card(ctx, R.color.accent, R.color.accent_edge, padding = 18)
-                hero.addView(UI.text(ctx, "SOLDE", 12f, R.color.on_accent, 900).apply { letterSpacing = 0.06f; alpha = 0.8f })
-                // TurboSelf's real balance in big: its "estimated" one already takes off the lunches
-                // booked ahead and goes negative, which read like a debt (Oscar, 2026-10-14).
-                hero.addView(UI.title(ctx, Canteen.money(b.amount), 40f, R.color.on_accent))
+                hero.addView(UI.text(ctx, "SOLDE DISPONIBLE", 12f, R.color.on_accent, 900).apply { letterSpacing = 0.06f; alpha = 0.8f })
+                val line = UI.row(ctx).apply { gravity = Gravity.CENTER_VERTICAL }
+                val big = UI.title(ctx, Canteen.money(b.estimatedAmount), 40f, R.color.on_accent)
+                line.addView(big)
+                val delta = from?.let { b.estimatedAmount - it }?.takeIf { kotlin.math.abs(it) > 0.004 }
+                if (delta != null) {
+                    val chip = UI.text(ctx, (if (delta < 0) "−" else "+") + Canteen.money(kotlin.math.abs(delta)), 15f, weight = 900).apply {
+                        setTextColor(ctx.getColor(if (delta < 0) R.color.alert else R.color.success))
+                        background = UI.rounded(ctx.getColor(R.color.surface), ctx.dp(99).toFloat())
+                        setPadding(ctx.dp(10), ctx.dp(3), ctx.dp(10), ctx.dp(4))
+                    }
+                    line.addView(UI.hgap(ctx, 12))
+                    line.addView(chip)
+                    if (android.animation.ValueAnimator.areAnimatorsEnabled()) {
+                        // The number runs from the old value to the new one, the chip rises and fades.
+                        android.animation.ValueAnimator.ofFloat(from.toFloat(), b.estimatedAmount.toFloat()).apply {
+                            duration = 900
+                            interpolator = android.view.animation.DecelerateInterpolator(2f)
+                            addUpdateListener { big.text = Canteen.money((it.animatedValue as Float).toDouble()) }
+                            start()
+                        }
+                        chip.alpha = 0f
+                        chip.animate().alpha(1f).setDuration(200).withEndAction {
+                            chip.animate().alpha(0f).translationY(-ctx.dp(18).toFloat()).setStartDelay(1100).setDuration(500).start()
+                        }.start()
+                    }
+                }
+                hero.addView(line)
                 val lines = listOfNotNull(
-                    if (b.amount != b.estimatedAmount) "${Canteen.money(b.estimatedAmount)} une fois tes repas réservés payés" else null,
+                    if (b.amount != b.estimatedAmount) "${Canteen.money(b.amount)} sur ta carte, dont ${Canteen.money(b.amount - b.estimatedAmount)} de repas réservés" else null,
                     d.lunchesLeft?.let { n ->
                         val price = d.lunchPrice?.let { " (${Canteen.money(it)} le repas)" } ?: ""
                         // Counted after the lunches already booked, which TurboSelf takes off first.
@@ -232,6 +262,7 @@ object CanteenUI {
                                     return@check
                                 }
                                 wanted[key] = want
+                                val before = canteen.data()?.balance?.estimatedAmount
                                 activity.worker.execute {
                                     val error = canteen.book(day, want)
                                     activity.runOnUiThread {
@@ -243,7 +274,7 @@ object CanteenUI {
                                             UI.refreshChecks()
                                             canteen.data()?.let { showBalance(it) }
                                         } else {
-                                            canteen.data()?.let { fill(it); showBalance(it) }
+                                            canteen.data()?.let { fill(it); showBalance(it, before) }
                                             activity.refreshScreen()
                                         }
                                     }
