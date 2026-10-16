@@ -111,18 +111,21 @@ object Reminders {
         val now = LocalDateTime.now()
         val lesson = Repo.get(context).lessons().filter { it.start > now }.minByOrNull { it.start } ?: return
         // Shown as if it started in five minutes, counting down to that moment.
-        show(context, lesson, now.plusMinutes(BEFORE_MIN), now, test = true)
+        show(context, lesson, now.plusMinutes(BEFORE_MIN), now)
     }
 
     private const val TEST_DELAY_S = 10L
     internal const val EXTRA_TEST = "test"
+    internal const val EXTRA_REPOST = "repost"
 
     /**
      * "B204" big, the subject on its coloured tile, a live countdown to [start]
      * in the header, and the teacher or the change in the text.
      */
-    private fun show(context: Context, lesson: Lesson, start: LocalDateTime, now: LocalDateTime, test: Boolean = false) {
+    private fun show(context: Context, lesson: Lesson, start: LocalDateTime, now: LocalDateTime) {
         channel(context)
+        // Kept until a few minutes into the lesson: late arrivals still find their room.
+        val until = start.plusMinutes(10)
         val style = Subjects.style(lesson.subject)
         val alert = Agenda.alert(lesson)
         val subject = Agenda.pretty(lesson.subject)
@@ -148,15 +151,42 @@ object Reminders {
             .setUsesChronometer(!lesson.canceled)
             .setChronometerCountDown(true)
             .setCategory(Notification.CATEGORY_REMINDER)
-            .setAutoCancel(true)
-            .setTimeoutAfter(Duration.between(now, if (test) now.plusMinutes(BEFORE_MIN) else lesson.end).toMillis().coerceAtLeast(60_000L))
+            // Stays until the lesson has started: a swipe by mistake must not lose the room
+            // (Oscar, 2026-10-16). Android 14 lets some be swiped anyway: then it comes back.
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setOnlyAlertOnce(true)
+            .setTimeoutAfter(Duration.between(now, until).toMillis().coerceAtLeast(60_000L))
+            .setDeleteIntent(PendingIntent.getBroadcast(
+                context, 44,
+                Intent(context, ReminderReceiver::class.java).putExtra(EXTRA_REPOST, true),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            ))
             .setContentIntent(Widgets.openApp(context, MainActivity.Tab.TIMETABLE))
             .build()
+        context.getSharedPreferences("ui", Context.MODE_PRIVATE).edit()
+            .putString("shownLesson", lesson.start.toString() + "|" + lesson.subject)
+            .putString("shownStart", start.toString())
+            .putLong("shownUntil", until.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
+            .apply()
         runCatching { context.getSystemService(NotificationManager::class.java).notify(1, notification) }
+    }
+
+    /** The reminder was swiped away before its lesson: shown again, quietly. */
+    internal fun repost(context: Context) {
+        val prefs = context.getSharedPreferences("ui", Context.MODE_PRIVATE)
+        if (System.currentTimeMillis() >= prefs.getLong("shownUntil", 0)) return
+        val (start, subject) = prefs.getString("shownLesson", null)?.split("|", limit = 2)?.takeIf { it.size == 2 } ?: return
+        val lesson = Repo.get(context).lessons().firstOrNull { it.start.toString() == start && it.subject == subject } ?: return
+        val shownStart = prefs.getString("shownStart", null)?.let { runCatching { LocalDateTime.parse(it) }.getOrNull() } ?: lesson.start
+        show(context, lesson, shownStart, LocalDateTime.now())
     }
 }
 
 class ReminderReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) =
-        if (intent.getBooleanExtra(Reminders.EXTRA_TEST, false)) Reminders.notifyTest(context) else Reminders.notifyNext(context)
+    override fun onReceive(context: Context, intent: Intent) = when {
+        intent.getBooleanExtra(Reminders.EXTRA_REPOST, false) -> Reminders.repost(context)
+        intent.getBooleanExtra(Reminders.EXTRA_TEST, false) -> Reminders.notifyTest(context)
+        else -> Reminders.notifyNext(context)
+    }
 }

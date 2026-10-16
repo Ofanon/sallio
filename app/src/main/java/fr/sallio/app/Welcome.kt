@@ -136,8 +136,12 @@ object Welcome {
 
         val col = UI.column(ctx).apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(ctx.dp(24), topInset + ctx.dp(40), ctx.dp(24), bottomInset + ctx.dp(24))
+            setPadding(ctx.dp(24), topInset + ctx.dp(24), ctx.dp(24), bottomInset + ctx.dp(24))
+            clipChildren = false
+            clipToPadding = false
         }
+        // The content in the middle of the screen, the buttons at the bottom (Oscar, 2026-10-16).
+        col.addView(View(ctx), LinearLayout.LayoutParams(1, 0, 1f))
         val first = MainActivity.firstName(s.account.studentName)
         // Sallio's own icon rather than an emoji: the scenes of the next steps are drawn too.
         col.addView(Illustrations.logo(ctx), LinearLayout.LayoutParams(-1, ctx.dp(110)))
@@ -156,14 +160,17 @@ object Welcome {
                 background = UI.sticker(ctx, Subjects.solid(style.family), Subjects.edge(ctx, style.family), 26, 5)
                 UI.stickerPadding(this, 18, 16, 5)
                 addView(UI.text(ctx, "TA PROCHAINE SALLE · ${Agenda.when_(focus, s.now).uppercase()}", 12f, weight = 900).apply { setTextColor(ink); alpha = 0.85f; gravity = Gravity.CENTER }, UI.matchWidth())
-                addView(UI.title(ctx, if (focus.rooms.isNotEmpty()) Agenda.room(focus) else Agenda.pretty(focus.subject), 54f).apply { setTextColor(ink); gravity = Gravity.CENTER; setPadding(0, ctx.dp(6), 0, ctx.dp(2)) }, UI.matchWidth())
-                addView(UI.text(ctx, Agenda.pretty(focus.subject), 15f, weight = 800).apply { setTextColor(ink); gravity = Gravity.CENTER }, UI.matchWidth())
+                // No room (sport, outing): the subject in big, once, and the teacher under it.
+                val hasRoom = focus.rooms.isNotEmpty()
+                addView(UI.oneLine(UI.title(ctx, if (hasRoom) Agenda.room(focus) else Agenda.pretty(focus.subject), if (hasRoom) 54f else 32f)).apply { setTextColor(ink); gravity = Gravity.CENTER; setPadding(0, ctx.dp(6), 0, ctx.dp(2)) }, UI.matchWidth())
+                val under = if (hasRoom) Agenda.pretty(focus.subject) else focus.teachers.firstOrNull()?.let { Agenda.prettyName(it) }.orEmpty()
+                if (under.isNotEmpty()) addView(UI.text(ctx, under, 15f, weight = 800).apply { setTextColor(ink); gravity = Gravity.CENTER }, UI.matchWidth())
             }
         } else UI.card(ctx).apply {
             addView(UI.text(ctx, "Ton emploi du temps arrive dans un instant.", 15f, R.color.text2, 800).apply { gravity = Gravity.CENTER }, UI.matchWidth())
         }
         col.addView(card, UI.matchWidth())
-        col.addView(View(ctx), LinearLayout.LayoutParams(1, 0, 1f))
+        col.addView(View(ctx), LinearLayout.LayoutParams(1, 0, 1.3f))
 
         // Three short steps (Oscar, 2026-10-15): welcome, the notifications worth having, the
         // fastest ways in. Each can be skipped; the dots say where you are.
@@ -233,7 +240,10 @@ object Welcome {
 
     private fun page(ctx: Context, topInset: Int, bottomInset: Int, scene: View, title: String, text: String) = UI.column(ctx).apply {
         gravity = Gravity.CENTER_HORIZONTAL
-        setPadding(ctx.dp(24), topInset + ctx.dp(40), ctx.dp(24), bottomInset + ctx.dp(24))
+        setPadding(ctx.dp(24), topInset + ctx.dp(24), ctx.dp(24), bottomInset + ctx.dp(24))
+        clipChildren = false
+        clipToPadding = false
+        addView(View(ctx), LinearLayout.LayoutParams(1, 0, 1f))
         addView(scene, UI.matchWidth())
         addView(UI.title(ctx, title, 28f).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(22), 0, 0) }, UI.matchWidth())
         addView(UI.text(ctx, text, 16f, R.color.text2).apply { gravity = Gravity.CENTER; setPadding(0, ctx.dp(8), 0, ctx.dp(20)) }, UI.matchWidth())
@@ -258,14 +268,8 @@ object Welcome {
 
     private fun notificationsPage(activity: MainActivity, topInset: Int, bottomInset: Int): LinearLayout {
         val ctx = activity
-        val page = page(ctx, topInset, bottomInset, Illustrations.notifications(ctx), "Ne rate rien", "Sallio te prévient seulement quand c'est utile. Tu changes tout ça quand tu veux dans Réglages.")
-        val card = UI.card(ctx, padding = 14)
-        card.addView(feature(ctx, R.drawable.ic_warning, "Changements", "Prof absent, cours annulé, salle changée, nouvelle note."), UI.matchWidth())
-        card.addView(feature(ctx, R.drawable.ic_clock, "5 min avant chaque cours", "La salle où aller, sans ouvrir l'app."), UI.matchWidth())
-        card.addView(feature(ctx, R.drawable.ic_briefcase, "Cartable la veille", "À 19 h : les matières et les devoirs pas finis."), UI.matchWidth())
-        page.addView(card, UI.matchWidth())
-        page.addView(View(ctx), LinearLayout.LayoutParams(1, 0, 1f))
-        riseIn(listOf(card), 150)
+        val page = page(ctx, topInset, bottomInset, Illustrations.notifications(ctx), "Ne rate rien", "Ta salle 5 min avant chaque cours, les profs absents, ton cartable la veille. Seulement quand c'est utile.")
+        page.addView(View(ctx), LinearLayout.LayoutParams(1, 0, 1.3f))
         return page
     }
 
@@ -282,7 +286,7 @@ object Welcome {
             gravity = Gravity.CENTER
             setPadding(0, ctx.dp(16), 0, 0)
         }, UI.matchWidth())
-        page.addView(View(ctx), LinearLayout.LayoutParams(1, 0, 1f))
+        page.addView(View(ctx), LinearLayout.LayoutParams(1, 0, 1.3f))
         riseIn(listOf(actions), 150)
         return page
     }

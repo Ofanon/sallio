@@ -124,6 +124,11 @@ class MainActivity : Activity() {
         if (inboxModeFrom(intent) && tab == Tab.INBOX) { entering = Enter.TAB; render() }
         if (lessonFrom(intent)) render()
         if (sheetFrom(intent)) render()
+        // Debug builds: "adb shell am start ... --ez replayWelcome true" shows the welcome again.
+        if (BuildConfig.DEBUG && intent.getBooleanExtra("replayWelcome", false)) {
+            getSharedPreferences("ui", MODE_PRIVATE).edit().putBoolean("welcomePending", true).apply()
+            render()
+        }
     }
 
     /** The sheet a notification or a widget asked for, opened by the next render. */

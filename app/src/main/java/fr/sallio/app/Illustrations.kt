@@ -65,11 +65,15 @@ internal object Illustrations {
     /** Two notifications, as Sallio would send them. */
     fun notifications(ctx: Context): View {
         val col = UI.column(ctx)
+        col.clipChildren = false
+        col.clipToPadding = false
         val a = notification(ctx, "MATHEMATIQUES", "B204 · Mathématiques", "Dans 5 min · M. Gallet", "8h25")
         val b = notification(ctx, "ANGLAIS", "Prof absent · Anglais", "Cours de 10h annulé", "7h02")
+        val c = notification(ctx, "HISTOIRE-GEOGRAPHIE", "Demain : 4 cours", "Histoire-géo, Anglais, Maths…", "19h00")
         col.addView(a, UI.matchWidth())
-        col.addView(b, UI.matchWidth().apply { topMargin = ctx.dp(8); marginStart = ctx.dp(18) })
-        rise(listOf(a, b), 150)
+        col.addView(b, UI.matchWidth().apply { topMargin = ctx.dp(8) })
+        col.addView(c, UI.matchWidth().apply { topMargin = ctx.dp(8) })
+        rise(listOf(a, b, c), 150)
         return col
     }
 

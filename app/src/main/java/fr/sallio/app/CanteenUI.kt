@@ -183,7 +183,9 @@ object CanteenUI {
             val bookings = UI.column(ctx)
             sheet.addView(bookings, UI.matchWidth())
             /** Days being booked or cancelled: their box spins until TurboSelf answers. */
-            val busy = mutableSetOf<String>()
+            // What the student just ticked, shown at once while it travels to TurboSelf: no wheel,
+            // as for homework (Oscar, 2026-10-16). A refusal puts the box back and says why.
+            val wanted = mutableMapOf<String, Boolean>()
             fun showNotice(text: String?) {
                 notice.removeAllViews()
                 text ?: return
@@ -220,13 +222,20 @@ object CanteenUI {
                         val key = day.date.toString()
                         if (day.booking.allowed) {
                             // Read from the latest copy: after a refusal TurboSelf's real state is fetched again.
-                            card.addView(UI.check(ctx, label, { (canteen.data()?.day(day.date) ?: day).booking.booked > 0 }, isBusy = { key in busy }) { want ->
-                                busy += key
+                            card.addView(UI.check(ctx, label, { wanted[key] ?: ((canteen.data()?.day(day.date) ?: day).booking.booked > 0) }) { want ->
                                 showNotice(null)
+                                // Not enough left: said at once, nothing is sent.
+                                if (want && !canteen.canAfford()) {
+                                    bookings.post { UI.refreshChecks() }
+                                    Motion.failure(bookings)
+                                    showNotice(Canteen.INSUFFICIENT)
+                                    return@check
+                                }
+                                wanted[key] = want
                                 activity.worker.execute {
                                     val error = canteen.book(day, want)
                                     activity.runOnUiThread {
-                                        busy -= key
+                                        wanted.remove(key)
                                         if (error != null) {
                                             // Refused: the box goes back as it was, the reason shows at once.
                                             Motion.failure(bookings)
