@@ -18,3 +18,6 @@ build/
 *.iml
 .DS_Store
 dist/
+
+# Local preview config of Claude Code
+.claude/
