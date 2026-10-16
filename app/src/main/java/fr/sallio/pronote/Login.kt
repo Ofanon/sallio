@@ -13,7 +13,28 @@ internal class InstanceParameters(
     val firstMonday: LocalDate?,
     /** Trimestres / semestres, as `{N, G, L}` entities plus their dates. */
     val periods: List<Period>,
+    /** School holidays and days off, from `General.listeJoursFeries`. */
+    val holidays: List<Holiday> = emptyList(),
 )
+
+/** "Vacances de la Toussaint", from [start] to [end], both days off. */
+data class Holiday(val name: String, val start: LocalDate, val end: LocalDate) {
+    fun toJson(): JSONObject = JSONObject().put("n", name).put("s", start.toString()).put("e", end.toString())
+
+    companion object {
+        fun fromJson(o: JSONObject) = Holiday(o.optString("n"), LocalDate.parse(o.getString("s")), LocalDate.parse(o.getString("e")))
+
+        internal fun parse(general: JSONObject): List<Holiday> =
+            (general.optJSONObject("listeJoursFeries")?.optJSONArray("V") ?: general.optJSONArray("listeJoursFeries"))
+                ?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
+                .mapNotNull { h ->
+                    val start = h.optJSONObject("dateDebut")?.optString("V")?.let { PronoteDates.parse(it)?.toLocalDate() } ?: return@mapNotNull null
+                    val end = h.optJSONObject("dateFin")?.optString("V")?.let { PronoteDates.parse(it)?.toLocalDate() } ?: start
+                    Holiday(h.optString("L").trim(), start, end)
+                }
+                .sortedBy { it.start }
+    }
+}
 
 internal class Period(val entity: JSONObject, val name: String, val start: LocalDate?, val end: LocalDate?)
 
@@ -247,6 +268,7 @@ object Pronote {
             blocksPerDay = general.optInt("PlacesParJour", endings.size),
             firstMonday = firstMonday,
             periods = periods,
+            holidays = Holiday.parse(general),
         )
     }
 

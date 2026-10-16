@@ -251,6 +251,9 @@ class Repo private constructor(private val context: Context) {
     /** Ticks and "J'ai vu" not yet on PRONOTE. */
     fun pendingTotal(): Int = pending().size + pendingReads().size
 
+    /** The school's holidays, as PRONOTE gave them at the last login. */
+    fun holidays(): List<fr.sallio.pronote.Holiday> = readList(HOLIDAYS) { fr.sallio.pronote.Holiday.fromJson(it) }
+
     fun schoolLife(): SchoolLife? = vault.read(SCHOOL_LIFE)?.let { runCatching { SchoolLife.fromJson(JSONObject(it)) }.getOrNull() }
 
     fun report(): Report? = vault.read(GRADES)?.let { runCatching { Report.fromJson(JSONObject(it)) }.getOrNull() }
@@ -626,11 +629,16 @@ class Repo private constructor(private val context: Context) {
         val today = LocalDate.now()
         val now = java.time.LocalDateTime.now()
         val changes = mutableListOf<Changes.Item>()
-        val lessons = Timetable.fetch(logged, today, today.plusDays(FETCH_DAYS))
+        logged.session.instance?.holidays?.takeIf { it.isNotEmpty() }?.let { h ->
+            vault.write(HOLIDAYS, JSONArray(h.map { it.toJson() }).toString())
+        }
+        // Holidays inside the two weeks: reach past them, to the week back at school.
+        val until = Vacation.fetchUntil(holidays(), today, today.plusDays(FETCH_DAYS))
+        val lessons = Timetable.fetch(logged, today, until)
         runCatching { changes += Changes.lessons(lessons(), lessons, now) }
         vault.write(CACHE, JSONArray(lessons.map { it.toJson() }).toString())
         // Homework and grades are extras: when PRONOTE fails on them, the timetable still counts.
-        runCatching { Schoolwork.homework(logged, today, today.plusDays(FETCH_DAYS)) }.map { withSentTicks(it) }.onSuccess { list ->
+        runCatching { Schoolwork.homework(logged, today, until) }.map { withSentTicks(it) }.onSuccess { list ->
             val synced = pushTicks(logged, list)
             vault.write(HOMEWORK, JSONArray(synced.map { it.toJson() }).toString())
         }
@@ -696,6 +704,7 @@ class Repo private constructor(private val context: Context) {
         private const val NEWS = "news"
         private const val DISCUSSIONS = "discussions"
         private const val SCHOOL_LIFE = "schoollife"
+        private const val HOLIDAYS = "holidays"
         private const val FETCH_DAYS = 13L
         private const val MANUAL_GAP_MS = 2 * 60_000L
         private const val MAX_FILE_BYTES = 40 * 1024 * 1024

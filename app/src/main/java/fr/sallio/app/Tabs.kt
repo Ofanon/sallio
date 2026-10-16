@@ -55,9 +55,15 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         val view = Agenda.view(s.lessons, s.now)
         val today = s.now.toLocalDate()
 
-        // A long press on a card offers the real widget it looks like.
-        root.addView(hero(view.focus, s).also { activity.offerWidget(it, NextWidget::class.java) }, UI.matchWidth())
-        view.then?.let { root.addView(thenCard(it).also { c -> activity.offerWidget(c, DayWidget::class.java) }, UI.matchWidth().apply { topMargin = ctx.dp(12) }) }
+        val holidays = repo.holidays()
+        val vacation = Vacation.current(holidays, s.lessons, s.now)
+        if (vacation != null) {
+            root.addView(vacationCard(vacation, Vacation.backDay(vacation, holidays), today), UI.matchWidth())
+        } else {
+            // A long press on a card offers the real widget it looks like.
+            root.addView(hero(view.focus, s).also { activity.offerWidget(it, NextWidget::class.java) }, UI.matchWidth())
+            view.then?.let { root.addView(thenCard(it).also { c -> activity.offerWidget(c, DayWidget::class.java) }, UI.matchWidth().apply { topMargin = ctx.dp(12) }) }
+        }
 
         // What changed today and tomorrow: absent teachers, canceled lessons, room changes.
         val alerts = s.lessons.filter {
@@ -78,7 +84,9 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
 
         // One day of homework: today's while some is left to do, else the next school day's.
         val dueToday = s.homework.filter { it.due == today }
-        val nextDay = s.lessons.map { it.start.toLocalDate() }.filter { it > today }.minOrNull() ?: today.plusDays(1)
+        // On holiday the next school day is the way back, whatever lessons are known.
+        val nextDay = vacation?.let { Vacation.backDay(it, holidays) }
+            ?: s.lessons.map { it.start.toLocalDate() }.filter { it > today }.minOrNull() ?: today.plusDays(1)
         // The last tick of today: "Tout est fait" for a moment, then today's list slides out and
         // the next day's slides in (Oscar, 2026-10-14) instead of being swapped under the finger.
         val box = UI.column(ctx)
@@ -114,6 +122,31 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
 
         root.addView(footer(s))
         return root
+    }
+
+    /** The holiday, in place of the next lesson: its name, the day back, the days left. */
+    private fun vacationCard(h: fr.sallio.pronote.Holiday, back: LocalDate, today: LocalDate): View {
+        val family = Subjects.TEAL
+        val ink = Subjects.onSolid(family)
+        val frame = FrameLayout(ctx).apply {
+            background = UI.sticker(ctx, Subjects.solid(family), Subjects.edge(ctx, family), 26, 5)
+            clipToOutline = true
+        }
+        frame.addView(UI.icon(ctx, R.drawable.ic_sparkles, (ink and 0x00FFFFFF) or 0x38000000, 118, tintIsColor = true).apply {
+            layoutParams = FrameLayout.LayoutParams(dp(118), dp(118), Gravity.BOTTOM or Gravity.END).apply { rightMargin = dp(4); bottomMargin = dp(10) }
+        })
+        val col = UI.column(ctx).apply { setPadding(dp(18), dp(16), dp(18), dp(16 + 5)) }
+        val days = java.time.temporal.ChronoUnit.DAYS.between(today, back)
+        col.addView(UI.row(ctx).apply {
+            background = UI.rounded((ink and 0x00FFFFFF) or 0x24000000, dp(99).toFloat())
+            setPadding(dp(10), dp(4), dp(12), dp(5))
+            addView(UI.text(ctx, if (today < h.start) "Dès demain" else "Bonnes vacances", 12f, weight = 800).apply { setTextColor(ink) })
+        }, UI.wrap())
+        col.addView(UI.title(ctx, Vacation.name(h), 30f).apply { setTextColor(ink); setPadding(0, dp(10), 0, dp(4)) })
+        col.addView(UI.text(ctx, "Reprise ${Vacation.dayText(back)}", 16f, weight = 800).apply { setTextColor(ink) })
+        col.addView(UI.text(ctx, if (days <= 1) "C'est demain" else "Dans $days jours", 13f).apply { setTextColor(ink); alpha = 0.85f })
+        frame.addView(col, FrameLayout.LayoutParams(-1, -2))
+        return frame
     }
 
     /** "demain", "mardi 13 oct." */
@@ -295,7 +328,8 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         Bag.entry(activity, s, day)?.let { root.addView(it, UI.matchWidth().apply { bottomMargin = ctx.dp(10) }) }
         val lessons = s.lessons.filter { it.start.toLocalDate() == day }
         if (lessons.isEmpty()) {
-            root.addView(emptyCard(R.drawable.ic_sparkles, "Pas cours ce jour-là."), UI.matchWidth())
+            val off = Vacation.on(repo.holidays(), day)
+            root.addView(emptyCard(R.drawable.ic_sparkles, off?.let { "${Vacation.name(it)}. Pas cours ce jour-là." } ?: "Pas cours ce jour-là."), UI.matchWidth())
         } else {
             val focus = Agenda.view(s.lessons, s.now).focus
             // Free time between two lessons shows as its own row: a perm, the lunch break.
@@ -618,7 +652,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
 
     /** "Pour demain" (or another day): its homework, the first four, the rest unfolding in place. */
     private fun homeworkBlock(root: LinearLayout, day: java.time.LocalDate, today: java.time.LocalDate, due: List<Homework>) {
-        root.addView(sectionWithLink("Pour ${dayLabel(day, today)}", "Tout voir") { activity.openTab(MainActivity.Tab.HOMEWORK) })
+        root.addView(sectionWithLink(if (Vacation.current(repo.holidays(), lastSnapshot?.lessons.orEmpty(), java.time.LocalDateTime.now()) != null && day > today) "Pour la rentrée" else "Pour ${dayLabel(day, today)}", "Tout voir") { activity.openTab(MainActivity.Tab.HOMEWORK) })
         if (due.isEmpty()) {
             root.addView(emptyCard(R.drawable.ic_sparkles, "Rien à rendre. Profites-en !"), UI.matchWidth())
             return

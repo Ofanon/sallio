@@ -207,6 +207,19 @@ object Widgets {
         val accentEdge = context.getColor(R.color.accent_edge)
 
         val focus = view.focus
+        val holidays = if (loggedIn) Repo.get(context).holidays() else emptyList()
+        Vacation.current(holidays, Repo.get(context).lessons(), now)?.let { h ->
+            val back = Vacation.backDay(h, holidays)
+            val family = Subjects.TEAL
+            paintNext(context, rv, Subjects.solid(family), Subjects.edge(context, family), Subjects.onSolid(family), R.drawable.ic_sparkles)
+            rv.setOnClickPendingIntent(R.id.root, openApp(context))
+            rv.setTextViewText(R.id.label, if (now.toLocalDate() < h.start) "Dès demain" else "Bonnes vacances")
+            rv.setTextViewText(R.id.room, Vacation.name(h).removePrefix("Vacances ").replaceFirstChar { it.uppercase() })
+            rv.setTextViewTextSize(R.id.room, android.util.TypedValue.COMPLEX_UNIT_SP, 30f)
+            rv.setTextViewText(R.id.subject, "Reprise ${Vacation.dayText(back)}")
+            rv.setTextViewText(R.id.footer, "")
+            return rv
+        }
         if (!loggedIn || focus == null) {
             paintNext(context, rv, accent, accentEdge, context.getColor(R.color.on_accent), R.drawable.ic_school)
             rv.setOnClickPendingIntent(R.id.root, openApp(context))
@@ -277,8 +290,32 @@ object Widgets {
         if (!loggedIn || date == null) return listCard(context, "Ma journée", MainActivity.Tab.TIMETABLE, if (loggedIn) footer(status, now) else "",
             if (!loggedIn) "Touche ici pour relier ton compte Pronote" else "Aucun cours à venir")
         val rv = listCard(context, Agenda.dayTitle(date, now.toLocalDate()), MainActivity.Tab.TIMETABLE, footer(status, now), null)
-        fill(context, rv, view.day.map { Row(lessonRow(context, it, now, highlight = it === view.focus)) }, openTemplate(context, MainActivity.Tab.TIMETABLE, 3))
+        fill(context, rv, dayRows(context, view.day, now, view.focus), openTemplate(context, MainActivity.Tab.TIMETABLE, 3))
         return rv
+    }
+
+    /**
+     * A day as in the Cours tab: two hours of the same lesson as one line, and the free
+     * slots of 45 min or more between lessons ("Perm", "Pause midi") as a light line.
+     */
+    private fun dayRows(context: Context, lessons: List<Lesson>, now: LocalDateTime, focus: Lesson?): List<Row> {
+        val rows = mutableListOf<Row>()
+        var busyUntil: LocalDateTime? = null
+        for (block in Agenda.blocks(lessons)) {
+            busyUntil?.let { from -> Agenda.gap(from, block.start)?.let { rows += Row(gapRow(context, it, now)) } }
+            val highlight = focus != null && focus.subject == block.subject && !focus.start.isBefore(block.start) && !focus.end.isAfter(block.end)
+            rows += Row(lessonRow(context, block, now, highlight))
+            if (!block.canceled) busyUntil = listOfNotNull(busyUntil, block.end).maxOrNull()
+        }
+        return rows
+    }
+
+    private fun gapRow(context: Context, gap: Agenda.Gap, now: LocalDateTime): RemoteViews {
+        val row = RemoteViews(context.packageName, R.layout.widget_gap_row)
+        row.setTextViewText(R.id.time, Agenda.time(gap.start))
+        row.setTextViewText(R.id.label, "${gap.label} · ${Agenda.duration(gap.minutes)}")
+        if (gap.end <= now) for (id in intArrayOf(R.id.time, R.id.label)) row.setFloat(id, "setAlpha", 0.5f)
+        return row
     }
 
     /** One lesson as on "Ma journée": time, subject tile, room, subject, alert pill. [prefix] goes before the subject. */
@@ -345,7 +382,8 @@ object Widgets {
      */
     private fun fill(context: Context, rv: RemoteViews, rows: List<Row>, template: PendingIntent) {
         if (android.os.Build.VERSION.SDK_INT >= 31) {
-            val items = RemoteViews.RemoteCollectionItems.Builder().setViewTypeCount(2)
+            // Lesson, free slot and homework lines: at most two kinds in one list, three in all.
+            val items = RemoteViews.RemoteCollectionItems.Builder().setViewTypeCount(3)
             rows.forEachIndexed { i, row ->
                 row.views.setOnClickFillInIntent(row.click, row.fillIn)
                 items.addItem(i.toLong(), row.views)
@@ -380,7 +418,7 @@ object Widgets {
             if (!loggedIn) "Touche ici pour relier ton compte Pronote" else "Aucun cours à venir")
         val rv = listCard(context, Agenda.dayTitle(date, now.toLocalDate()), MainActivity.Tab.TIMETABLE, footer(status, now), null)
         val day = lessons.filter { it.start.toLocalDate() == date }.sortedBy { it.start }
-        fill(context, rv, day.map { Row(lessonRow(context, it, now)) }, openTemplate(context, MainActivity.Tab.TIMETABLE, 4))
+        fill(context, rv, dayRows(context, day, now, null), openTemplate(context, MainActivity.Tab.TIMETABLE, 4))
         return rv
     }
 
