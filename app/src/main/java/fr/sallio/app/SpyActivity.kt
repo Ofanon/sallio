@@ -54,6 +54,14 @@ class SpyActivity : Activity() {
         }
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = request.url.scheme?.lowercase() != "https"
+
+            // Where the page's own pictures come from: the student's photo is the one we look for.
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): android.webkit.WebResourceResponse? {
+                val url = request.url.toString()
+                if (Regex("(?i)photo|FichiersExternes|[.]jpe?g|[.]png").containsMatchIn(url) && !url.contains("/App_Themes/"))
+                    DebugLog.i("spy image ${request.method} $url")
+                return null
+            }
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) { view.evaluateJavascript(HOOK, null) }
             override fun onPageFinished(view: WebView, url: String) { view.evaluateJavascript(HOOK, null) }
         }
@@ -85,7 +93,7 @@ class SpyActivity : Activity() {
               JSON.stringify = function () {
                 var out = original.apply(JSON, arguments);
                 try {
-                  if (typeof out === 'string' && /listeActualites|listeQuestions|SaisieActualites|actualite/i.test(out) && out.length < 20000)
+                  if (typeof out === 'string' && /listeActualites|listeQuestions|SaisieActualites|actualite|photo|ParametresUtilisateur/i.test(out) && out.length < 20000)
                     console.log('$TAG' + out);
                 } catch (e) {}
                 return out;
