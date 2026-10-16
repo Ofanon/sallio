@@ -109,6 +109,20 @@
   .privacy b { display: block; font-family: "Fredoka", sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 2px; }
   .privacy span { color: var(--text2); font-size: 15px; }
 
+  /* QR code: on a computer, next to the button; for everyone, in the "share" part. */
+  .qr { background: #fff; padding: 10px; border-radius: 18px; box-shadow: 0 4px 0 var(--edge); }
+  .qr img { display: block; width: 100%; height: auto; }
+  .desk-qr { display: flex; align-items: center; gap: 14px; margin-top: 22px; color: var(--text2); font-size: 14px; }
+  .desk-qr .qr { width: 104px; flex: none; }
+  .share { display: grid; grid-template-columns: 200px 1fr; gap: 28px; align-items: center; padding: 24px; }
+  .share .qr { width: 200px; }
+  .share h3 { font-size: 24px; margin-bottom: 6px; }
+  .share p { margin: 0 0 16px; color: var(--text2); }
+  .share .link { font-family: "Fredoka", sans-serif; font-size: 18px; color: var(--text); word-break: break-all; }
+  .share .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+  @media (max-width: 820px), (pointer: coarse) { .desk-qr { display: none; } }
+  @media (max-width: 560px) { .share { grid-template-columns: 1fr; justify-items: center; text-align: center; } .share .actions { justify-content: center; } }
+
   footer { padding: 36px 0 48px; color: var(--text3); font-size: 13px; text-align: center; }
   footer a { color: var(--text2); }
 
@@ -152,6 +166,10 @@
         </a>
         <a class="btn ghost" href="#installer">Comment l'installer</a>
         <small id="download-info">Gratuit, sans pub, open source.</small>
+      </div>
+      <div class="desk-qr rise d3">
+        <div class="qr"><img src="qr.svg" alt="QR code vers ofanon.github.io/sallio"></div>
+        <span>Sur ordinateur ?<br>Scanne ce code avec ton téléphone Android pour télécharger Sallio.</span>
       </div>
     </div>
 
@@ -224,6 +242,25 @@
     </div>
   </section>
 
+  <section id="partager">
+    <div class="wrap">
+      <h2>Fais-le tester à tes amis</h2>
+      <p class="intro">Plus il y a de lycées et de téléphones différents, plus vite les bugs sont trouvés.</p>
+      <div class="share sticker">
+        <div class="qr"><img src="qr.png" alt="QR code vers ofanon.github.io/sallio"></div>
+        <div>
+          <h3>Montre ce code à un ami</h3>
+          <p>Il le scanne avec l'appareil photo de son téléphone et arrive directement ici.</p>
+          <div class="link">ofanon.github.io/sallio</div>
+          <div class="actions">
+            <a class="btn" id="share" href="#partager">Partager le lien</a>
+            <a class="btn ghost" href="qr.png" download="sallio-qr.png">Télécharger le QR code</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section>
     <div class="wrap">
       <h2>Un bug ? Une idée ?</h2>
@@ -246,6 +283,17 @@
 </footer>
 
 <script>
+  // "Partager le lien": the phone's share sheet, else a copy to the clipboard.
+  document.getElementById('share').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const url = 'https://ofanon.github.io/sallio/';
+    const button = e.currentTarget;
+    try {
+      if (navigator.share) await navigator.share({ title: 'Sallio', text: 'Teste Sallio, l'app qui te dit ta salle :', url });
+      else { await navigator.clipboard.writeText(url); button.textContent = 'Lien copié ✓'; }
+    } catch (err) { /* share sheet closed */ }
+  });
+
   // The newest APK of the GitHub releases, so the button always gets the last version.
   (async () => {
     try {
