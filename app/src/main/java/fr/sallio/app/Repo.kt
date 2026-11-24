@@ -258,6 +258,48 @@ class Repo private constructor(private val context: Context) {
 
     fun report(): Report? = vault.read(GRADES)?.let { runCatching { Report.fromJson(JSONObject(it)) }.getOrNull() }
 
+    /** One entry of PRONOTE's period menu on the grades page, with its grades once downloaded. */
+    class PeriodReport(val name: String, val isDefault: Boolean, val report: Report?, val fetchedAt: Long)
+
+    /**
+     * Every period of the grades page, in PRONOTE's order. The default one is
+     * the one PRONOTE opens on; its report is [report], kept fresh at each sync.
+     */
+    fun gradePeriods(): List<PeriodReport> {
+        val stored = vault.read(GRADE_PERIODS)?.let { runCatching { JSONArray(it) }.getOrNull() } ?: return emptyList()
+        val current = report()
+        return (0 until stored.length()).mapNotNull { stored.optJSONObject(it) }.map { o ->
+            val isDefault = o.optBoolean("default")
+            val report = if (isDefault && current?.periodName == o.optString("name")) current
+                else o.optJSONObject("report")?.let { runCatching { Report.fromJson(it) }.getOrNull() }
+            PeriodReport(o.optString("name"), isDefault, report, o.optLong("at"))
+        }
+    }
+
+    /**
+     * The other periods of the menu. Past trimestres rarely change, so each is
+     * downloaded again at most every [OTHER_PERIODS_GAP_MS], in the same session.
+     */
+    private fun syncOtherPeriods(logged: LoggedIn) {
+        val periods = Schoolwork.gradePeriods(logged)
+        val before = gradePeriods().associateBy { it.name }
+        val now = System.currentTimeMillis()
+        DebugLog.i("grades: PRONOTE's menu ${periods.map { it.name }}, default ${periods.firstOrNull { it.isDefault }?.name}")
+        val list = JSONArray()
+        for (period in periods) {
+            val o = JSONObject().put("name", period.name).put("default", period.isDefault)
+            if (!period.isDefault) {
+                val old = before[period.name]
+                val fresh = if (old?.report != null && now - old.fetchedAt < OTHER_PERIODS_GAP_MS) null
+                    else runCatching { Schoolwork.report(logged, period.name) }.onFailure { DebugLog.i("grades of ${period.name} failed", it) }.getOrNull()
+                val report = fresh ?: old?.report
+                if (report != null) o.put("report", report.toJson()).put("at", if (fresh != null) now else old!!.fetchedAt)
+            }
+            list.put(o)
+        }
+        vault.write(GRADE_PERIODS, list.toString())
+    }
+
     /**
      * Ticks waiting to reach PRONOTE, as "+key" (done) or "-key" (not done).
      * Keys, not ids: PRONOTE changes every id at each login.
@@ -663,6 +705,7 @@ class Repo private constructor(private val context: Context) {
             // A new trimestre starts empty: its grades are compared with nothing, not with the last one's.
             runCatching { changes += Changes.grades(before?.takeIf { it.periodName == report.periodName }?.grades, report.grades) }
         }
+        runCatching { syncOtherPeriods(logged) }.onFailure { DebugLog.i("grade periods failed", it) }
         runCatching { Presence.fetch(logged) }.onSuccess { life ->
             val before = schoolLife()
             vault.write(SCHOOL_LIFE, life.toJson().toString())
@@ -701,6 +744,8 @@ class Repo private constructor(private val context: Context) {
         private const val HOMEWORK = "homework"
         private const val PHOTO = "photo"
         private const val GRADES = "grades"
+        private const val GRADE_PERIODS = "gradeperiods"
+        private const val OTHER_PERIODS_GAP_MS = 6 * 3600_000L
         private const val NEWS = "news"
         private const val DISCUSSIONS = "discussions"
         private const val SCHOOL_LIFE = "schoollife"

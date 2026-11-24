@@ -25,6 +25,10 @@ Cinq onglets, pour l'essentiel de Pronote au quotidien sans le charger :
   classe : la moyenne de classe de chaque devoir, mêmes coefficients). Une
   note touchée ouvre sa fiche : barème, coefficient, commentaire, et sa place
   dans la classe (note la plus basse, moyenne, plus haute).
+  Une rangée de puces reprend le menu des périodes de Pronote (Trimestre 1,
+  2, 3, Hors période…) : l'onglet s'ouvre sur la période que Pronote ouvre
+  lui-même (`periodeParDefaut`), jamais sur une période devinée d'après les
+  dates.
 - **Infos** : les actualités (et sondages), la messagerie et la **vie
   scolaire**. Les actualités à lire passent en tête, la plus récente en grand,
   chaque catégorie avec sa couleur ; « J'ai vu » la marque comme lue sur

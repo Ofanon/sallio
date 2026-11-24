@@ -225,16 +225,38 @@ object Schoolwork {
         )
     }
 
-    /** `DernieresNotes` (onglet 198) for the period PRONOTE shows by default. */
-    fun report(logged: LoggedIn): Report {
+    /** A period of the grades page, as PRONOTE's period menu lists it. */
+    data class GradePeriod(val name: String, val start: LocalDate?, val end: LocalDate?, val isDefault: Boolean)
+
+    /**
+     * The periods of the grades page (onglet 198), in PRONOTE's order, and the
+     * one it opens on. PRONOTE decides that default itself (`periodeParDefaut`,
+     * sent at login): Sallio follows it rather than guessing from the dates, so
+     * it moves to the next trimestre the day PRONOTE does, not before.
+     */
+    private fun gradePeriodsOf(session: Session): Pair<List<Period>, Period> {
+        val all = session.instance?.periods.orEmpty()
+        val offered = session.tabPeriods[198].orEmpty().mapNotNull { id -> all.firstOrNull { it.entity.optString("N") == id } }
+        val list = offered.ifEmpty { all }
+        val today = LocalDate.now()
+        val default = session.defaultPeriods[198]?.let { id -> all.firstOrNull { it.entity.optString("N") == id } }
+            ?: list.firstOrNull { (it.start == null || it.start <= today) && (it.end == null || today <= it.end) }
+            ?: list.firstOrNull()
+            ?: throw PronoteException.Protocol("Pas de période")
+        return (if (default in list) list else list + default) to default
+    }
+
+    fun gradePeriods(logged: LoggedIn): List<GradePeriod> {
+        val (list, default) = gradePeriodsOf(logged.session)
+        return list.map { GradePeriod(it.name, it.start, it.end, it === default) }
+    }
+
+    /** `DernieresNotes` (onglet 198) for the period [name], or the one PRONOTE shows by default. */
+    fun report(logged: LoggedIn, name: String? = null): Report {
         val session = logged.session
         val p = session.properties
-        val periods = session.instance?.periods.orEmpty()
-        val today = LocalDate.now()
-        val period = session.defaultPeriods[198]?.let { id -> periods.firstOrNull { it.entity.optString("N") == id } }
-            ?: periods.firstOrNull { (it.start == null || it.start <= today) && (it.end == null || today <= it.end) }
-            ?: periods.firstOrNull()
-            ?: throw PronoteException.Protocol("Pas de période")
+        val (list, default) = gradePeriodsOf(session)
+        val period = if (name == null) default else list.firstOrNull { it.name == name } ?: throw PronoteException.Protocol("Période inconnue")
 
         val response = session.call(
             "DernieresNotes",

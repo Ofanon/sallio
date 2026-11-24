@@ -55,6 +55,9 @@ class MainActivity : Activity() {
     private var tab = Tab.HOME
     private var selectedDay: LocalDate? = null
     private var gradesBySubject = false
+
+    /** Period picked in the grades tab; null follows PRONOTE's default, as PRONOTE does at each opening. */
+    private var gradesPeriod: String? = null
     private var inboxMode = InboxTab.Mode.NEWS
     private val inboxTab by lazy { InboxTab(this, repo) }
     internal val expanded = mutableSetOf<String>()
@@ -104,6 +107,7 @@ class MainActivity : Activity() {
             tab = runCatching { Tab.valueOf(state.getString("tab") ?: "") }.getOrDefault(Tab.HOME)
             selectedDay = state.getString("day")?.let { LocalDate.parse(it) }
             gradesBySubject = state.getBoolean("bySubject")
+            gradesPeriod = state.getString("period")
         }
         // A widget, shortcut or tile asking for a tab wins over the restored one.
         if (savedInstanceState == null) intent?.getStringExtra(EXTRA_TAB)?.let { name -> runCatching { tab = Tab.valueOf(name) } }
@@ -164,6 +168,7 @@ class MainActivity : Activity() {
         outState.putString("tab", tab.name)
         selectedDay?.let { outState.putString("day", it.toString()) }
         outState.putBoolean("bySubject", gradesBySubject)
+        gradesPeriod?.let { outState.putString("period", it) }
     }
 
     override fun onResume() {
@@ -236,7 +241,10 @@ class MainActivity : Activity() {
             Tab.HOME -> tabs.home(s)
             Tab.TIMETABLE -> tabs.timetable(s, selectedDay) { selectedDay = it; entering = Enter.TAB; render() }
             Tab.HOMEWORK -> tabs.homework(s)
-            Tab.GRADES -> tabs.grades(s, gradesBySubject) { gradesBySubject = it; render() }
+            Tab.GRADES -> tabs.grades(s, gradesBySubject, repo.gradePeriods(), shownPeriod(s), { gradesBySubject = it; render() }) { name ->
+                gradesPeriod = name.takeIf { n -> repo.gradePeriods().none { it.isDefault && it.name == n } }
+                render()
+            }
             Tab.INBOX -> inboxTab.build(s, inboxMode) { inboxMode = it; render() }
         }
         content.addView(body, UI.matchWidth())
@@ -322,9 +330,13 @@ class MainActivity : Activity() {
         LessonSheet.show(this, lesson, s, bottomInset)
     }
 
-    fun showGrade(g: fr.sallio.pronote.Grade) {
-        GradeSheet.show(this, g, repo.report(), bottomInset)
+    fun showGrade(g: fr.sallio.pronote.Grade, report: fr.sallio.pronote.Report? = repo.report()) {
+        GradeSheet.show(this, g, report, bottomInset)
     }
+
+    /** Name of the period the grades tab shows: the one picked, or PRONOTE's default. */
+    private fun shownPeriod(s: Snapshot): String =
+        gradesPeriod?.takeIf { name -> repo.gradePeriods().any { it.name == name } } ?: s.report?.periodName.orEmpty()
 
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pushScheduled = false
@@ -440,7 +452,7 @@ class MainActivity : Activity() {
                 "${Agenda.dayName(today)} ${today.dayOfMonth} ${today.month.getDisplayName(TextStyle.SHORT, Locale.FRANCE)}"
             Tab.TIMETABLE -> "Cours" to "2 semaines"
             Tab.HOMEWORK -> "Devoirs" to tabs.homeworkSummary(s)
-            Tab.GRADES -> "Notes" to (s.report?.periodName ?: "")
+            Tab.GRADES -> "Notes" to shownPeriod(s)
             Tab.INBOX -> "Infos" to "Actualités, messages, vie scolaire"
         }
         col.addView(UI.oneLine(UI.title(this, title, 27f)))

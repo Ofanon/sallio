@@ -382,6 +382,7 @@ object Pronote {
             .put("L", resource.opt("L"))
             .put("N", resource.opt("N"))
         session.defaultPeriods = defaultPeriods(resource)
+        session.tabPeriods = tabPeriods(resource)
 
         val token = authentication.optString("jetonConnexionAppliMobile")
         if (token.isEmpty()) throw PronoteException.Protocol("Pas de jeton d'appareil")
@@ -415,6 +416,14 @@ object Pronote {
                 val id = tab.optJSONObject("periodeParDefaut")?.optJSONObject("V")?.optString("N") ?: return@mapNotNull null
                 tab.optInt("G") to id
             }.toMap()
+
+    /** Tab number -> ids of the periods its menu offers ("Trimestre 1", "Trimestre 2"...). */
+    private fun tabPeriods(resource: JSONObject): Map<Int, List<String>> =
+        resource.optJSONObject("listeOngletsPourPeriodes")?.optJSONArray("V")?.objects().orEmpty()
+            .associate { tab ->
+                tab.optInt("G") to tab.optJSONObject("listePeriodes")?.optJSONArray("V")?.objects().orEmpty()
+                    .mapNotNull { it.optString("N").ifEmpty { null } }
+            }
 
     internal fun JSONArray.objects(): List<JSONObject> = (0 until length()).mapNotNull { optJSONObject(it) }
 }

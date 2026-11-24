@@ -509,12 +509,31 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
 
     private var lastReport: Report? = null
 
-    fun grades(s: Snapshot, bySubject: Boolean, onMode: (Boolean) -> Unit): View {
+    /**
+     * The grades of [shown], one of [periods] (PRONOTE's period menu). The
+     * default period is [Snapshot.report]; the others come from the last sync.
+     */
+    fun grades(
+        s: Snapshot,
+        bySubject: Boolean,
+        periods: List<Repo.PeriodReport>,
+        shown: String,
+        onMode: (Boolean) -> Unit,
+        onPeriod: (String) -> Unit,
+    ): View {
         val root = UI.column(ctx)
-        val report = s.report
+        val picked = periods.firstOrNull { it.name == shown }
+        val report = if (picked == null || (picked.isDefault && s.report?.periodName == shown)) s.report else picked.report
+        val isDefault = report === s.report
         lastReport = report
+        if (periods.size > 1) root.addView(periodStrip(periods, shown, onPeriod), UI.matchWidth().apply { bottomMargin = ctx.dp(8) })
         if (report == null || (report.grades.isEmpty() && report.subjects.isEmpty())) {
-            root.addView(emptyCard(R.drawable.ic_star, if (s.status.lastSuccess == 0L) "Tes notes arrivent à la prochaine mise à jour." else "Pas encore de note sur cette période."), UI.matchWidth())
+            val text = when {
+                s.status.lastSuccess == 0L -> "Tes notes arrivent à la prochaine mise à jour."
+                report == null -> "Les notes de cette période arrivent à la prochaine mise à jour."
+                else -> "Pas encore de note sur cette période."
+            }
+            root.addView(emptyCard(R.drawable.ic_star, text), UI.matchWidth())
             return root
         }
 
@@ -558,7 +577,7 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         if (!bySubject) {
             report.grades.forEachIndexed { i, g ->
                 if (i > 0) card.addView(UI.divider(ctx))
-                card.addView(gradeRow(g, g.key in s.unseenGrades), UI.matchWidth())
+                card.addView(gradeRow(g, isDefault && g.key in s.unseenGrades, report), UI.matchWidth())
             }
         } else {
             report.subjects.forEachIndexed { i, sub ->
@@ -570,11 +589,32 @@ class Tabs(private val activity: MainActivity, private val repo: Repo) {
         return root
     }
 
-    private fun gradeRow(g: Grade, isNew: Boolean): View {
+    /** PRONOTE's period menu as chips, in its order. */
+    private fun periodStrip(periods: List<Repo.PeriodReport>, shown: String, onPeriod: (String) -> Unit): View {
+        val strip = UI.row(ctx).apply { setPadding(dp(4), dp(6), dp(8), dp(8)); clipChildren = false; clipToPadding = false }
+        for (p in periods) {
+            val on = p.name == shown
+            strip.addView(UI.text(ctx, p.name, 14f, if (on) R.color.text else R.color.text2, 800).apply {
+                gravity = Gravity.CENTER
+                background = if (on) UI.sticker(ctx, color(R.color.surface), color(R.color.edge), 12, 2)
+                    else UI.rounded(color(R.color.surface2), dp(12).toFloat())
+                setPadding(dp(14), dp(8), dp(14), if (on) dp(10) else dp(8))
+                setOnClickListener { if (!on) { Motion.tick(this); onPeriod(p.name) } }
+            }, UI.wrap().apply { marginEnd = ctx.dp(8) })
+        }
+        return HorizontalScrollView(ctx).apply {
+            isHorizontalScrollBarEnabled = false
+            clipToPadding = false
+            clipChildren = false
+            addView(strip)
+        }
+    }
+
+    private fun gradeRow(g: Grade, isNew: Boolean, report: Report? = null): View {
         val row = UI.row(ctx).apply {
             setPadding(0, dp(10), 0, dp(10))
             foreground = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22000000), null, UI.rounded(Color.WHITE, dp(14).toFloat()))
-            setOnClickListener { Motion.tap(this); activity.showGrade(g) }
+            setOnClickListener { Motion.tap(this); if (report != null) activity.showGrade(g, report) else activity.showGrade(g) }
         }
         row.addView(UI.subjectTile(ctx, g.subject))
         row.addView(UI.hgap(ctx, 12))

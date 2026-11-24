@@ -279,7 +279,7 @@ object GradesSheets {
                             addView(UI.title(ctx, g.value.replace('.', ','), 18f, if (good) R.color.success else R.color.text))
                             if (g.points != null && g.outOf != null) addView(UI.text(ctx, "/${UI.number(g.outOf)}", 11f, R.color.text2))
                         })
-                        setOnClickListener { Motion.tap(this); activity.showGrade(g) }
+                        setOnClickListener { Motion.tap(this); activity.showGrade(g, report) }
                     }, UI.matchWidth())
                 }
                 sheet.addView(card, UI.matchWidth())

@@ -35,6 +35,9 @@ class Session internal constructor(
     /** Default period id per tab (198 = grades). */
     internal var defaultPeriods: Map<Int, String> = emptyMap()
 
+    /** Ids of the periods each tab offers, in PRONOTE's order (its period menu). */
+    internal var tabPeriods: Map<Int, List<String>> = emptyMap()
+
     internal val properties: ApiProperties get() = ApiProperties.of(version)
 
     /** `Uuid` of `FonctionParametres`: the IV, RSA encrypted unless over HTTPS with the built-in key. */

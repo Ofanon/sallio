@@ -48,6 +48,14 @@ class DemoServerTest {
         println("${report.periodName} moyenne=${report.overall} classe=${report.classOverall} ${report.grades.size} notes ${report.subjects.size} matières")
         report.grades.take(4).forEach { println("note ${it.date} ${it.subject} ${it.value}/${it.outOf} classe=${it.classAverage}") }
         assertTrue(report.subjects.isNotEmpty())
+        // Every period of PRONOTE's menu, the default one marked.
+        val periods = Schoolwork.gradePeriods(first)
+        println("périodes ${periods.map { "${it.name} ${it.start}..${it.end}${if (it.isDefault) " (défaut)" else ""}" }}")
+        assertTrue(periods.count { it.isDefault } == 1 && periods.first { it.isDefault }.name == report.periodName)
+        for (period in periods.filter { !it.isDefault }) {
+            val other = Schoolwork.report(first, period.name)
+            println("${other.periodName} moyenne=${other.overall} ${other.grades.size} notes")
+        }
 
         val life = Presence.fetch(first)
         println("vie scolaire : ${life.events.size} événements, ${life.absenceHours} d'absence, ${life.unjustifiedAbsences} non justifiées")
